@@ -20,12 +20,12 @@ A Digital Preservation System is also an agreed approach to describing the conte
 
 What is NOT part of Digital Preservation?
 
-- The asset delivery - IIIF image services derived from preserved content, transcoded AV
+- The asset delivery - IIIF image services derived from preserved content, transcoded AV (but see below about format migration)
 - The IIIF Presentation layer
 - The Catalogue API 
 - Public facing web sites
 
-The Digital Preservation System is much bigger than Fedora - but it is not the whole of the DLIP project.
+The Digital Preservation System is much wider than Fedora - but it is still not the whole of the DLIP project.
 
 ## Choice of Fedora
 
@@ -37,16 +37,16 @@ We choose Fedora because of its OCFL support. It is the Oxford Common File Layou
 
 The other aspects of Fedora - its "REST interface based on web standards including the  Linked-Data Platform (LDP),  Web Access Control (Solid/WebAC),  Memento, and Activity Streams 2.0 specifications" - are _means to an end_ with the end being the preservation of digital objects in an OCFL arrangement.
 
-For DLIP we will use these means to store content; but we entertain the possibility that in future there will be other ways of getting content into preservation storage as OCFL other than via Fedora's APIs.
+For DLIP we will use these means to store content; but we entertain the possibility that in future there will be other ways of getting content into preservation storage as OCFL other than via Fedora's APIs. The OCFL-ness of Fedora 6 is more important to us than the Fedora-ness.
 
-Given this constraint, we need clear guidelines on _how_ we use Fedora; what of its features should we take advantage of, and what should we avoid doing? We introduce a dependency on Fedora by relying on its APIs to get content into preservation storage, but how enduring is that dependency? 
+Given this constraint, we need clear guidelines on _how_ we use Fedora; what of its features should we take advantage of, and what should we avoid doing? We introduce a particular implementation dependency on Fedora by relying on its APIs to get content into preservation storage, but how enduring is that dependency? 
 
 We constrain our use of Fedora to comply with our aims by building a **_Storage API_** and insisting that no parts of the DLIP other than this API have access to Fedora's own APIs. Every interaction with Fedora must go through our Storage API layer.
 
 
 ## Constraints provided by a Storage API
 
-We limit our use of Fedora resource concepts to just three classes:
+We limit our use of Fedora resource concepts to just three of its [classes](https://wiki.lyrasis.org/display/FEDORA6x/Container+Types):
 
 ### 📁 Basic Container
 
@@ -60,7 +60,9 @@ For representing digital objects – e.g., the files that comprise a digitised b
 
 For representing a file, any kind of file.
 
-...and using these classes, the API enforces these rules:
+---
+
+Using these classes, the API enforces these rules:
 
 * The Storage API will prevent creating a 📁 Basic Container within an 📦 Archival Group outside of versioning the Archival Group as a whole.
 * The Storage API will prevent creating an 📦 Archival Group within an 📦 Archival Group (even though Fedora allows this)
@@ -73,32 +75,34 @@ For representing a file, any kind of file.
 
 Fedora provides rich [ability to model content](https://wiki.lyrasis.org/display/FEDORA6x/Data+Modeling). We could adopt techniques like the [Portland Common Data Model](https://wiki.lyrasis.org/display/FEDORA6x/LDP-PCDM-F4+In+Action) or [invent our own models](https://wiki.lyrasis.org/display/FEDORA6x/Example+Content+Model) to suit the content.
 
-**We shouldn't use Fedora like this**
+**We shouldn't use Fedora like this.**
 
 We should be bound by the constraints above, and _carry the model as part of the preserved object_ - for example, by describing the object with a METS file.
 
-METS is a well-established standard designed specifically for this purpose, it is safe to use it to encode and convey technical and structural metadata about digital objects, and store it alongside the content, in the preservation system, as part of the preserved object. A structural convention ensures the METS file itself is never mistaken for being part of the preserved intellectual object.
+METS is a well-established standard designed specifically for this purpose, it is safe to use it to encode and convey technical and structural metadata about digital objects, and store it alongside the content, in the preservation system, as part of the preserved object. A structural convention ensures the METS file itself is never mistaken for being part of the preserved intellectual object. For example, the root of an object contains the METS file and an `/objects/` folder and the actual content is only in that objects folder.
 
 How an object is modelled becomes a policy decision - which can be strictly enforced, e.g., by Goobi in software as it creates a METS file - but is independent of the **storage** layer.
 
-Different types of content can have different approaches to modelling, suited to their needs. 
+Different types of content can have different approaches to modelling, suited to their needs. New approaches in the future can use the same storage systems.
 
-## So, what is stored in Fedora?
+## So, what _is_ stored in Fedora?
 
-Cambridge store anti-virus reports per-file and PRONOM file format information in Fedora, alongside the binary object, as additional data for each file. This means that their digital preservation has no knowledge of METS (although it may be preserving METS files as part of digital objects)
+Cambridge store anti-virus reports per-file and PRONOM file format information in Fedora, alongside the binary object, as additional data for each file. This means that their digital preservation has no knowledge of METS (although it may be preserving METS files as part of digital objects).
 
 An alternative would be to use METS files to carry this information – either a METS file generated by a pipeline during preservation, or by adding to an existing METS file generated at a previous step. It is standard practice to store this in a METS TechMD section (Goobi and Archivematica both do this).
 
 This doesn’t make the storage service itself dependent on METS – you can any object in it, with or without a METS file – but if you ask it to run our pipeline and store PRONOM and virus scan outputs, it will store it in a METS file rather than as Fedora triples.
 
-This latter approach is in line with the idea that the preservation service itself has no special understanding of what’s in it; external applications bring meaning to it, often (but not exclusively) by using METS to describe structure, administrative and technical metadata, access conditions, rights and so on as simply or as complex as they need.
+This latter approach is in line with the idea that the Storage itself has no special understanding of what’s in it; external applications bring meaning to it, often (but not exclusively) by using METS to describe structure, administrative and technical metadata, access conditions, rights and so on as simply or as complex as they need.
 
-While no additional information **at all** is _required_ to be stored in Fedora, but that it’s probably useful to use two existing Fedora properties that are fairly fundamental – `Name` (dc:title) to record the original file or folder name, and `content-type` to record the content type (e.g., image/tiff, application/msword). Fedora has specific API support for these, rather than being arbitrary data.
+While no additional information **at all** is _required_ to be stored in Fedora, it’s probably useful to use two existing Fedora properties that are fairly fundamental – `Name` (dc:title) to record the original file or folder name, and `content-type` to record the content type (e.g., image/tiff, application/msword). Fedora has specific API support for these, rather than being arbitrary data.
 
 This means a preserved digital object is free to use METS – or some other mechanism – to carry whatever information it needs, including content type and original file name, but our storage API will attempt to write these two pieces of information to Fedora.
 
 
 ## Assessing this approach against the Core Requirements
+
+The following section repeats the MUST requirements from the slide shown at the start of this document. It aims to show how DLIP as a whole meets the requirements, and what is covered by Fedora directly.
 
 ### Integrity and authenticity of the digital content
 
@@ -150,7 +154,7 @@ The source of identity is the identity service (see ...)
 
 This format/structure is OCFL _plus_ whatever additional files are capturing model within an object (typically METS). We don't even need Fedora to export, we can just take the OCFL object from the underlying storage, with all its version history plain to see.
 
-**In fact this is a design principle - we must be able to do this independently of Fedora**
+**_In fact this is a design principle - we must be able to do this independently of Fedora_**
 
 This exit strategy is also far-future access to the content in the absence of the technology it today depends on. An OCFL repository should include a copy of the OCFL specification at the root; we should likewise include copies of other relevant specification that are required to interpret the content (for example the METS specification).
 
@@ -160,7 +164,7 @@ This exit strategy is also far-future access to the content in the absence of th
 #### The system must be able to keep the original bitstream
 #### The system must be able to provide reports on the success/failure of ingest activities
 
-These three are all core aspects of Fedora itself, and we will expose them to dashboard/admin applications via the Storage API
+These three are all core aspects of Fedora itself, and we will expose them to dashboard/admin applications via the Storage API.
 
 ### Characterising ingested digital (?)
 
@@ -202,6 +206,8 @@ We can still do this through policy. For example, update a preserved object with
 
 A related question is derivatives like OCR or human-generated transcription - these might only be generated after the object is preserved, but still be worth preserving - putting back into the object, enriching the object.
 
+_This interpretation of meeting the format migration requirement needs to be discussed._
+
 #### The system must record preservation actions (and outcomes) in the associated metadata
 
 This parallel structure of derivatives needs to be transparently comprehensible to anyone making sense of the preserved content in the future.
@@ -209,7 +215,7 @@ This parallel structure of derivatives needs to be transparently comprehensible 
 
 ### Management of digital content and metadata
 
-The following will all require a user management layer on the Storage API that's running above Fedora. This will use OAuth2 to protect API operations, with different roles with different permissions.
+The following will all require a user management layer on the Storage API that is running above Fedora. This will use OAuth2 to protect API operations, with different roles with different permissions.
 
 The issuing of API tokens to applications with roles, or applications acting on behalf of users with roles, still needs to be designed; we assume that the source of user identity is the University's [...]
 
