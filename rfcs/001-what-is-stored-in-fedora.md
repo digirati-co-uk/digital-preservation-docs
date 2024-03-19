@@ -10,10 +10,12 @@ A Digital Preservation System also includes the APIs, user interfaces and workfl
 
 A Digital Preservation System is also an agreed approach to describing the content being stored, so that it can be understood later. These descriptions are not semantic (that's the catalogue's job), they are technical and structural. There needs to be a *model* (or multiple models) to describe what is preserved, and attach technical and structural information to.
 
+A Digital Preservation System implements Leeds' [Digital Preservation Policy](https://library.leeds.ac.uk/downloads/download/178/digital_preservation_policy).
+
 What is NOT part of Digital Preservation?
 
 - The asset delivery - IIIF image services derived from preserved content, transcoded AV (but see below about format migration)
-- The IIIF Presentation layer
+- The [IIIF Presentation](https://iiif.io/api/presentation/3.0/) layer
 - The Catalogue API 
 - Public facing web sites
 
@@ -27,9 +29,55 @@ From the Fedora 6 documentation:
 
 We choose Fedora because of its [Oxford Common Filesystem Layout (OCFL)](https://ocfl.io/) support. It is the Oxford Common File Layout we are interested in.
 
+### What is OCFL?
+
+From the OCFL site:
+
+> [The] Oxford Common File Layout (OCFL) specification describes an application-independent approach to the storage of digital information in a structured, transparent, and predictable manner. It is designed to promote long-term object management best practices within digital repositories.
+>
+> Specifically, the benefits of the OCFL include:
+>
+> * Completeness, so that a repository can be rebuilt from the files it stores
+> * Parsability, both by humans and machines, to ensure content can be understood in the absence of original software
+> * Robustness against errors, corruption, and migration between storage technologies
+> * Versioning, so repositories can make changes to objects allowing their history to persist
+> * Storage diversity, to ensure content can be stored on diverse storage infrastructures including conventional filesystems and cloud object stores
+
+An example _versioned_ OCFL object is laid out like this:
+
+```
+[object root]
+    ├── 0=ocfl_object_1.1
+    ├── inventory.json
+    ├── inventory.json.sha512
+    ├── v1
+    │   ├── inventory.json
+    │   ├── inventory.json.sha512
+    │   └── content
+    │       ├── empty.txt
+    │       ├── foo
+    │       │   └── bar.xml
+    │       └── image.tiff
+    ├── v2
+    │   ├── inventory.json
+    │   ├── inventory.json.sha512
+    │   └── content
+    │       └── foo
+    │           └── bar.xml
+    └── v3
+        ├── inventory.json
+        └── inventory.json.sha512
+```
+
+> "As a result of forward-delta versioning, the object tree above shows only new content added in each version."
+
+### Fedora as a means to OCFL
+
 The other aspects of Fedora - its "REST interface based on web standards including the  Linked-Data Platform (LDP),  Web Access Control (Solid/WebAC),  Memento, and Activity Streams 2.0 specifications" - are _means to an end_, with the end being the preservation of digital objects in an OCFL arrangement.
 
-For DLIP we will use these means to store content; but we entertain the possibility that in future there will be other ways of getting content into preservation storage as OCFL other than via Fedora's APIs. The OCFL-ness of Fedora 6 is more important to us than the Fedora-ness.
+For DLIP we will use these means to store content; but we entertain the possibility that in future there will be other ways of getting content into preservation storage as OCFL other than via Fedora's APIs. 
+
+**The OCFL-ness of Fedora 6 is more important to us than the Fedora-ness.**
 
 Given this constraint, we need clear guidelines on _how_ we use Fedora; which features should we take advantage of, and what should we avoid doing? We introduce a particular implementation dependency on Fedora by relying on its APIs to get content into preservation storage, but how enduring is that dependency? 
 
@@ -63,11 +111,11 @@ Fedora's Archival Group corresponds to an OCFL object
 Using these classes, the API enforces these rules:
 
 * The Storage API will prevent creating a 📁 Basic Container within an 📦 Archival Group outside of versioning the Archival Group as a whole.
-* The Storage API will prevent creating an 📦 Archival Group within an 📦 Archival Group (even though Fedora allows this)
+* The Storage API will prevent creating an 📦 Archival Group within an 📦 Archival Group (even though Fedora allows this). As an Archival group corresponds to an OCFL object, having hierarchical objects adds complexity. That modelling complexity should live in the systems that are using Fedora for Preservation, not in Fedora itself; if some larger-scale intellectual object is hierarchical, it can make more than one Archival Groups and therefore OCFL objects. 
 * The Storage API will not allow direct creation of a 📄 Binary at all, they must come in as versioned updates of the whole Archival Group / OCFL object.
 * The Storage API assumes that the file and folder names have been normalised to a reduced character set, still to be defined, that is guaranteed safe for S3 as well as any common filesystem or HTTP request path. 
 * This means that original file names, e.g., `my document.doc` (which contains a space), need to be recorded some other way. 
-* It is the responsibility of client applications like Goobi, or the deposit service, or a custom EPrints migrator, to ensure that they have already normalised filenames, and take steps to record the original file name - typically in METS.
+* It is the responsibility of client applications like Goobi, or the deposit service, or a custom EPrints migrator, to ensure that they have already normalised filenames, and take steps to record the original file name - typically in METS - for example in the title attribute of file XML elements. See below for the suggestion that _optionally_ original file names can be recorded in Fedora in the `dc:title` property.
 
 ## Modelling
 
@@ -85,7 +133,7 @@ Different types of content can have different approaches to modelling, suited to
 
 ## So, what _is_ stored in Fedora?
 
-In the Cambridge Digital Library implementation, anti-virus reports per-file and PRONOM file format information are stored in Fedora, alongside the binary object, as additional data for each file. This means that their digital preservation has no knowledge of or dependency on METS (although it may be preserving METS files as part of digital objects).
+In the Cambridge Digital Library implementation, anti-virus reports per-file and [PRONOM file format information](https://www.nationalarchives.gov.uk/PRONOM/) (maintained by the National Archives) are stored in Fedora, alongside the binary object, as additional data for each file. This means that their digital preservation has no knowledge of or dependency on METS (although it may be preserving METS files as part of digital objects).
 
 An alternative would be to use METS files to carry this information – either a METS file generated by a pipeline during preservation, or by adding to an existing METS file generated at a previous step. It is standard practice to store this in a METS TechMD section (Goobi and Archivematica both do this).
 
@@ -130,9 +178,23 @@ That means that _something_ has to generate a checksum higher up the chain. But 
 
 Fedora supports [fixity checking](https://wiki.lyrasis.org/display/FEDORA6x/RESTful+HTTP+API+-+Fixity) - but the orchestration of periodic large-scale checking of the preserved content would need to be organised higher up, as some other process within DLIP.
 
+There is a balance between checking too often (it uses compute resources to perform checks) and checking not often enough (a problem goes undetected for years). Outside of this document, a policy needs to be specified for:
+
+* How to check for mismtached checksums
+* Whether it's possible to use underlying features of AWS to do this more efficiently (a checksum can be stored in AWS metadata, but does Fedora do this when backed by S3?)
+* How often to run these checks
+* What happens when a problem is detected? We intend to store copies in at least two other geographic locations; what's the process for fixing a detected problem?
+
 #### The system must be able to generate an audit log and record event metadata describing all enabled actions
 
-Some actions will be calls to the Fedora API, and some will be in consuming APIs or pipelines. We can consolidate these into a single _stream_ of preservation activity. One decision to be made is whether the identity within Fedora is mapped to users/actors in other systems - i.e., do we create a Fedora user for every person and system that will be involved in systems higher up, and map their identities so that the distinct identity is preserver within Fedora, or do Fedora actions all get performed in the Fedora context by a single Fedora user?
+Some actions will be calls to the Fedora API, and some will be in consuming APIs or pipelines. We can consolidate these into a single _stream_ of preservation activity.
+
+Fedora provides an [Authentication and Authorization Framework](https://wiki.lyrasis.org/display/FEDORA6x/Authentication+and+Authorization).
+
+We should map human and machine users of the Preservation System to Fedora users, so that the actor responsible for an action is recorded directly in Fedora. However, we may not want to use Fedora's own _Authorization_ mechanisms. The only caller of Fedora will be the wrapper storage API, and this in turn will be called by various applications higher up the chain. It's better that they manage their own authorization, to avoid having authorization business rules within Fedora itself (which is just our OCFL gateway).
+
+We will still need to create Fedora users and map them to identities in other systems.
+
 
 ### Data model
 
@@ -147,6 +209,7 @@ Examples:
 * A book may have internal structure - chapters - but still be considered a single Archival Object. The structural model is captured in METS structMap elements (and will later be directly reflected in IIIF Ranges).
 * A Periodical may comprise hundreds of _issues_ within dozens of _volumes_. You could choose to model each issue as a separate object, or each volume, or even (unlikely) the whole publication history of the periodical. All could in theory be expressed as a model in (large) METS files. Modelling should be guided by making manageable sized digital objects on the one hand, and future recoverability as a sensible intellectual object on the other. What would it mean to version an issue of a periodical (e.g., to insert a missing scanned image)?
 * An archival hierarchy _probably_ translates to distinct versioned preserved digital objects at the **item** level - but not necessarily.
+* Access control information - the _access conditions_ specified for individual files, or sections - may be carried by METS files as administrative metadata. A tool like Goobi allows specification of access conditions at arbitrary levels as part of the workflow - e.g., one file may have a restricted access condition amongst otherwise open content, or a particular sequence of images - a particular letter in a group - may be given a distinct access condition. It is not for Fedora to assign any meaning to this; meaning is inferred by the asset delivery part of DLIP, which understands the access conditions pertaining to a particular file, and can match them to roles (permissions) claimed by authenticated users.
 
 In short - the Preservation aspect of DLIP must allow us to model and preserve "digital objects that are composed of multiple hierarchical components" but it is not _necessarily_ within Fedora that the relationship between parts is captured.
 
@@ -172,15 +235,19 @@ This exit strategy is also far-future access to the content in the absence of th
 #### The system must be able to keep the original bitstream
 #### The system must be able to provide reports on the success/failure of ingest activities
 
-These three are all core aspects of Fedora itself, and we will expose them to dashboard/admin applications via the Storage API.
+These three are all core aspects of Fedora itself, and we will expose them to dashboard/admin applications via the Storage API. The "original bitstream" is assumed to mean the file to be preserved, i.e., the system is not just making access copies and discarding the original. 
+
+What defines the original bitstream is a policy decision, however. For example, a manuscript digitisation activity may capture camera RAW files, but decide NOT to preserve these after processing, and only preserve TIFFs or JPEG 2000.
 
 ### Characterising ingested digital (?)
 
 #### The system must identify known file formats and reference registries of further information
 
-This won't happen in Fedora. It will be the responsibility of pipelines higher up to run tools that identify what PRONOM file type a file has; this PRONOM identifier references the PRONOM registry. The PRONOM identifier will usually be stored in Fedora within a METS file for the digital object. We will also store the content type (aka media type aka mime type), where known, as a field in Fedora itself _as well as in the METS file_.
+This won't happen in Fedora. It will be the responsibility of **pipelines** higher up to run tools that identify what PRONOM file type a file has; this PRONOM identifier references the PRONOM registry. The PRONOM identifier will usually be stored in Fedora within a METS file for the digital object. We will also store the content type (aka media type aka mime type), where known, as a field in Fedora itself _as well as in the METS file_.
 
 The significance of the content type is often downplayed and while the PRONOM identification is crucial, the fact that the content will be provided over the web means we should where possible record our best understanding of the content type as well.
+
+Part of the overall system design is to specify **pipelines** that produce metadata, such as virus checking and file format identification. How these are invoked is still to be designed.
 
 ### Replication and storage management
 
@@ -188,7 +255,7 @@ The significance of the content type is often downplayed and while the PRONOM id
 
 OCFL makes this easier for us; it is sufficient to copy the OCFL object to another file system or blob storage anywhere in the world. This is orchestrated outside of Fedora and a Fedora instance has no knowledge of other locations for the content it holds.
 
-We can probably adopt the same approach as Cambridge and use AWS-level inventory and replication mechanisms.
+We can probably adopt the same approach as Cambridge and use AWS-level inventory and replication mechanisms. We anticipate storing copies in AWS Glacier in a different region, and Azure Blob Storage in a different region; this gives redundancy of both location and cloud provider.
 
 The file name normalisation constraint mentioned above should be strict enough that all paths will be valid in any conventional file system, S3 or Azure-style blob storage.
 
@@ -206,11 +273,13 @@ There are two aspects to this question and they relate to the purpose of file fo
 
 In DLIP, the IIIF Cloud Services has the job of transforming files into web-suitable formats. Most obviously, an archival tiff might be provided as a IIIF Image Service. But also, a high resolution video master may be made accessible as a web-friendly MP4. And an obsolete WordPerfect document may be made available as a PDF. But these are asset **delivery** concerns rather than preservation concerns. Some of them are runtime transformations, on demand. And they have nothing to do with whether the original format is obsolete, they are about transformations for access via the web. 
 
-In an ideal world, you always have some software that can read the original.
+In an ideal world, you always have some software that can read the original, even if many users benefit from a derivative whose format may change over time to suit contemporary tools.
 
 ##### Safety of the intellectual content in the face of obsolete software 
 
-The preservation concern is "what if we lose the means to transform tha WordPerfect document to a PDF, or even open the WordPerfect document anywhere?" 
+The preservation concern is "what if we lose the means to transform the WordPerfect document to a PDF, or even open the WordPerfect document anywhere?" 
+
+While we can prioritise open formats for access, we can't change the original format, which may be closed or proprietary. Open format derivatives are our way of maintaining access to the original intellectual content.
 
 Even if _transformation_ of content may lie outside the preservation storage, we might still want the ability to put transformed versions of originals back into preservation storage (e.g., so that the more accessible PDF version is also safe and not dependent on runtime infrastructure).
 
@@ -249,7 +318,9 @@ The key here is "and manage" - Fedora is not aware of what the content means, in
 
 #### The system must enable the managed disposal of content
 
-A takedown or copyright request may require the complete removal of content down to the OCFL level.
+A takedown or copyright request may require the complete removal of content down to the OCFL level. A whole OCFL object may be reasonably straightforward to remove, but it is far more complicated to remove a file within an OCFL object _and all its version history_.
+
+This is a very rare event. Usually the action would be to change the access conditions on an individual file, or group of files, which is a matter of editing metadata and creating a new version. The upstream asset delivery services would change access according to the changed policy.
 
 #### The system must restrict any actions to manage digital content to those with authorised user login and/or user roles
 
