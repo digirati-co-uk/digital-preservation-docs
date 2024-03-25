@@ -16,9 +16,9 @@ sequenceDiagram
     participant Fedora
     
     A->>UI: Create new Deposit
+    activate UI
     Note left of UI: User might not yet know where<br>this goes in Preservation.<br>At this stage they are just<br>creating a new deposit.
     UI->>ID: Obtain Deposit ID
-    activate UI
     Note left of ID: We ask the ID service for<br>a deposit ID, e.g., a56fzc8w
     UI->>S3: Create working area
     deactivate UI
@@ -27,8 +27,10 @@ sequenceDiagram
     loop assemble digital object
         Note right of UP: May be an off-the-shelf upload control<br>but we must calculate a sha256 in the<br>browser and send that to the server<br>alongside the file(s). Also whole folders. 
         A->>UP: Select files and folders
+        activate UP
         UP->>UP: Generate checksums (browser)
         UP->>UI: Upload files
+        deactivate UP
         activate UI
         Note right of UI: Also create rows for files in DB?
         UI->>S3: Save files in working area
@@ -41,17 +43,19 @@ sequenceDiagram
     end
     Note right of A: User decides digital object<br>is ready for preservation.
     A->>UI: Save to Preservation
+    activate UI
     UI->>UI: Prepare Update Job
     Note right of UI: A single "unit of work"
     UI->>Storage: Submit Update Job
+    deactivate UI
     activate Storage
     Note left of Storage: The Storage API executes the update job.<br>This is wrapped in a Fedora transaction.<br>It may run for many minutes.<br>Ideally we get Fedora to fetch the content,<br>rather than include byte payloads in PUT bodies.
     critical Within Fedora transaction
         Storage->>Fedora: Create Archival Group
         Storage->>Fedora: Create Containers
         Storage->>Fedora: Create Binaries
+        deactivate Storage
         Fedora->>S3: Read binary content
     end
-    deactivate Storage
     note right of A: The execution of the job isasynchronous.<br>The user will see it reported as "submitted"<br>but after a few minutes it is marked Complete.
 ```
