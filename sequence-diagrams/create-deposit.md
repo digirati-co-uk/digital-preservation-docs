@@ -12,7 +12,7 @@ sequenceDiagram
     participant ID as ID Minter
     participant S3 as S3 Working
     participant Storage as Storage API
-    participant F as Fedora
+    participant Fedora
     
     A->>UI: Create new Deposit
     UI->>ID: Obtain Deposit ID
