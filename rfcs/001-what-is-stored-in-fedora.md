@@ -147,6 +147,27 @@ While no additional information **at all** is _required_ to be stored in Fedora,
 
 This means a preserved digital object is free to use METS – or some other mechanism – to carry whatever information it needs, including content type and original file name, but our storage API will attempt to write these two pieces of information to Fedora.
 
+### Special additional RDF type assigned to Archival Groups
+
+To create an Archival Group in Fedora, you [create a Container](https://wiki.lyrasis.org/display/FEDORA6x/RESTful+HTTP+API+-+Containers) but add an additional LINK HTTP Header to the PUT or POST:
+
+> With a `rel="type"` and a URI of `http://fedora.info/definitions/v4/repository#ArchivalGroup` the client may create an Archival Group container.
+
+Similarly, the only way you can tell a Container is an Archival Group is the presence of this header in the response.
+
+```
+Link: <http://fedora.info/definitions/v4/repository#ArchivalGroup>; rel="type"
+```
+
+The problem with this is that if you get a "directory listing" - i.e., query for child objects of a Fedora container and specify you want details back not just URLs - even with the details, you can't tell the difference between regular Containers and Archival Groups. You'd have to interrogate each one individually, which will be very inefficient for application interaction.
+
+We need something which will appear in the aggregate details when obtaining child items of a Container - metadata that would appear for all 50 items in a list of child objects, for example. The RDF `type` of a resource is one such piece of metadata. So, when we create an Archival Group we also assign an extra `type`:
+
+```
+http://purl.org/dc/dcmitype/Collection
+```
+
+A Fedora resource usually has multiple types, and the presence of this value in the list of types tells us that it's an Archival Resource.
 
 ## Assessing this approach against JISC Core Requirements
 
