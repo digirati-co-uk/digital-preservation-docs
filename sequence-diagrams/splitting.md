@@ -1,0 +1,1 @@
+ - A package/job in process may be split into two. It may acquire two EMu IDs. Or maybe the other part never gets and EMu id but is still preserved.
