@@ -2,6 +2,8 @@
 
 DLIP-UI is talking to an internal API separate from the storage API. This extra participant not shown in this view.
 
+The Upload Component is running in the user's browser to manage the bulk upload of files. It's part of the DLIP UI Web Application, aka Deposit Service. 
+
 ```mermaid
 sequenceDiagram
     actor A as Staff
