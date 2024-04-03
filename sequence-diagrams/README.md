@@ -9,7 +9,7 @@
 1. [Detail - views - flat and directories](file-views.md)
 1. [Detail - pipelines](pipelines.md)
 1. [Browse repository](browse-repository.md)
-1. [Pull from repository](pull-from-repository.md)
+1. [Pull from repository (export for working)](pull-from-repository.md)
 1. [Checksums](checksums.md)
 1. [Detail - Database usage](db.md)
 1. [Detail - Into Fedora, Preservation Target](into-fedora.md)
