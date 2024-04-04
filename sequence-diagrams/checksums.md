@@ -2,7 +2,7 @@
 
 Different behaviours
 
- - expcet to find in S3 metadata
+ - expect to find in S3 metadata
  - expect to find in bagit, will add to S3 metadata
  - expect to find in existing mets
  - supplied in client upload

@@ -1,5 +1,9 @@
 -- wip
 
+-- we may not even need this table if we are happy that we can use METS as a model for UI.
+-- Or rather, not METS directly but something that can be easily serialised to and from METS
+-- ... and moreover, Goobi-style METS
+
 create table if not exists public.files
 (
     deposit_id          varchar,
