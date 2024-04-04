@@ -1,4 +1,3 @@
-)
 # Sequence diagrams
 
 1. [Create Deposit - simple upload flow]({{ site.baseurl }}{% link pages/create-deposit.md %})
