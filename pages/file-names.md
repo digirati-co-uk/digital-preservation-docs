@@ -21,7 +21,7 @@ Here's an Archivematica-generated example at Wellcome:
 
 This sequence occurs during the user interaction in [Create Deposit](create-deposit-with-notes.md).
 
-![diagram](./file-names-1.svg)
+![diagram](./file-names-1.png)
 
 ## Notes
 

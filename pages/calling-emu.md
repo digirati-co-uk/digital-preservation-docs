@@ -6,7 +6,7 @@ Need to assign corresponding EMu id at start, or during, a process. You may know
 
 This sequence occurs during the user interaction in [Create Deposit](create-deposit-with-notes.md).
 
-![diagram](./calling-emu-1.svg)
+![diagram](./calling-emu-1.png)
 
 ## Notes
 

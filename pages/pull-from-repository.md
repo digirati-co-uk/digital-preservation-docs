@@ -12,7 +12,7 @@ This is the default - `mode=stub` - see note 3 below. But I might want to export
 
 -	At any point, even long after it is preserved, I can pull an object out of preservation and update granular permissions. Typically this only changes a METS file. (impl – are we resuscitating DB rows to do this so we can re-make a METS file?)
 
-![diagram](./pull-from-repository-1.svg)
+![diagram](./pull-from-repository-1.png)
 
 ## Notes
 

@@ -11,7 +11,7 @@ Is this what Goobi is doing?
 NB the details of interaction with storage are omitted, see [Create Deposit](create-deposit-with-notes.md)
 
 
-![diagram](./create-deposit-from-s3-1.svg)
+![diagram](./create-deposit-from-s3-1.png)
 
 ### Notes
 
@@ -26,4 +26,4 @@ In the following flow, the external process just tells the Preservation API (not
 We could create METS just from the BagIt, but we run the standard pipelines anyway. This verifies that checksums in the BagIt metadata are still correct. The BagIt bag is just a different way of supplying the checksums.
 
 
-![diagram](./create-deposit-from-s3-2.svg)
+![diagram](./create-deposit-from-s3-2.png)

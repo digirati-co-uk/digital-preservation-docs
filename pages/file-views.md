@@ -5,5 +5,5 @@ Flat view is like a spreadsheet, easier to see normalised name vs folder name
 Assign rights statements and access conditions
 
 
-![diagram](./file-views-1.svg)
+![diagram](./file-views-1.png)
 

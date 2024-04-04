@@ -4,4 +4,4 @@ DLIP-UI is talking to an internal API separate from the storage API. This extra 
 
 The Upload Component is running in the user's browser to manage the bulk upload of files. It's part of the DLIP UI Web Application, aka Deposit Service. 
 
-![diagram](./create-deposit-1.svg)
+![diagram](./create-deposit-1.png)

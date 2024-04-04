@@ -15,4 +15,4 @@ How does this work? The “staging” buckets are just as available to Asset Del
 
 _Not sure what a sequence diagram would show here..._
 
-![diagram](./browse-repository-1.svg)
+![diagram](./browse-repository-1.png)
