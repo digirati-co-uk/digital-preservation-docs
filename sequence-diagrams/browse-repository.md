@@ -6,7 +6,7 @@
 
 - The platform is a window to the repository as well as being an ingest / deposit mechanism. That means it can see the stuff that Goobi has deposited, too, and while you won’t be allowed to edit the things Goobi has put there, you can still view the file layouts, and create sharing links for ad hoc digitisation outputs that may not even be going through to asset delivery. This suggests that a view should be possible from just a METS file (Goobi’s METS file), and not have to project into rows in a DB.
 
-- This also suggests that our bespoke METS is similar to Goobi METS; our UI (the model driving the view) can use Goobi METS just as well as it can use the METS it has created itself.
+- This also suggests that our bespoke METS is similar to Goobi METS; our UI (the model driving the view) can use Goobi METS just as well as it can use the METS it has created itself. We can generate a sensible directory view from Goobi structmaps as well as our "born digital" structmaps; the latter may look like the Archivematica example.
 
 > I want to preview content within the preservation environment, before it is preserved and therefore before it is accessible to Asset Delivery; before is has had IIIF created. 
 
