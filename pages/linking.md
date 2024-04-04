@@ -1,0 +1,1 @@
+-	I can create a digital object without an EMu ID and link it to another object (which may or may not have an EMu ID) via an adjunct relationship.  “link digital files to catalogue records even if they are not the born-digital file”. (Not to be confused with IIIF-C adjunct). “peripheral”
