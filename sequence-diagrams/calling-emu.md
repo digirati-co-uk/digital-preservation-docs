@@ -18,10 +18,14 @@ sequenceDiagram
     UI->>API: AssociateEMu()
     activate API
     note right of API: What is the role of ID minter?<br>Do we tell it we have just made<br>this association?
-    API-->>ID: Any comms here?
+    API->>ID: (1) Tell ID Service that the deposit ID and EMu ID are connected
     API->>EMu: Fetch Metadata
     API->>API: Update METS
     note right of API: We only want minimal information.<br>Set the title, provide some info for METS.
     note right of API: This will also update the deposit row in the DB
     deactivate API
 ```
+
+## Notes
+
+1. Also supply minimal metadata, e.g., Title from Emu
