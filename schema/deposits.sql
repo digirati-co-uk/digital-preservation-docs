@@ -9,6 +9,10 @@
 
 -- So should it really be called deposits? 
 
+-- If we didn't have the ID service / minter, we'd need to store various alternative identifiers in the DB, EMu being the most obvious.
+-- Do we still want to store something in here?
+
+
 create table if not exists public.deposits
 (
     id                  varchar,

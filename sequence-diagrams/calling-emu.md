@@ -12,11 +12,13 @@ sequenceDiagram
     participant UI as DLIP UI
     participant API as Preservation API
     participant EMu
+    participant ID as ID Minter
 
     A->>UI: Set EMu ID
     UI->>API: AssociateEMu()
     activate API
     note right of API: What is the role of ID minter?<br>Do we tell it we have just made<br>this association?
+    API-->>ID: Any comms here?
     API->>EMu: Fetch Metadata
     API->>API: Update METS
     note right of API: We only want minimal information.<br>Set the title, provide some info for METS.

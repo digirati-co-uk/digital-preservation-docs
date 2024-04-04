@@ -2,7 +2,7 @@
 
 Even files uploaded from a computer or collected from S3 may contain invalid paths.
 
-The spreadsheet view shows original and normalised (highlight where different)
+The "spreadsheet" (tabular) view shows original and normalised (highlight where different).
 
 Also allows you to edit original names.
 
@@ -10,7 +10,11 @@ Also allows you to edit original names.
 
 Files arriving from BitCurator via BagIt may contain original file names.
 
-Original file names are stored as METS title attributes. This also applies to original FOLDER names which are 
+Original file names are stored as METS LABEL attributes. This also applies to original FOLDER names. The directory structure is represented within the METS structmap.
+
+Here's an Archivematica-generated example at Wellcome:
+
+
 
 
 This sequence occurs during the user interaction in [Create Deposit](create-deposit-with-notes.md).
