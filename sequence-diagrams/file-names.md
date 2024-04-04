@@ -14,6 +14,8 @@ Original file names are stored as METS LABEL attributes. This also applies to or
 
 Here's an Archivematica-generated example at Wellcome:
 
+![Born Digital StructMap](../img/bd-structmap.png)
+
 
 
 
@@ -50,3 +52,4 @@ sequenceDiagram
 
 1. Our Preservation file-name-character set is more restrictive than most file systems, or S3. The Storage API only accepts normalised file names. Even on upload we may have to normalise. We preserve the original file name in METS title attributes. And _maybe_ in DB rows in [files](../schema/files.sql).
 2. As the import job is constructed we use the [Name property](https://github.com/digirati-co-uk/uol-leeds-experiments/blob/main/LeedsExperiment/Fedora/Abstractions/Transfer/ResourceWithParentUri.cs#L31) of the BinaryFile and ContainerDirectory objects we supply. NB Currently BinaryFile also has FileName - but should that just use Name from the superclass?
+3. We need a sketch of the UI view - essentially an HTML rendering of a METS file.
