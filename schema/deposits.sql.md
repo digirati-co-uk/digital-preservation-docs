@@ -12,7 +12,7 @@
 -- If we didn't have the ID service / minter, we'd need to store various alternative identifiers in the DB, EMu being the most obvious.
 -- Do we still want to store something in here?
 
-
+```sql
 create table if not exists public.deposits
 (
     id                  varchar,
@@ -29,3 +29,4 @@ create table if not exists public.deposits
     version_exported    varchar,
     version_saved       varchar
 );
+```

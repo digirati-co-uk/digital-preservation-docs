@@ -1,10 +1,18 @@
 # Browse Repository
 
-- Browse the repository containers (subject to permissions) to choose where something is going to go. Some workflows make that choice for me, my thing can only go in one place.
-- (Do we record a map of the preservation content and also store that in the repository? – especially if we have a hashed-ntuple layout?)
-- ...and _should_ we have a hashed-ntuple layout, or prefer the simpler version?
+- Browse the repository containers (subject to permissions) to choose where something is going to go. 
 
-- The platform is a window to the repository as well as being an ingest / deposit mechanism. That means it can see the stuff that Goobi has deposited, too, and while you won’t be allowed to edit the things Goobi has put there, you can still view the file layouts, and create sharing links for ad hoc digitisation outputs that may not even be going through to asset delivery. This suggests that a view should be possible from just a METS file (Goobi’s METS file), and not have to project into rows in a DB.
+- Some workflows make that choice for me, my thing can only go in one place. _How does that work? Deposit created in advance with pre-filled `preservation_path`?_
+
+- Do we record a map of the preservation content and also store that in the repository? – especially if we have a hashed-ntuple layout?
+
+- (and _should_ we have a hashed-ntuple layout, or prefer the simpler version?)
+
+- We can provide a browse experience simply by traversing Fedora containers, just as the Storage API proof-of-concept site does. And maybe we can use Fedora search features to find things.
+
+- *Potentially an addition to "What do we store in Fedora?" [Fedora Simple Search](https://wiki.lyrasis.org/display/FEDORA6x/Simple+Search) is not enough though. Do we maintain a table for Archival Groups in the Preservation API database?
+
+- The platform is a window to the repository as well as being an ingest / deposit mechanism. That means it can see the stuff that Goobi has deposited, too, and while you won’t be allowed to edit the things Goobi has put there, you can still view the file layouts, and create sharing links for ad hoc digitisation outputs that may not even be going through to asset delivery. This suggests that a view of a digital object should be possible from just a METS file (Goobi’s METS file), and not have to project into rows in a DB.
 
 - This also suggests that our bespoke METS is similar to Goobi METS; our UI (the model driving the view) can use Goobi METS just as well as it can use the METS it has created itself. We can generate a sensible directory view from Goobi structmaps as well as our "born digital" structmaps; the latter may look like the Archivematica example.
 
@@ -12,14 +20,3 @@
 
 How does this work? The “staging” buckets are just as available to Asset Delivery as Fedora’s origins. Is there some super-secure access mechanism? Even if it’s slow compared to public delivery? But we don’t want to be transcoding video just for one person to see. Or do we?
 
-
-_Not sure what a sequence diagram would show here..._
-
-```mermaid
-sequenceDiagram
-
-participant A as User
-participant UI as Preservation UI
-
-A->>UI: Open Container
-```

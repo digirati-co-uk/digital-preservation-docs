@@ -1,5 +1,6 @@
 -- wip
 
+```sql
 create table if not exists public.pipeline_jobs
 (
     id                  varchar,
@@ -15,3 +16,4 @@ create table if not exists public.pipeline_jobs
     run_antivirus       boolean,
     run_fileformat      boolean
 );
+```
