@@ -40,15 +40,15 @@ sequenceDiagram
   participant F as Fedora
 
   note left of G:Correct terminology?
-  activate G
   User->>G: Goobi workflow complete
+  activate G
   loop Upload digitised file(s)
     note over G,S: Does this happen now? Or earlier?
     G->>S3: Binary file w/ sha-256
   end
   G->>S3: METS file
-  activate S
   G->>S: Create ingestJob (httpRequest)
+  activate S
   note left of S: { "storageType": "s3","source": "s3://..." }
   S-->>G: HTTP 201
   deactivate G
@@ -91,10 +91,10 @@ sequenceDiagram
   participant S as Storage API
   participant S3 as S3 Staging
 
+  User->>G: Goobi workflow complete
   activate G
-  User->>G: Digitisation complete
-  activate P
   G->>P: Create job
+  activate P
   note over P: "Job" is analogous to Fedora Transaction
   P->>ID: Mint new ID
   note over ID: Link to Job Id?
@@ -117,6 +117,38 @@ sequenceDiagram
 
 This diagram shows Goobi interacting directly with a staging Fedora. Goobi can make as many versions of each item as it requires, it is free to use this Fedora instance as required. Upon completion of a workflow it will notify the Preservation API that it is complete and the Preservation API will manage moving it from staging Fedora to main Fedora.
 
-This separation keeps the main Fedora 'clean' with regard to version history and ensures it only contains finished items.
+This separation keeps the main Fedora 'clean' with regard to version history and ensures it only contains finished items and clean version history.
 
 ### Diagram
+
+```mermaid
+sequenceDiagram
+  actor User
+  participant G as Goobi
+  participant FS as Staging Fedora
+  participant P as Preservation API
+  participant S as Storage API
+
+  User->>G: Goobi workflow complete
+  activate G
+  G->>FS: Create transaction
+  activate FS
+  
+  loop Per digitised file
+    G->>FS: Upload digitised file(s)
+    alt timeout approaching?
+      G->>FS: Extend transaction
+    end
+  end
+  G->>FS: METS file
+  G->>FS: Commit Transaction
+  note over FS: There may be verbose ocfl history<br>which won't be replicated
+  deactivate FS
+
+  G->>P:Workflow ready
+  activate P
+  note over G,P: What identifier is passed here?  
+  deactivate G
+  P->>S:Import Job (see Above)
+  deactivate P
+```
