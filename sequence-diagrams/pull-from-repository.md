@@ -1,16 +1,20 @@
 # Pull from repository (export)
 
-Can this be drop-boxy - don't actually fetch all the files, just make stub keys in S3 from the METS file AND correlate to the Fedora OCFL object.
+This means exporting some or all of an Archival Group's contents out into a new deposit (i.e., a working object) in S3.
 
-... need to be VERY careful!
+Like DropBox or OneDrive when "synched" - we don't need to fetch all the files to let you browse them, or make updates to access conditions. But we have to be careful not to "sync" a partial S3 export and accidentally delete files or overwrite them with stubs.
 
-Must never write a stub back by mistake. The Storage APi work so far is focussed on comparing a layout of files in S3 with the repository's view - generating a diff. But we don't need to bring the files into S3 to generate a UI.
+The Storage API work so far is focussed on comparing a layout of files in S3 with the repository's view - generating a diff. But we don't need to bring the files into S3 to generate a UI.
 
-We only fetch the actual binary from S3 if you want to see it. (what happens then - how do you "see" it? - download? download streams from S3 origin in OCFL)
+We only fetch the actual binary from S3 if you want to see it. (what happens then - how do you "see" it? - download? download streams from S3 origin in OCFL?)
 
-This is the default - `mode=stub` - see note 3 below. But I might want to export the full object, all the binaries intact, for some other purpose, so I can optionally use mode=full.
+By default, when we ask for an export (mode=default), only the METS is exported to S3. But I might want to export the full object, all the binaries intact, for some other purpose, so I can optionally use mode=full. 
 
--	At any point, even long after it is preserved, I can pull an object out of preservation and update granular permissions. Typically this only changes a METS file. (impl – are we resuscitating DB rows to do this so we can re-make a METS file?)
+Nothing other than Fedora wrapper has read or write access to the Fedora S3 bucket.
+The Preservation API and Storage API has read/write access to the S3 working area, and Fedora can read from it (for ingest).
+There may be other buckets that the Preservation API or Storage API can write to; a user could ask the Preservation API to ask the Storage API to export somewhere else.
+
+At any point, even long after it is preserved, I can pull an object out of preservation and update granular permissions. Typically this only changes a METS file. 
 
 ```mermaid
 sequenceDiagram
@@ -24,13 +28,13 @@ sequenceDiagram
     participant Fedora
 
     A->>UI: Browse
-    note left of UI: find Archival Group
-    A->>UI: Export AG
-    UI->>API: Export AG
+    note left of UI: Find Archival Group
+    A->>UI: Export Archival Group
+    UI->>API: Export Archival Group
     API->>ID: (1) Obtain ID
     note right of API: API creates a new row in deposits
     API->>S3: (2) Create working area
-    API->>Storage: (3) Export(mode=stub)
+    API->>Storage: (3) Export()
     Storage->>Fedora: (4) (OCFL locations)
     Storage->>S3: Copy METS in full from fedora origin
     note left of Storage: We need the METS<br>to be our model
@@ -63,7 +67,7 @@ sequenceDiagram
 
 ## Notes
 
-1. We need to identify this "working object" - we don't pull it out into the same S3 location as when it was ingested. Each time it's exported it goes somewhere unique. (discuss). We create a new row in [deposits](../schema/deposits.sql).
+1. We need to identify this "working object" - we don't pull it out into the same S3 location as when it was ingested. Each time it's exported it goes somewhere unique. (discuss). We create a new row in [deposits](../schema/deposits.sql.md).
 2. (see above) S3 location which is only used for this one working object - there _might_ be the same objected exported elsewhere for some other reason.
 3. `export(mode=stub)` We might not need to export anything other than the METS file. It depends what we're exporting for. If we want to do things with binary content we need the files in working S3, rather than in Fedora, but if we're just editing an access condition we don't need to fill up S3.
 4. The Storage API use the OCFL layout to give us the origin, so we can do a copy.

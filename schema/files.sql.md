@@ -4,6 +4,7 @@
 -- Or rather, not METS directly but something that can be easily serialised to and from METS
 -- ... and moreover, Goobi-style METS
 
+```sql
 create table if not exists public.files
 (
     deposit_id          varchar,
@@ -12,6 +13,7 @@ create table if not exists public.files
     sha256              varchar,
     notes               text
 );
+```
 
 -- room for flags, status etc later.
 -- maybe a JSON column?

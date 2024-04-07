@@ -23,7 +23,7 @@
 1. [Access Control within the Preservation Service](app-access-control.md)
 1. [Preservation Activity Streams](activity.md)
 1. [Reporting](reporting.md)
-
+1. [Goobi Interactions](goobi_api_interaction.md)
 
 
 

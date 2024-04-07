@@ -28,4 +28,6 @@ sequenceDiagram
 
 ## Notes
 
-1. Also supply minimal metadata, e.g., Title from Emu
+1. Also supply minimal metadata, e.g., Title from EMu, to help ID Minter service requests from other callers.
+
+We might want to make associations between this deposit and other systems, too - but likely just EMu for now. See also [Accession](accession.md).

@@ -35,11 +35,11 @@ sequenceDiagram
         note right of API: create the S3 path for a PUT<br>if path doesn't exist
         note right of External: What additional info with each PUT?<br>Are we just recreating Fedora API here?
     end
-    External->>API: Preserve()
+    External->>API: Preserve() (see note)
     activate API
-    note right of API: METS is created (?)
+    note right of API: METS is created - optionally.<br>The object might already have METS.
     API->>Pipe: Run pipelines
-    note right of API: METS is updated by processes
+    note right of API: METS is updated by processes.<br>Also optional, may already have all it needs.
     API->>Storage: Import Job (see Create Deposit)
     deactivate API
 
@@ -48,6 +48,13 @@ sequenceDiagram
 ### Notes
 
 Here the External API is just making PUTs, but it could use the Preservation API to work on the files. It MUST supply a checksum.
+
+The Preserve action takes different options:
+
+ - The Repository path where the digital object should be stored
+ - Whether to create a METS file from the structure. The caller might have already provided a METS file. It's possible we might want to create our own METS file too, or alternatively we know we can work with the caller's METS file (e.g., the caller is Goobi)
+ - Which pipelines, if any, to run. Again, 
+ - Whether we should try to update an existing third party METS file with pipeline outputs, or write to our own METS file. Perhaps this is rare or even non-existent - maybe we only run pipelines when the output is going into our own METS. 
 
 ## Fetch a BagIt Bag
 
@@ -68,7 +75,7 @@ sequenceDiagram
     participant Pipe as Pipelines
     participant Storage as Storage API
 
-    External->>Stage: Save a BagIt bag to a staging location
+    External->>Stage: (1) Save a BagIt bag to a staging location
     note right of External: This might have been done<br>from a BitCurator environment.
     External->>API: Preserve()
     activate API
@@ -87,3 +94,7 @@ sequenceDiagram
     API->>Storage: Import Job (see Create Deposit)
     deactivate API
 ```
+
+## Notes
+
+Some processes may be able to put this directly, but we also might offer an upload for this. E.g., visit the Preservation UI from inside a BitCurator environment and upload the bag.
