@@ -30,7 +30,7 @@ Multiple staff members can pick up the same process
 
 -	When I’m ready I can submit the object. After that I can’t edit – I can’t delete files for example – but I can participate in a process with an archivist or digital preservation person; we can look at it together.
 
--	As a () I can create a sharing link that allows access to a particular file, or a folder of files, or a whole digital object. The sharing link has time limits and will expire after the period I specify. I can use this to send files to customers who have made a digitsation request, too – even if it’s a digitised workflow from Goobi.
+-	As a () I can create a sharing link that allows access to a particular file, or a folder of files, or a whole digital object. The sharing link has time limits and will expire after the period I specify. I can use this to send files to customers who have made a digitisation request, too – even if it’s a digitised workflow from Goobi.
 
 > We need a safe environment to view and share sensitive and protected access material, for users that have been cleared and for staff.
 
