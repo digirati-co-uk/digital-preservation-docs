@@ -45,3 +45,4 @@ sequenceDiagram
     API->>S3: Clean up, delete workspace
     API->>DB: Update deposit
     deactivate API
+```
