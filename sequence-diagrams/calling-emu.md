@@ -31,3 +31,9 @@ sequenceDiagram
 1. Also supply minimal metadata, e.g., Title from EMu, to help ID Minter service requests from other callers.
 
 We might want to make associations between this deposit and other systems, too - but likely just EMu for now. See also [Accession](accession.md).
+
+# Going the other way - accession / appraisal
+
+Can I create an EMu record for the digital object? Can I ask for an accession identifier or a catalogue record from _here_, while looking at the digital object, rather than going to EMu to do that?
+
+> This would be useful for box level partial digitisation or the initial secure and store phase with an accession ID or EMu ID

@@ -62,7 +62,7 @@ sequenceDiagram
 
 ## Notes
 
-1. This user might be an external depositor. Or perhaps an external depositor has already been assigned a deposit to work in? 
+1. This user might be an external depositor. Or perhaps an external depositor has already been assigned a deposit to work in? The user might never explicitly choose the Fedora preservation path, it might be chosen for them based on workflow. Or it's not the job of the uploader of the files to decide where the object goes in the repository.
 2. This identifier is for the job/deposit/working-set-of-files; it is not the EMu id nor is it necessarily the last path element of the eventual location of the Archival Group in Fedora. TBC - if you later export a digital object from Preservation, is it the same row? Is it the same deposit? No, it's a new row with a new ID. So this DB row represents the working set of files for a deposit. See [Pull from Repository](pull-from-repository.md)
 3. Here we adopt a convention for file layout, with METS in the root and an `/objects` or `/contents` folder for the files. We have to allow for the possibility that the deposit already has a METS file that we didn't make.
 4. See [deposits.sql](../schema/deposits.sql.md). There is no structure to our deposits, they are not arranged hierarchically UNLIKE their eventual homes in the repository. They are more like JOBS - you would find them by date, who owns them etc - not location. They are all in the same "place".
