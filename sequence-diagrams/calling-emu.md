@@ -4,6 +4,13 @@
 
 Need to assign corresponding EMu id at start, or during, a process. You may know what it is at start, you may know later, it may never have an EMu id. 
 
+## Relationship of EMu records to digital objects
+
+- [Export metadata to EMu](export-metadata.md) shows how one digital object can generate multiple child records in EMu.
+- [Splitting deposits](splitting.md) shows how one digital object may be split into two (or more) objects each of which may or may not have an EMu record, and considers the possibility of whether a digital object may correspond to two or more EMu records that are not in a parent/child relationship.
+
+## Sequence
+
 This sequence occurs during the user interaction in [Create Deposit](create-deposit-with-notes.md).
 
 ```mermaid

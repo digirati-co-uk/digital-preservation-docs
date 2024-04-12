@@ -2,6 +2,8 @@
 
 NB this is a simplified version of [Create Deposit with notes](create-deposit-with-notes.md) just to show the general flow.
 
+[Deposit with Catalogue Record](calling-emu.md) shows how a call to EMu can be added to this flow.
+
 DLIP-UI is talking to an internal API separate from the storage API. This extra participant not shown in this view, but is called _Preservation API_ in other sequence diagrams when it appears. The DLIP UI is a client of this API but so are other potential applications. The Preservation API is in turn a client of the Storage API. The preservation API is home to concepts such a deposit, and the workflow around building up a deposit, and collaborating on it with others.
 
 The Upload Component is running in the user's browser to manage the bulk upload of files. It's part of the DLIP UI Web Application, aka Deposit Service. 
@@ -11,7 +13,7 @@ sequenceDiagram
     actor A as Staff
     box Client App
     participant UP as Upload Component
-    participant UI as DLIP UI
+    participant UI as DLIP UI + Pres.API
     end
     participant ID as ID Minter
     participant S3 as S3 Working

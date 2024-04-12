@@ -102,6 +102,7 @@ sequenceDiagram
   note over P: "Job" is analogous to Fedora Transaction
   P->>ID: Mint new ID
   note over ID: Link to Job Id?
+  ID-->>P: New ID
   P-->>G: Job Id
   note over G,P: Job Id (e.g. ABC123) is passed<br>in future interactions
   loop Per digitised file

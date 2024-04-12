@@ -8,6 +8,8 @@ It also allows you to edit original names, for example to restore characters tha
 
  - The UI presents a folder and file layout. You can see all the accumulated technical metadata that machines have extracted, but can’t edit it. You can edit access conditions and rights, hierarchically. Both of these are just strings from controlled vocabularies (drop-downs). You can apply them at any level and override them below that. Do this in a METS-sensible way. The meanings of these strings is realised in asset delivery, but also (maybe) in who can see objects in the Preservation UI. A special case is opening up one object to one user (sharing progress of a deposit).
 
+(We need to make sure we have ways of managing the values in these controlled vocabularies, and enforcing business rules about their usage, including their usage in combination.)
+
 Files arriving from BitCurator via BagIt may contain original file names in the BagIt manifest.
 
 Original file names are stored as METS `LABEL` attributes. This also applies to original FOLDER names. The directory structure is represented within the METS structmap.

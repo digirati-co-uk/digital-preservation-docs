@@ -1,5 +1,7 @@
 # Ad hoc deposit, no EMu - with notes
 
+[Deposit with Catalogue Record](calling-emu.md) shows how a call to EMu can be added to this flow.
+
 DLIP-UI is talking to an internal API separate from the storage API. This extra participant not shown in this view, but is called _Preservation API_ in other sequence diagrams when it appears. The DLIP UI is a client of this API but so are other potential applications. The Preservation API is in turn a client of the Storage API. The Preservation API is home to concepts such a deposit, and the workflow around building up a deposit, and collaborating on it with others.
 
 ```mermaid
@@ -7,7 +9,7 @@ sequenceDiagram
     actor A as Staff
     box Client App
     participant UP as Upload Component
-    participant UI as DLIP UI
+    participant UI as DLIP UI + Pres.API
     end
     participant ID as ID Minter
     participant S3 as S3 Working

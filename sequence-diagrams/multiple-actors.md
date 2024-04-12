@@ -37,3 +37,7 @@ Multiple staff members can pick up the same process
 To what extent do we need to transcode content for people to view in ad hoc preservation UI environment? Public-facing content, even where that "public" is a very small group of staff users, will go via the IIIF Cloud Services. But while the material is being worked on, while it's maybe not even yet in Fedora, people still need to preview it.
 
 For images, we could have a separate, stream-only Cantaloupe instance (like IIIF-C's SpecialServer) that can see the S3 Working area. This would be quite slow for deep zoom, but doesn't really need tile delivery, it's OK with larger JPEGs. For AV though - how do we offer web-accessible versions from here? For sharing etc.
+
+This viewing of assets within preservation can be much much slower than public access, and is definitely _on demand_ - we would never transcode a video ahead of time in this environment.
+
+However - suppose you are looking at something in the Preservation environment that is already publicly available as IIIF. It would make no sense to transcode it again. But this means the Preservation API needs to be aware of the existence of IIIF resources... which it can learn from the **_ID Service_**.
