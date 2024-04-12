@@ -1,5 +1,5 @@
 # Sample workflow for building and deploying a Jekyll site to GitHub Pages
-name: Deploy Jekyll with GitHub Pages dependencies preinstalled
+name: Deploy sequence diagrams
 
 on:
   # Runs on pushes targeting the default branch
@@ -32,8 +32,14 @@ jobs:
         uses: actions/setup-node@v4.0.2
       - name: Install Mermaid CLI
         run: npm install -g mmdc
-      - name: Export Sequence Diagrams
-        run: ./build.sh
+      - name: Really install it
+        run: npm install mmdc
+      - name: Make the sequence diagrams index page
+        run: sed -E "s/^([^]]+)(\[[^]]*\])\(([^)]*)\)/\1\2({{ site.baseurl }}{% link pages\/sequence-diagrams\/\3 %})/" sequence-diagrams/README.md > index.md
+      - name: Export sequnce diagrams with PNG files
+        run: for f in sequence-diagrams/*.md; do node_modules/.bin/mmdc -i $f --outputFormat=png --scale=2 -o pages/$f; done
+      - name: Remove the README from the sequence diagrams folder
+        run: rm pages/sequence-diagrams/README.md
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Build with Jekyll
