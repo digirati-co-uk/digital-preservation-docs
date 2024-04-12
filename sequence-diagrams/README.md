@@ -18,7 +18,7 @@
 1. [Accession workflow](accession.md)
 1. [Export metadata (EMu)](export-metadata.md)
 1. [Finding deposits and preserved objects](finding.md) †
-1. [Splitting deposits](splitting.md)
+1. [Splitting deposits](splitting.md) †
 1. [Linking deposits](linking.md)
 1. [Access Control within the Preservation Service](app-access-control.md)
 1. [Preservation Activity Streams](activity.md)
