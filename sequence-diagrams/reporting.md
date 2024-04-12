@@ -1,1 +1,3 @@
--	There is a storage usage overview (both Fedora preservation and otherwise). This might be hard to do because it doesn’t translate to S3 “paths” if using the hashed-ntuple layout. Maybe this is connected to the map of storage mentioned above – some process that runs on a schedule to tally space used by “folder” in Fedora as well as help find things.
+# Reporting
+
+There is a storage usage overview (both Fedora preservation and otherwise). This might be hard to do because it doesn’t translate to S3 “paths” if using the hashed-ntuple layout. Maybe this is connected to the map of storage mentioned above – some process that runs on a schedule to tally space used by “folder” in Fedora as well as help find things.
