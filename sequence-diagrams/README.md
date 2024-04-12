@@ -26,8 +26,8 @@
 1. [Goobi Interactions](goobi_api_interaction.md) *
 
 \* Ready for comments, with sequence diagrams<br>
-† Ready for comments but just notes
-‡ For later design work - we should prototype other features before designing these
+† Ready for comments but just notes<br>
+‡ For later design work - we should prototype other features before designing these<br>
 
 
 
