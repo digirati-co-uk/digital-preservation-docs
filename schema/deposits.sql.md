@@ -17,10 +17,12 @@ create table if not exists public.deposits
 (
     id                  varchar,
     preservation_path   text,       -- maybe explicitly fedora_path?
-    owner               text,
+    created             timestamp,
+    createdBy           text,
+    lastModified        timestamp,
+    lastModifiedBy      text,
     s3_root             text,
     status              text,
-    last_modified       timestamp,
     submission_text     text,
     -- pipeline_ran        timestamp,   -- This is the wrong cardinality
     -- pipeline_job_id     varchar,     -- pipeline-jobs references a deposit instead
