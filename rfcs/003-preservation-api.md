@@ -11,6 +11,8 @@ For example:
 
 However, there are concepts that are common to both, where the Preservation API is basically passing information from or to the Storage API. An example of this is browsing the repository via the API, which passes through (in simplified form) the Storage API concepts of Containers and Binaries.
 
+> ❓The services for METS offered by the Preservation API are not detailed in this document; in this first version we will focus on Preservation of DigitalObjects. Similarly, interaction with EMu, splitting of Deposits and other specifically born digital flows are not covered - yet.
+
 > ❓In the Storage API, there are different classes for modelling "folders" and "files" in the repository (`Container` and `Binary`) and for files and folders in transfer, for importing and exporting (`ContainerDirectory` and `BinaryFile`). I think the Preservation API can do away with this distinction for simplicity, but name _its_ concepts `Container` and `Binary` (and `DigitalObject` for Fedora's Archival Group). This means we have different classes with the same name in both APIs
 
 > ❓the Preservation API does not need to expose all the OCFL details. Should the Preservation API expose the `origin` property? Or is the DLCS-syncing code also a direct consumer of the Storage API? If we hide `origin` then the only S3 paths in responses are for import and export operations which is cleaner.
@@ -21,12 +23,27 @@ The Preservation API assumes that its callers have access to the AWS S3 working 
 
 The API implements a standard OAuth2 [Client Credentials Flow](https://www.oauth.com/oauth2-servers/access-tokens/client-credentials/) for machine-to-machine access, with [Refresh Tokens](https://www.oauth.com/oauth2-servers/access-tokens/refreshing-access-tokens/) to ensure that access tokens are short lived and can be revoked.
 
+Throughout this RFC the API is shown on the host name `preservation.dlip.leeds.ac.uk` - this is just for example.
 
 ## Resource Types
 
 ### Common metadata
 
-The resource types Container, Binary and DigitalObject below all share a set of common properties:
+The resource types Container, Binary, DigitalObject and Deposit below all share a set of common properties:
+
+```json5
+{
+    "@id": "https://preservation.dlip.leeds.ac.uk/...(path)...",
+    "type": "(Resource)", // One of those below
+    "created": "2024-03-14T14:58:46.102335Z",    // carries the original name of the directory
+    "createdBy": "https://preservation.dlip.leeds.ac.uk/users/tom",
+    "lastModified": "2024-03-28T12:00:00.00000Z",
+    "lastModifiedBy": "https://preservation.dlip.leeds.ac.uk/users/donald",
+    // ...
+    // Other type-specific properties
+    // ...
+}
+```
 
 | Property         | Description                       | 
 | ---------------- | --------------------------------- |
@@ -40,23 +57,23 @@ The resource types Container, Binary and DigitalObject below all share a set of 
 
 ### 📁 Container
 
-For representing structure, to organise the repository into a hierarchical directory structure. 
+For building structure to organise the repository into a hierarchical layout. Containers also represent directories within a DigitalObject.
 
- - Only some API users can create containers within the repository structure. Others are given an existing Container, or set of Containers, that they can create in.
- - Containers are also used to represent directories within a Digital Object, but no user of the API can create them directly. Instead they are created indirectly as part of an ImportJob.
+ - Only some API users can create Containers within the repository. Other users are given an existing Container, or set of Containers, that they can create in.
+ - Containers are also used to represent directories within a Digital Object, but no user of the API can create them inside a Digital Object directly. Instead they are created indirectly as part of an ImportJob.
 
 A Container retrieved while browsing the repository via the API might look like this:
 
 ```json5
 {
-    "@id": "https://preservation.dlip.leeds.ac.uk/repository/objects/DigitalObject1/my-directory",
+    "@id": "https://preservation.dlip.leeds.ac.uk/repository/example-objects/DigitalObject1/my-directory",
     "type": "Container",
     "name": "my-dírèçtóry",    // carries the original name of the directory
     "containers": [],
     "binaries": [
         // ... see below  
     ],
-    "partOf": "https://preservation.dlip.leeds.ac.uk/repository/objects/DigitalObject1"
+    "partOf": "https://preservation.dlip.leeds.ac.uk/repository/example-objects/DigitalObject1"
 }
 ```
 
@@ -64,7 +81,7 @@ A Container retrieved while browsing the repository via the API might look like 
 | ------------ | --------------------------------- |
 | `@id`        | URI of the Container in the API. The path may only contain characters from the *permitted set*.   |
 | `type`       | "Container"                       |
-| `name`       | The original name, which may contain any UTF-8 character. |
+| `name`       | The original name, which may contain any UTF-8 character. Often this will be the same as the last path element of the `@id`, but it does not have to be. |
 | `containers` | A list of the immediate child containers, if any. All members are of type `Container`. |
 | `binaries`   | A list of the immediate contained binaries, if any. All members are of type `Binary`. |
 | `partOf`     | The `@id` of the DigitalObject the Container is in. Not present if the Container is outside a DigitalObject. |
@@ -75,17 +92,17 @@ A Container retrieved while browsing the repository via the API might look like 
 For representing a file, any kind of file stored in the repository. 
 
  - Binaries can only exist within DigitalObjects
- - You add or patch binaries by referencing S3 keys in an ImportJob
+ - You add or patch binaries by referencing files in S3 by their URIs in an ImportJob
 
 ```json5
 {
-    "@id": "https://preservation.dlip.leeds.ac.uk/repository/objects/DigitalObject1/my-directory/My_File.pdf",
+    "@id": "https://preservation.dlip.leeds.ac.uk/repository/example-objects/DigitalObject1/my-directory/My_File.pdf",
     "type": "Binary",
     "name": "My File.pdf",
     "digest": "b6aa90e47d5853bc1b84915f2194ce9f56779bc96bcf48d122931f003d62a33c",
     "location": "s3://dlip-working-bucket/deposits/e5tg66hn/my-directory/My_File.pdf",
-    "content": "https://preservation.dlip.leeds.ac.uk/content/objects/DigitalObject1/my-directory/My_File.pdf",
-    "partOf": "https://preservation.dlip.leeds.ac.uk/repository/objects/DigitalObject1"
+    "content": "https://preservation.dlip.leeds.ac.uk/content/example-objects/DigitalObject1/my-directory/My_File.pdf",
+    "partOf": "https://preservation.dlip.leeds.ac.uk/repository/example-objects/DigitalObject1"
 }
  ```
 
@@ -95,9 +112,9 @@ For representing a file, any kind of file stored in the repository.
 | `type`       | "Binary"                       |
 | `name`       | The original name, which may contain any UTF-8 character. |
 | `digest`     | The SHA-256 checksum for this file. This will always be returned by the API, but is only required when sending to the API if the checksum is not provided some other way - see below. |
-| `location`   | The S3 URI within a deposit where this file may be accessed. If just browsing, this will be blank. If importing and sending this data to the API as part of an ImportJob, the S3 location the API should read the file from. If returned by the API as part of an export output, the location in S3 you can go to find the exported file. |
+| `location`   | The S3 URI within a deposit where this file may be accessed. If just browsing, this will be empty. If importing and sending this data to the API as part of an ImportJob, this is the S3 location the API should read the file from. If returned by the API as part of an export output, the location in S3 you can go to find the exported file. |
 | `content`    | An endpoint from which the binary content of the file may be retrieved (subject to authorisation). This is always provided by the API for API users to read a single file (it's not a location for the API to fetch from) |
-| `partOf`     | The `@id` of the DigitalObject the Binary is in. Never null when returned by the API. Not required when sending. |
+| `partOf`     | The `@id` of the DigitalObject the Binary is in. Never null when returned by the API. Not required when sending as part of an ImportJob. |
 
 
 ### 📦 DigitalObject
@@ -106,25 +123,127 @@ A preserved digital object - e.g., the files that comprise a digitised book, or 
 
 ```json5
 {
-    "@id": "https://preservation.dlip.leeds.ac.uk/repository/objects/DigitalObject1",
+    "@id": "https://preservation.dlip.leeds.ac.uk/repository/example-objects/DigitalObject1",
     "type": "DigitalObject",
     "name": "My Digital Object", 
     "version": {
-
+       "name": "v2",
+       "date": "2024-03-14T14:58:58"
     },
-    "versions": {
-
-    },
-    "containers": [],
-    "binaries": [
-        // ... see below  
-    ]
+    "versions": [
+      {
+       "@id": "https://preservation.dlip.leeds.ac.uk/repository/example-objects/DigitalObject1?version=v1",
+       "name": "v1",
+       "date": "2024-03-12T12:00:00"
+      },
+      {
+       "@id": "https://preservation.dlip.leeds.ac.uk/repository/example-objects/DigitalObject1?version=v2",
+       "name": "v2",
+       "date": "2024-03-14T14:58:58"
+      }
+    ],
+    "containers": [],    //
+    "binaries": []       //  These behave as with Container and Binary above
 }
 ```
 
+> ❓What more do we actually need here? Is that all? If you want OCFL / Storage map info, as DLCS will, you have the Storage API. Purely Preservation consumers don't need any more than this.
+
+#### Accessing previous versions
+
+The `versions` property allows you to view previous versions of the object. The `content` property of Binaries returned in an explicit version will also carry an explicit version in their URIs.
+
+
 ### Deposit
 
-A working set of files in S3, which will become a DigitalObject, or is used for updating a DigitalObject. API users ask the Preservation API to create a Deposit, which returns an identifier and a working area in S3 (a key under which to assemble files). 
+> ❓I still have reservations about this name - it's a deposit when you're building something up for the first time, but is that still a sensible thing to call it later?
+
+A working set of files in S3, which will become a DigitalObject, or is used for updating a DigitalObject. API users ask the Preservation API to create a Deposit, which returns an identifier and a working area in S3 (a key under which to assemble files).
+
+#### Creating a new deposit
+
+POST an **empty** body to `https://preservation.dlip.leeds.ac.uk/deposits/` and the API will create a new Deposit, assigning a URI (from the ID service):
+
+Request
+
+```
+POST /deposits HTTP/1.1
+Host: preservation.dlip.leeds.ac.uk
+(other headers omitted)
+```
+
+Response
+
+```
+HTTP/1.1 201 Created
+Location: https://preservation.dlip.leeds.ac.uk/deposits/e56fb7yg
+(other headers omitted)
+```
+
+The deposit at the provided `Location` will look like this (common user and date fields omitted as above):
+
+```
+GET /deposits/e56fb7yg HTTP/1.1
+Host: preservation.dlip.leeds.ac.uk
+(other headers omitted)
+```
+
+```json5
+{
+    "@id": "https://preservation.dlip.leeds.ac.uk/deposits/e56fb7yg",
+    "type": "Deposit",
+    "digital_object": null,
+    "files": "s3://dlip-working-bucket/deposits/e56fb7yg/", // what to call this property?
+    "status": "new",
+    "submission_text": "",
+    "date_preserved": null,
+    "date_exported": null,
+    "version_exported": null,
+    "version_saved": null,
+    "pipeline_jobs": []
+}
+```
+
+| Property           | Description                       | 
+| ------------------ | --------------------------------- |
+| `@id`              | URI of the Deposit in the API. This is always assigned by the API.   |
+| `type`             | "Deposit"                       |
+| `digital_object`   | The URI of the DigitalObject in the repository that this deposit will become (or was exported from).<br>You don't need to provide this up front. You may not know it yet (e.g., you are appraising files). For some users, it will be assigned automatically. It may suit you to set this shortly before sending the deposit for preservation. |
+| `files`            | An S3 key that represents a parent location. Use the "space" under this key to assemble files for an ImportJob. |
+| `status`           | TBC - a step in a workflow |
+| `submission_text`  | A space to leave notes for colleagues or your future self |
+| `date_preserved`   | Timestamp indicating when this deposit was last used to create an ImportJob for the Respository*  |
+| `date_exported`    | If this deposit was created as a result of asking the API to export a DigitalObject, the date that happened.  |
+| `version_exported` | ...and the version of the Digital object that was exported then.  |
+| `version_saved`    | If an Import Job is created from the files in this deposit and then sent to Preservation, the version that was created. |
+| `pipeline_jobs`    | A list of jobs that have run on this deposit (TBC) |
+
+> ❓* What's the relationship between a Deposit and an ImportJob? An ImportJob defines the creation or update of an ArchivalGroup; you might create an ImportJob based on some or all of the files in a Deposit - but there doesn't have to be a one-to-one between the files sitting in S3 under a deposit's files and the ImportJob that puts them into the Storage API - you might leave a few behind, deliberately, or might only need the Deposit and its S3 space to patch one file.
+
+
+You can also POST a partial Deposit body to provide the Preservation URI or submission text at creation time:
+
+Request
+
+```
+POST /deposits HTTP/1.1
+Host: preservation.dlip.leeds.ac.uk
+(other headers omitted)
+
+{
+  "digital_object": "https://preservation.dlip.leeds.ac.uk/repository/example-objects/DigitalObject2",
+  "submission_text": "Just leaving this here"
+}
+```
+
+> ❓Goobi doesn't need to use most of the functionality of a Deposit - that's for other bespoke applications. It really only uses it to acquire a working S3 space to assemble files.
+
+
+#### Working on a deposit
+
+
+
+
 
 
 ### ImportJob
