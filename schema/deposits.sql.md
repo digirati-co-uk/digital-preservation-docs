@@ -22,8 +22,8 @@ create table if not exists public.deposits
     status              text,
     last_modified       timestamp,
     submission_text     text,
-    pipeline_ran        timestamp,
-    pipeline_job_id     varchar,
+    -- pipeline_ran        timestamp,   -- This is the wrong cardinality
+    -- pipeline_job_id     varchar,     -- pipeline-jobs references a deposit instead
     date_preserved      timestamp,
     date_exported       timestamp,
     version_exported    varchar,
