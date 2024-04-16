@@ -17,6 +17,8 @@ However, there are concepts that are common to both, where the Preservation API 
 
 > ❓the Preservation API does not need to expose all the OCFL details. Should the Preservation API expose the `origin` property? Or is the DLCS-syncing code also a direct consumer of the Storage API? If we hide `origin` then the only S3 paths in responses are for import and export operations which is cleaner.
 
+This RFC deals with the Preservation API working on content in Amazon AWS S3, rather than on local file systems or other cloud storage providers. There is no reason why it couldn't support multiple protocols for the `location` property of a Binary and the `files` property of a Deposit, but we're going to implement S3 initially and it keeps this document simpler to limit it to that.
+
 The Preservation API assumes that its callers have access to the AWS S3 working bucket(s), which is necessary to get binary content in or out.
 
 ## Authentication
@@ -31,7 +33,7 @@ Throughout this RFC the API is shown on the host name `preservation.dlip.leeds.a
 
 The resource types Container, Binary, DigitalObject and Deposit below all share a set of common properties:
 
-```json5
+```jsonc
 {
     "@id": "https://preservation.dlip.leeds.ac.uk/...(path)...",
     "type": "(Resource)", // One of those below
@@ -64,7 +66,7 @@ For building structure to organise the repository into a hierarchical layout. Co
 
 A Container retrieved while browsing the repository via the API might look like this:
 
-```json5
+```jsonc
 {
     "@id": "https://preservation.dlip.leeds.ac.uk/repository/example-objects/DigitalObject1/my-directory",
     "type": "Container",
@@ -94,7 +96,7 @@ For representing a file, any kind of file stored in the repository.
  - Binaries can only exist within DigitalObjects
  - You add or patch binaries by referencing files in S3 by their URIs in an ImportJob
 
-```json5
+```jsonc
 {
     "@id": "https://preservation.dlip.leeds.ac.uk/repository/example-objects/DigitalObject1/my-directory/My_File.pdf",
     "type": "Binary",
@@ -121,7 +123,7 @@ For representing a file, any kind of file stored in the repository.
 
 A preserved digital object - e.g., the files that comprise a digitised book, or a manuscript, or a born digital item. A DigitalObject might only have one file, or may contain hundreds of files and directories (e.g., digitised images and METS.xml). A DigitalObject is the unit of versioning - files within a DigitalObject cannot be separately versioned, only the DigitalObject as a whole.
 
-```json5
+```jsonc
 {
     "@id": "https://preservation.dlip.leeds.ac.uk/repository/example-objects/DigitalObject1",
     "type": "DigitalObject",
@@ -156,7 +158,7 @@ The `versions` property allows you to view previous versions of the object. The 
 
 ### Deposit
 
-> ❓I still have reservations about this name - it's a deposit when you're building something up for the first time, but is that still a sensible thing to call it later?
+> ❓I still have reservations about this name - it's a deposit when you're building something up for the first time, but is that still a sensible thing to call it later? Working files, working set, etc. 
 
 A working set of files in S3, which will become a DigitalObject, or is used for updating a DigitalObject. API users ask the Preservation API to create a Deposit, which returns an identifier and a working area in S3 (a key under which to assemble files).
 
@@ -188,7 +190,7 @@ Host: preservation.dlip.leeds.ac.uk
 (other headers omitted)
 ```
 
-```json5
+```jsonc
 {
     "@id": "https://preservation.dlip.leeds.ac.uk/deposits/e56fb7yg",
     "type": "Deposit",
@@ -241,20 +243,87 @@ Host: preservation.dlip.leeds.ac.uk
 
 #### Working on a deposit
 
+You can do whatever you like in the S3 space provided by a deposit. Upload new files to S3, rearrange the files, etc.
 
+Most clients will also include a METS file, and the Preservation API will use that METS file to obtain, if possible, expected digest (SHA256) checksums for each file, original names of files and directories, and content types (mime types) of files. This additional information is required for constructing an Import Job. The places the Preservation API looks for this information in a METS file are described later.
 
+If you are not using a METS file, or are using a METS file that the Preservation API does not understand, you must provide digest information another way - by asking AWS to compute the checksum [AWS docs](https://docs.aws.amazon.com/AmazonS3/latest/userguide/checking-object-integrity.html).
 
+You can also supply them in an Import Job as described below.
+
+Most of the work done on a deposit is in S3, placing files. You can also modify the Deposit, providing (or updating) the `digital_object`, `submission_text` and `status` fields (the API can also set the status field itself). To perform an Import Job on a deposit, it must have had its `digital_object` property set, but _when_ in the workflow this happens is up to you.
+
+You can also _split_ a deposit into two separate deposits (and more by repeating this action.)
+
+> ❓The **split** instruction is probably an ImportJob with a different intent, that doesn't go to Preservation. "Do this to these files". Whether this is the same class or a very similar looking class is TBC - Goobi won't need this (I think) so we'll defer specification of splitting until later.
 
 
 ### ImportJob
 
-An ImportJob is like a diff - a statement, in JSON form, of what changes you want carried out 
-A means of synchronising a deposit with the repository
+An ImportJob is like a diff - a statement, in JSON form, of what changes you want carried out. Containers to add, Containers to delete, Binaries to add, Binaries to delete, Binaries to update (patch).
+
+If you are using the Deposit as an assembly area for files, you can ask the Preservation API to build an ImportJob for you, from the content of the Deposit in S3. You can also ask it to build and execute the ImportJob in a single operation.
+
+This isn't always desirable - you might create a Deposit for the purposes of making an edit to a single file (e.g., a METS file), and the content of the Deposit might be just that one file you want to change - and not necessarily sitting in the Deposit at the correct relative path. In this scenario, if you asked the platform to generate an ImportJob, it would see the mostly empty S3 working space and produce an ImportJob with many Containers to delete and many Binaries to delete. In that scenario, it would have been better to construct the ImportJob manually and specify just the one Binary to patch - giving both the `@id` property of the Binary - its repository address - and the `location` property - the S3 URI.
+
+An Import Job is a means of synchronising a deposit with the repository, whether the deposit represents the new state in its entirety, or is partial. Even if the only operations you want to perform in an Import Job are deletions, you still need a Deposit to give the ImportJob context, and for auditing.
+
+Before you can ask for an Import Job, the `digital_object` field of the Deposit must have been set - otherwise the API has nothing to compare it with. This applies to a new Deposit where no DigitalObject yet exists - you're effectively comparing your S3 files with an empty object.
+
+```jsonc
+{
+    // Example - like a Storage API job but uses the Containers and Binaries defined above
+    // TBC in the AM
+}
+```
+
+### Generate Import Job
+
+Requesting an Import Job to be created from the files in S3 makes no changes to any state, and is retrieved with a GET:
+
+```
+GET /deposits/e56fb7yg/importJobs HTTP/1.1
+Host: preservation.dlip.leeds.ac.uk
+```
+
+```jsonc
+{
+   // similar to example above
+}
+```
+
+The Import Job is generated from multiple sources:
+
+- The layout of files in S3
+- The METS file in that layout, if present: the API looks for a METS file in specific locations. 
+- SHA256 checksums in the METS, and/or...
+- SHA256 checksums in AWS S3 object metadata
+- Content type information in the METS
+- File and Directory name information in the METS (if present)
+- File and Directory (S3 Object) key names in S3 (will be normalised to reduced character set for the `@id` properties of Containers and Binaries within the Ingest Job and therefore within the resulting DigitalObject)
+
+
+> ❓ You can also have caused a METS file to be created already - TBC, Goobi always brings its own METS file
+
+You can of course generate this JSON manually. As mentioned it's not required that the `@id` _targets_ of your Containers and Binaries in the intended digital object match the S3 file structure; this will be the case if you requested an Import Job.
+
+
+### Execute import job
+
+```
+POST /deposits/e56fb7yg/importJobs HTTP/1.1
+Host: preservation.dlip.leeds.ac.uk
+
+(the Import Job JSON body)
+```
+
+
+
 
 ## Navigating the repository
 
 
-## Actions
+## Example Actions
 
 ### Create a Container in the repository
 
@@ -271,7 +340,14 @@ get back id, preservation_path (if assigned), S3 location
 
 My METS, Your METS
 
-Fixity information in Pronom
+METS requirements - 
+
+PRONOM data for fixity
+LABEL property of attributes
+
+> ❓ We will formally define how we expect to see the following in METS - but they are based on Wellcome METS produced by Goobi (except the Archivematica LABEL example). For now just XML snippets.
+
+#### Fixity information in Pronom
 
 ```xml
 <mets:amdSec ID="AMD">
@@ -285,11 +361,14 @@ Fixity information in Pronom
               <premis:messageDigest>5ac97693da5cd77233515b280048631b59319df6</premis:messageDigest>
 ```
 
-Original filename
+#### Original filename
 
-> Goobi METS doesn't record this - use the name in S3; Archivematica METS records it as LABEL attribute on divs in physcial structMap, we will do the same when we run our normalisation pipeline
+> Goobi METS doesn't record this - use the name in S3; Archivematica METS records it as `LABEL` attribute on divs in physical structMap, we will do the same when we run our normalisation pipeline
 
-File format identification
+TBC - Archivematica-esque example
+
+
+#### File format identification
 
 ```xml
 <mets:amdSec ID="AMD">
@@ -309,9 +388,7 @@ File format identification
             </premis:format>
 ```
 
-
-
-Content Type if possible
+#### Content Type if possible
 
 Goobi does it like this:
 
@@ -331,19 +408,11 @@ Archivematica only in tool output
 METS options
 
 
-### Generate Import Job
-
-From a deposit and therefore its files
-
-
-### Execute import job
-
-for a deposit
 
 
 ### Create a deposit for an existing digital object
 
-ask for deposit passing preservation path of existing object
+(export optional) ask for deposit passing preservation path of existing object
 
 
 ### Partial updates
@@ -358,9 +427,11 @@ Is streamed to HTTP response
 
 ### Request an export to S3
 
-Produces ExportResponse
+Produces ExportResponse - creates a new Deposit with all the files in it, from a DigitalObject in the repository
+
 
 ### Find a deposit
+
 
 
 ### View recent deposits
@@ -370,23 +441,6 @@ Produces ExportResponse
 
 
 
-
-Import Job
-
-Deposit ID
-Preservation Path
-METS path
-ImportJob properties
-Client identity (user? Goobi is a user?)
-
-METS requirements
-
-PRONOM data for fixity
-
-LABEL property of attributes
-
-
-Individual Binary as stream
 
 
 Export Job
