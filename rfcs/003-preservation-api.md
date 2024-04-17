@@ -194,15 +194,15 @@ Host: preservation.dlip.leeds.ac.uk
 {
     "@id": "https://preservation.dlip.leeds.ac.uk/deposits/e56fb7yg",
     "type": "Deposit",
-    "digital_object": null,
+    "digitalObject": null,
     "files": "s3://dlip-working-bucket/deposits/e56fb7yg/", // what to call this property?
     "status": "new",
-    "submission_text": "",
-    "date_preserved": null,
-    "date_exported": null,
-    "version_exported": null,
-    "version_saved": null,
-    "pipeline_jobs": []
+    "submissionText": "",
+    "datePreserved": null,
+    "dateExported": null,
+    "versionExported": null,
+    "versionSaved": null,
+    "pipelineJobs": []
 }
 ```
 
@@ -210,18 +210,17 @@ Host: preservation.dlip.leeds.ac.uk
 | ------------------ | --------------------------------- |
 | `@id`              | URI of the Deposit in the API. This is always assigned by the API.   |
 | `type`             | "Deposit"                       |
-| `digital_object`   | The URI of the DigitalObject in the repository that this deposit will become (or was exported from).<br>You don't need to provide this up front. You may not know it yet (e.g., you are appraising files). For some users, it will be assigned automatically. It may suit you to set this shortly before sending the deposit for preservation. |
+| `digitalObject`   | The URI of the DigitalObject in the repository that this deposit will become (or was exported from).<br>You don't need to provide this up front. You may not know it yet (e.g., you are appraising files). For some users, it will be assigned automatically. It may suit you to set this shortly before sending the deposit for preservation. |
 | `files`            | An S3 key that represents a parent location. Use the "space" under this key to assemble files for an ImportJob. |
-| `status`           | TBC - a step in a workflow |
-| `submission_text`  | A space to leave notes for colleagues or your future self |
-| `date_preserved`   | Timestamp indicating when this deposit was last used to create an ImportJob for the Respository*  |
-| `date_exported`    | If this deposit was created as a result of asking the API to export a DigitalObject, the date that happened.  |
-| `version_exported` | ...and the version of the Digital object that was exported then.  |
-| `version_saved`    | If an Import Job is created from the files in this deposit and then sent to Preservation, the version that was created. |
-| `pipeline_jobs`    | A list of jobs that have run on this deposit (TBC) |
+| `status`           | TBC - a step in a workflow. If you requested this deposit to be created from an existing digital object (see Export below), then you need to wait until this status becomes "ready" before you can be sure that all the files are in S3. You won't be able to do any work from the deposit until this happens. |
+| `submissionText`  | A space to leave notes for colleagues or your future self |
+| `datePreserved`   | Timestamp indicating when this deposit was last used to create an ImportJob for the Respository*  |
+| `dateExported`    | If this deposit was created as a result of asking the API to export a DigitalObject, the date that happened.  |
+| `versionExported` | ...and the version of the Digital object that was exported then.  |
+| `versionSaved`    | If an Import Job is created from the files in this deposit and then sent to Preservation, the version that was created. |
+| `pipelineJobs`    | A list of jobs that have run on this deposit (TBC) |
 
 > ❓* What's the relationship between a Deposit and an ImportJob? An ImportJob defines the creation or update of an ArchivalGroup; you might create an ImportJob based on some or all of the files in a Deposit - but there doesn't have to be a one-to-one between the files sitting in S3 under a deposit's files and the ImportJob that puts them into the Storage API - you might leave a few behind, deliberately, or might only need the Deposit and its S3 space to patch one file.
-
 
 You can also POST a partial Deposit body to provide the Preservation URI or submission text at creation time:
 
@@ -233,8 +232,8 @@ Host: preservation.dlip.leeds.ac.uk
 (other headers omitted)
 
 {
-  "digital_object": "https://preservation.dlip.leeds.ac.uk/repository/example-objects/DigitalObject2",
-  "submission_text": "Just leaving this here"
+  "digitalObject": "https://preservation.dlip.leeds.ac.uk/repository/example-objects/DigitalObject2",
+  "submissionText": "Just leaving this here"
 }
 ```
 
@@ -251,11 +250,33 @@ If you are not using a METS file, or are using a METS file that the Preservation
 
 You can also supply them in an Import Job as described below.
 
-Most of the work done on a deposit is in S3, placing files. You can also modify the Deposit, providing (or updating) the `digital_object`, `submission_text` and `status` fields (the API can also set the status field itself). To perform an Import Job on a deposit, it must have had its `digital_object` property set, but _when_ in the workflow this happens is up to you.
+Most of the work done on a deposit is in S3, placing files. You can also modify the Deposit, providing (or updating) the `digitalObject`, `submissionText` and `status` fields (the API can also set the status field itself). To perform an Import Job on a deposit, it must have had its `digitalObject` property set, but _when_ in the workflow this happens is up to you.
 
 You can also _split_ a deposit into two separate deposits (and more by repeating this action.)
 
 > ❓The **split** instruction is probably an ImportJob with a different intent, that doesn't go to Preservation. "Do this to these files". Whether this is the same class or a very similar looking class is TBC - Goobi won't need this (I think) so we'll defer specification of splitting until later.
+
+
+#### Export: creating a deposit from an existing digital object
+
+This is when you want access to the files of a Digital Object in S3, usually because you want to make an update but could be for any purpose. You may be an API client that has access to the working S3 space but not to the underlying Fedora repository (almost certainly!). While you can request an individual HTTP response for any Binary, sometimes you want the whole object to work on.
+
+To do this you POST a non-empty body to `/deposits/export`:
+
+```
+POST /deposits/export HTTP/1.1
+Host: preservation.dlip.leeds.ac.uk
+(other headers omitted)
+
+{
+  "digitalObject": "https://preservation.dlip.leeds.ac.uk/repository/example-objects/DigitalObject2",
+  "version": "v2"
+}
+```
+
+If `version` is omitted (which will usually be the case) the latest version is exported to create a new Deposit. 
+
+The POST returns a new Deposit object as a JSON body, which includes the S3 location in the `files` property. While the Deposit object is returned immediately, it's not complete until its `status` property is "ready" - you can check by polling. Only after this happens are the files available in S3 (at the location given by `files`). You might see files arriving in S3 while this happens, but you can't do any work with the Deposit until it is "ready".
 
 
 ### ImportJob
@@ -268,21 +289,72 @@ This isn't always desirable - you might create a Deposit for the purposes of mak
 
 An Import Job is a means of synchronising a deposit with the repository, whether the deposit represents the new state in its entirety, or is partial. Even if the only operations you want to perform in an Import Job are deletions, you still need a Deposit to give the ImportJob context, and for auditing.
 
-Before you can ask for an Import Job, the `digital_object` field of the Deposit must have been set - otherwise the API has nothing to compare it with. This applies to a new Deposit where no DigitalObject yet exists - you're effectively comparing your S3 files with an empty object.
+Before you can ask for an Import Job, the `digitalObject` field of the Deposit must have been set - otherwise the API has nothing to compare it with. This applies to a new Deposit where no DigitalObject yet exists - you're effectively comparing your S3 files with an empty object.
 
 ```jsonc
 {
-    // Example - like a Storage API job but uses the Containers and Binaries defined above
-    // TBC in the AM
+    "@id": "https://preservation.dlip.leeds.ac.uk/deposits/e56fb7yg/importJobs/diff",
+    "type": "ImportJob",
+    "deposit": "https://preservation.dlip.leeds.ac.uk/deposits/e56fb7yg",
+    "digitalObject": "https://preservation.dlip.leeds.ac.uk/repository/example-objects/DigitalObject2",
+    "sourceVersion": {
+       "name": "v2",
+       "date": "2024-03-14T14:58:58"
+    },
+    "containersToAdd": [
+      {
+        "@id": "https://preservation.dlip.leeds.ac.uk/repository/example-objects/DigitalObject1/my-directory/bar",
+        "name": "bar"
+      },      
+    ],
+    "binariesToAdd": [
+      {
+        "@id": "https://preservation.dlip.leeds.ac.uk/repository/example-objects/DigitalObject1/my-directory/foo.jpg",
+        "name": "foo.jpg",
+        "digest": "b6aa90e47d5853bc1b84915f2194ce9f56779bc96bcf48d122931f003d62a33c",
+        "location": "s3://dlip-working-bucket/deposits/e56fb7yg/my-directory/foo.jpg"
+      },
+      {
+        "@id": "https://preservation.dlip.leeds.ac.uk/repository/example-objects/DigitalObject1/my-directory/bar/strasse.xml",
+        "name": "straße.xml",
+        "digest": "2c9eaa2a0080b9e20b481e7550c64096dd12731c574b8884a280b4b3fe8fd40e",
+        "location": "s3://dlip-working-bucket/deposits/e56fb7yg/my-directory/bar/stra___.xml"
+      }
+    ],
+    "containersToDelete": [],
+    "binariesToDelete": [      
+      {
+        "@id": "https://preservation.dlip.leeds.ac.uk/repository/example-objects/DigitalObject1/my-directory/unwanted.txt",
+      }
+    ],
+    "binariesToPatch": []
 }
 ```
+
+| Property           | Description                       | 
+| ------------------ | --------------------------------- |
+| `@id`              | The URI this import job was obtained from, OR your own identifier for it if generated manually or edited. This URI has no special significance for _processing_ the job.  |
+| `type`             | "ImportJob"                       |
+| `deposit`          | The Deposit that was used to generate this job, or to which it will be sent. The job must be POSTed to the value of this property plus `/importJobs` |
+| `digitalObject`   |  The object in the repository that the job is to be performed on. This object doesn't necessarily exist yet - this job might be creating it. The value must match the `digitalObject` of the deposit, so it's technically redundant, but must be included so that the intent is explicit and self-contained. |
+| `sourceVersion`    | Always provided when you ask the API to generate an ImportJob as a diff and the DigitalObject already exists. May be null for a new object.* |
+| `containersToAdd`  | A list of Container objects to be created within the Digital object. The `@id` property gives the URI of the container to be created, whose path must be "within" the Digital Object and must only use characters from the permitted set. The `name` property of the container may be any UTF-8 characters, and can be used to preserve an original directory name. |
+| `binariesToAdd`  | A list of Binary objects to be created within the Digital object from keys in S3. The `@id` property gives the URI of the binary to be created, whose path must be "within" the Digital Object and must only use characters from the permitted set. The `name` property of the Binary may be any UTF-8 characters, and can be used to preserve an original file name. The `location` must be an S3 key within the Deposit. The `digest` is only required if the SHA256 cannot be obtained by the API from METS file information or from S3 metadata. All API-generated jobs will include this field. Note that in the second example above, the URI last path element, the `name` property, and the S3 location last path element are all different - this is permitted, although perhaps unusual. |
+| `containersToDelete` | A list of containers to remove. `@id` is the only required property. The Containers must either be already empty, or only contain Binaries mentioned in the `binariesToDelete` property of the same ImportJob. |
+| `binariesToDelete` | A list of binaries to remove. `@id` is the only required property.  |
+| `binariesToPatch`  | A list of Binary objects to be updated within the Digital object from keys in S3. The `@id` property gives the URI of the binary to be patched, which must already exist. The `name` property of the Binary may be any UTF-8 characters, and can be used to preserve an original file name. This may be different from the originally supplied `name`. The `location` must be an S3 key within the Deposit. The `digest` is only required if the SHA256 cannot be obtained by the API from METS file information or from S3 metadata. |
+
+
+> ❓* Do we require the version to be specified (and require it to be the current version) if you've manually built an ImportJob? As a means of avoiding conflicts?
+
+> ❓What kind of safeguards do we want? e.g., if you specify a binary to delete that isn't there, is that an error? Obviously any binariesToAdd that aren't there is an error. What if you specify a binary to add that's already there? Error - use binariesToPatch instead. Do you need to provide the binary+digest in S3 if you ONLY want to patch the `name` property?
 
 ### Generate Import Job
 
 Requesting an Import Job to be created from the files in S3 makes no changes to any state, and is retrieved with a GET:
 
 ```
-GET /deposits/e56fb7yg/importJobs HTTP/1.1
+GET /deposits/e56fb7yg/importJobs/diff HTTP/1.1
 Host: preservation.dlip.leeds.ac.uk
 ```
 
@@ -310,40 +382,120 @@ You can of course generate this JSON manually. As mentioned it's not required th
 
 ### Execute import job
 
+Whether generated for you or manually created, you need to POST a JSON payload to `<deposit-uri>/importJobs`.
+
 ```
 POST /deposits/e56fb7yg/importJobs HTTP/1.1
 Host: preservation.dlip.leeds.ac.uk
 
-(the Import Job JSON body)
+(the Import Job JSON body, as above)
 ```
 
+There is a special case where you don't need to see or edit the diff-generated Import Job. In this case the body POSTed to the .../importJobs endpoint comprises ONLY the special .../diff ID:
+
+```jsonc
+{
+  "@id": "https://preservation.dlip.leeds.ac.uk/deposits/e56fb7yg/importJobs/diff"
+}
+```
+
+This payload is an instruction to the API to synchronise the DigitalObject with the S3 contents of the deposit, in a single action.
+
+In all cases, the resource returned from submitting an ImportJob is an `ImportJobResult`.
+
+> ❓ Better name? 
 
 
+> ❓ Some validation can happen on immediate receipt of the POST - e.g., JSON is well formed, can be parsed into expected objects, has expected deposits, etc. But some probably has to wait until the job is actually picked up - even checking digests, checking for file presence in both S3 and Storage API. We won't begin any fedora transaction until processing actually starts, which means that in theory the job may have been valid when submitted but is no longer (two people are having a go...) I think we don't want excessive locking, we are optimistic but fail quickly on any problem. Maybe this is why you have to provide the `sourceVersion`.
 
-## Navigating the repository
+This resource is returned quickly, before the ImportJob actually runs. The ImportJob may take a long time to run, be sitting in a queue, or otherwise not available for a while. You can repeatedly GET an ImportJob to check its progress.
+
+```jsonc
+{
+    "@id": "https://preservation.dlip.leeds.ac.uk/deposits/e56fb7yg/importJobs/results/ad5fbm8k",
+    "type": "ImportJobResult",
+    "importJob": "https://preservation.dlip.leeds.ac.uk/deposits/e56fb7yg/importJobs/ad5fbm8k",
+    "originalImportJobId": "https://preservation.dlip.leeds.ac.uk/deposits/e56fb7yg/importJobs/diff",
+    "deposit": "https://preservation.dlip.leeds.ac.uk/deposits/e56fb7yg",
+    "digitalObject": "https://preservation.dlip.leeds.ac.uk/repository/example-objects/DigitalObject2",
+    "status": "waiting",
+    "dateSubmitted": "",
+    "dateBegun": "",
+    "dateFinished": "",
+    "newVersion": "",
+    "errors": [],
+    "containersAdded": [],
+    "binariesAdded": [],
+    "containersDeleted": [],
+    "binariesDeleted": [],
+    "binariesPatched": []
+}
+```
+
+| Property           | Description                       | 
+| ------------------ | --------------------------------- |
+| `@id`              | The URI of this ImportJobResult. You can poll this (with GET) to check for progress, using the fields below. |
+| `type`             | "ImportJobResult"             |
+| `importJob`        | A URI minted by the API which shows you the ImportJob submitted, for which this is the result. This is newly minted by the API when you actually submit an ImportJob, because: 1) not all Import Jobs are actually executed; 2) It may have been the special `.../diff` ImportJob; 3) It may have been an external identifier you provided.           |
+| `originalImportJobId` | The `@id` property of the original submitted job |
+| `deposit`             | Explicitly included for convenience; the deposit the job was started from. |
+| `digitalObject`       | Also included for convenience, the repository object the changes specified in the job are being applied to. |
+| `status`              | One of "waiting", "running", "completed", "completedWithErrors" |
+| `dateSubmitted`       | Timestamp indicating when the API received the initial POST of the job |
+| `dateBegun`           | Timestamp indicating when the API started processing the job. Will be null/missing until then. |
+| `dateFinished`        | Timestamp indicating when the API finished processing the job. Will be null/missing until then. |
+| `newVersion`          | The version of the DigitalObject this job caused to be produced. Not known until the job has finished processing * |
+| `errors`              | A list of errors encountered. These are error objects, not strings. (to be documented) |
+| `containersAdded`     | Populated once the job has finished successfully. |
+| `binariesAdded`       | Populated once the job has finished successfully. |
+| `containersDeleted`   | Populated once the job has finished successfully. |
+| `binariesDeleted`     | Populated once the job has finished successfully. |
+| `binariesPatched`     | Populated once the job has finished successfully. |
+
+> ❓ * can we know it earlier than that? 
+
 
 
 ## Example Actions
 
+
+### Navigating the repository
+
+> RESTfully follow links with HTTP GETs, starting at the repository root `https://preservation.dlip.leeds.ac.uk/repository/`
+
+We also need to search the repository, with filtering - "I can't browse to it, I don't know where it is" - or "there are 500,000 objects in this folder"
+
 ### Create a Container in the repository
 
-> Goobi might not need to do this, if there is a default container associated with a client, or it is _assigned_ a Preservation Path
+> Goobi might not need to do this, if there is a default container associated with a client, or it is _assigned_ a digitalObject.
 
-### Create a deposit for a new digital object
+### Find a deposit
 
-Ask for a deposit
+(find work that needs your attention)
 
-get back id, preservation_path (if assigned), S3 location
+> Browse but also Search
+
+### View recent deposits
+
+- (User activity stream)
+- (System activity stream)
 
 
-### METS obligations
+<hr>
 
-My METS, Your METS
+> ❓ What follows below is less developed...
 
-METS requirements - 
 
-PRONOM data for fixity
-LABEL property of attributes
+## METS obligations
+
+This section is to be expanded - it defines where the Preservation API looks for METS, what it looks for inside METS, and where it looks for it.
+
+For now - be assured that it will work with Goobi METS - we will make it work with whatever METS Goobi is producing as a starter requirement.
+
+METS-carried information:
+
+- PRONOM data for fixity
+- LABEL property of attributes
 
 > ❓ We will formally define how we expect to see the following in METS - but they are based on Wellcome METS produced by Goobi (except the Archivematica LABEL example). For now just XML snippets.
 
@@ -365,7 +517,7 @@ LABEL property of attributes
 
 > Goobi METS doesn't record this - use the name in S3; Archivematica METS records it as `LABEL` attribute on divs in physical structMap, we will do the same when we run our normalisation pipeline
 
-TBC - Archivematica-esque example
+TBC - Archivematica-esque example with struct divs of type File and Directory, with LABEL attributes.
 
 
 #### File format identification
@@ -398,8 +550,9 @@ Goobi does it like this:
       <mets:file ID="FILE_0001_OBJECTS" MIMETYPE="image/jp2">
 ```
 
-Archivematica only in tool output
+Archivematica only in tool output. But we'll try to deduce that.
 
+## Pipelines
 
 ### Run pipeline
 
@@ -410,38 +563,3 @@ METS options
 
 
 
-### Create a deposit for an existing digital object
-
-(export optional) ask for deposit passing preservation path of existing object
-
-
-### Partial updates
-
-You must supply a digest somehow. And if not in a METS file, it must be in S3 metadata.
-You still need an ImportJob.
-
-### Request a single binary
-
-Is streamed to HTTP response
-
-
-### Request an export to S3
-
-Produces ExportResponse - creates a new Deposit with all the files in it, from a DigitalObject in the repository
-
-
-### Find a deposit
-
-
-
-### View recent deposits
-
-(User activity stream)
-(System activity stream)
-
-
-
-
-
-Export Job
-Dump the whole object to an S3 location
