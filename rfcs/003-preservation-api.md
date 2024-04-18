@@ -582,6 +582,44 @@ Archivematica only in tool output. But we'll try to deduce that.
 
 METS options
 
+## Associating identifiers from other systems
+
+(interaction with id service - but how much of that is visible to callers?)
+
+(should API callers be interacting with the id service themselves?)
+
+### With Deposits
+
+ - initial bundle of files 
+
+### With Digital Objects
+
+ - now in the Repository
+
+## Managing Digital Objects
+
+### Splitting an object into two
+
+A special kind of import job? POST to a ../split endpoint? Does it need a Deposit?
+
+A managed dual Deposit - user could do this manually by:
+
+ - Exporting to a Deposit D1
+ - Creating a new second deposit D2
+ - copying subset of files from D1's S3 to D2's S3
+ - Create an ImportJob from D1 that deletes those containers and binaries
+ - Create an ImportJob (auto) from D2 that adds the copied files to a new Digital Object
+
+The Preservation API could assist in this process with a formal "split" operation.
+
+What happens to the old version - persist in Fedora as distinct object?
+
+### Merging two digital objects
+
+If an object is to be merged with **part** of another object, that other object should be split first.
+
+
+
 
 
 
