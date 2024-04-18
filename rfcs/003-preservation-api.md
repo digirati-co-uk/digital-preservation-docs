@@ -1,25 +1,27 @@
 # Preservation API
 
+> ❓This question mark indicates a discussion point rather than a  
+
 The Preservation API is consumed by the applications we are going to build, and also by Goobi. Goobi uses it to preserve, and, sometimes, to recover a preserved _DigitalObject_ later for further work. Other applications use it either directly or via a Web UI for Preservation tasks, including evaluation of born digital material and collaboration with donors and other staff.
 
-Whereas the [Storage API](002-storage-api.md) is a wrapper around Fedora that bridges files-to-be-preserved to Fedora ArchivalGroups, so the Preservation API bridges Leeds business rules, models of digital objects and born digital workflow to the Storage API.
+Whereas the [Storage API](002-storage-api.md) is a wrapper around Fedora that bridges files-to-be-preserved to Fedora Archival Groups, so the Preservation API bridges Leeds business rules, models of digital objects and born digital workflow to the Storage API. These processes are then doubly insulated against the specifics of Fedora.
 
 For example:
 
 - The Storage API doesn't know what a METS file is, it's just another file being preserved as part of a _DigitalObject_.
-- The Preservation API *does* know what a METS file is, and may use its contents to construct calls to the Storage API.
+- The Preservation API *does* know what a METS file is, and may use its contents (e.g., checksums, original file names) to construct calls to the Storage API.
 
 However, there are concepts that are common to both, where the Preservation API is basically passing information from or to the Storage API. An example of this is browsing the repository via the API, which passes through (in simplified form) the Storage API concepts of Containers and Binaries.
 
 > ❓The services for METS offered by the Preservation API are not detailed in this document; in this first version we will focus on Preservation of DigitalObjects. Similarly, interaction with EMu, splitting of Deposits and other specifically born digital flows are not covered - yet.
 
-> ❓In the Storage API, there are different classes for modelling "folders" and "files" in the repository (`Container` and `Binary`) and for files and folders in transfer, for importing and exporting (`ContainerDirectory` and `BinaryFile`). I think the Preservation API can do away with this distinction for simplicity, but name _its_ concepts `Container` and `Binary` (and `DigitalObject` for Fedora's Archival Group). This means we have different classes with the same name in both APIs
+> ❓In the Storage API, there are different classes for modeling "folders" and "files" in the Fedora repository (`Container` and `Binary`) and for files and folders in transfer, for importing and exporting from S3 or other storage (`ContainerDirectory` and `BinaryFile`). I think the Preservation API can do away with this distinction for simplicity, but I've named _its_ concepts `Container` and `Binary` (and `DigitalObject` for Fedora's Archival Group). This means we have different classes with the same name in both APIs, but anyone who has used Fedora will understand what they are.
 
-> ❓the Preservation API does not need to expose all the OCFL details. Should the Preservation API expose the `origin` property? Or is the DLCS-syncing code also a direct consumer of the Storage API? If we hide `origin` then the only S3 paths in responses are for import and export operations which is cleaner.
+> ❓the Preservation API does not need to expose all the OCFL details. Should the Preservation API expose the `origin` property? Or is the DLCS-syncing code also a direct consumer of the Storage API? If we hide `origin` then the only S3 paths in responses are for import and export operations which is cleaner. I think we should not expose underlying storage information in the Preservation API.
 
 This RFC deals with the Preservation API working on content in Amazon AWS S3, rather than on local file systems or other cloud storage providers. There is no reason why it couldn't support multiple protocols for the `location` property of a Binary and the `files` property of a Deposit, but we're going to implement S3 initially and it keeps this document simpler to limit it to that.
 
-The Preservation API assumes that its callers have access to the AWS S3 working bucket(s), which is necessary to get binary content in or out.
+The Preservation API assumes that its callers have access to the AWS S3 working bucket(s), which is necessary to get content in or out.
 
 ## Authentication
 
@@ -27,11 +29,23 @@ The API implements a standard OAuth2 [Client Credentials Flow](https://www.oauth
 
 Throughout this RFC the API is shown on the host name `preservation.dlip.leeds.ac.uk` - this is just for example.
 
+> ❓For implementation we should get this working early on, when the API is just a hello-world - to avoid running into issues retrofitting it later.
+
 ## Resource Types
+
+### Summary of resource types
+
+ - **DigitalObject**: a preserved _thing_, a set of files in the repository. May be just one file, or may be thousands with a complex internal directory structure. Usually has a METS file that describes the object and provides technical, structural and administrative metadata.
+ - **Container**: represents a directory or folder in the repository - both for folders within a DigitalObject, and for organisational structure in the repository above the level of a DigitalObject.
+ - **Binary**: any file - text, images, datasets etc. Can only exist within a DigitalObject.
+ - **Deposit**: a working set of files intended for Preservation (intended to become a DigitalObject) and also used for later updates to a DigitalObject.
+ - **ImportJob**: a set of instructions to the Preservation API to create or modify a DigitalObject - the Containers and Binaries from a Deposit to preserve. For some workflows you might edit this manually but for others you might never need to see it.
+ - **ImportJobResult**: a report on the execution of an ImportJob. It can be used to track an ongoing job as it is running, or for later examination.
+
 
 ### Common metadata
 
-The resource types Container, Binary, DigitalObject and Deposit below all share a set of common properties:
+The resource types `Container`, `Binary`, `DigitalObject` and `Deposit` below all share a set of common properties:
 
 ```jsonc
 {
@@ -47,6 +61,8 @@ The resource types Container, Binary, DigitalObject and Deposit below all share 
 }
 ```
 
+The resource types `ImportJob` and `ImportJobResult` also have the first four of these properties, but not `lastModified` and `lastModifiedBy` (as they cannot be modified).
+
 | Property         | Description                       | 
 | ---------------- | --------------------------------- |
 | `@id`            | URI of the resource in the API. The path may only contain characters from the *permitted set*.   |
@@ -61,8 +77,8 @@ The resource types Container, Binary, DigitalObject and Deposit below all share 
 
 For building structure to organise the repository into a hierarchical layout. Containers also represent directories within a DigitalObject.
 
- - Only some API users can create Containers within the repository. Other users are given an existing Container, or set of Containers, that they can create in.
- - Containers are also used to represent directories within a Digital Object, but no user of the API can create them inside a Digital Object directly. Instead they are created indirectly as part of an ImportJob.
+ - Only some API users can create Containers within the repository. Other users are given an existing Container, or set of Containers, that they can create DigitalObjects in.
+ - Containers are also used to represent directories within a Digital Object, but no user of the API can create them inside a Digital Object directly. Instead they are created indirectly as part of an ImportJob - the ImportJob specifies `containersToAdd` (see below).
 
 A Container retrieved while browsing the repository via the API might look like this:
 
@@ -81,20 +97,21 @@ A Container retrieved while browsing the repository via the API might look like 
 
 | Property     | Description                       | 
 | ------------ | --------------------------------- |
-| `@id`        | URI of the Container in the API. The path may only contain characters from the *permitted set*.   |
+| `@id`        | URI of the Container in the API. The path part of this URI may only contain characters from the *permitted set*.   |
 | `type`       | "Container"                       |
 | `name`       | The original name, which may contain any UTF-8 character. Often this will be the same as the last path element of the `@id`, but it does not have to be. |
 | `containers` | A list of the immediate child containers, if any. All members are of type `Container`. |
 | `binaries`   | A list of the immediate contained binaries, if any. All members are of type `Binary`. |
 | `partOf`     | The `@id` of the DigitalObject the Container is in. Not present if the Container is outside a DigitalObject. |
 
+Browsing the repository via the API means following links to child Binaries and Containers, recursively.
 
 ### 📄 Binary
 
-For representing a file, any kind of file stored in the repository. 
+For representing a file: any kind of file stored in the repository. 
 
  - Binaries can only exist within DigitalObjects
- - You add or patch binaries by referencing files in S3 by their URIs in an ImportJob
+ - You add or patch binaries by referencing files in S3 by their URIs in an ImportJob, rather than directly passing binary payloads to the API.
 
 ```jsonc
 {
@@ -113,8 +130,8 @@ For representing a file, any kind of file stored in the repository.
 | `@id`        | URI of the Binary in the API. The path may only contain characters from the *permitted set*.   |
 | `type`       | "Binary"                       |
 | `name`       | The original name, which may contain any UTF-8 character. |
-| `digest`     | The SHA-256 checksum for this file. This will always be returned by the API, but is only required when sending to the API if the checksum is not provided some other way - see below. |
-| `location`   | The S3 URI within a deposit where this file may be accessed. If just browsing, this will be empty. If importing and sending this data to the API as part of an ImportJob, this is the S3 location the API should read the file from. If returned by the API as part of an export output, the location in S3 you can go to find the exported file. |
+| `digest`     | The SHA-256 checksum for this file. This will always be returned by the API, but is only required when **sending** to the API if the checksum is not provided some other way - see below. |
+| `location`   | The S3 URI within a Deposit where this file may be accessed. If just browsing, this will be empty. If importing and sending this data to the API as part of an ImportJob, this is the S3 location the API should read the file from.  |
 | `content`    | An endpoint from which the binary content of the file may be retrieved (subject to authorisation). This is always provided by the API for API users to read a single file (it's not a location for the API to fetch from) |
 | `partOf`     | The `@id` of the DigitalObject the Binary is in. Never null when returned by the API. Not required when sending as part of an ImportJob. |
 
@@ -278,6 +295,8 @@ If `version` is omitted (which will usually be the case) the latest version is e
 
 The POST returns a new Deposit object as a JSON body, which includes the S3 location in the `files` property. While the Deposit object is returned immediately, it's not complete until its `status` property is "ready" - you can check by polling. Only after this happens are the files available in S3 (at the location given by `files`). You might see files arriving in S3 while this happens, but you can't do any work with the Deposit until it is "ready".
 
+> ❓Do we need an _ExportJobResult_? The Binary class has a `location` property, and I just removed this line from its description above: "If returned by the API as part of an export output, the location in S3 you can go to find the exported file." But now that export action returns a Deposit, which does not enumerate the files in JSON - you just go and look at them in S3. The Storage API does have this concept. Do we actually need it here? If so we could add an ExportResult resource type, which is included in a returned deposit when exported. 
+
 
 ### ImportJob
 
@@ -285,9 +304,9 @@ An ImportJob is like a diff - a statement, in JSON form, of what changes you wan
 
 If you are using the Deposit as an assembly area for files, you can ask the Preservation API to build an ImportJob for you, from the content of the Deposit in S3. You can also ask it to build and execute the ImportJob in a single operation.
 
-This isn't always desirable - you might create a Deposit for the purposes of making an edit to a single file (e.g., a METS file), and the content of the Deposit might be just that one file you want to change - and not necessarily sitting in the Deposit at the correct relative path. In this scenario, if you asked the platform to generate an ImportJob, it would see the mostly empty S3 working space and produce an ImportJob with many Containers to delete and many Binaries to delete. In that scenario, it would have been better to construct the ImportJob manually and specify just the one Binary to patch - giving both the `@id` property of the Binary - its repository address - and the `location` property - the S3 URI.
+This isn't always desirable - you might create a Deposit for the purposes of making an edit to a single file (e.g., a METS file), and the content of the Deposit might be just that one file you want to change - and not necessarily sitting in the Deposit at the correct relative path. In this scenario, if you asked the platform to generate an ImportJob, it would see the mostly empty S3 working space and produce an ImportJob with many Containers to delete and many Binaries to delete. It would have been better to construct the ImportJob manually and specify just the one Binary to patch - giving both the `@id` property of the Binary - its repository address - and the `location` property - the S3 URI.
 
-An Import Job is a means of synchronising a deposit with the repository, whether the deposit represents the new state in its entirety, or is partial. Even if the only operations you want to perform in an Import Job are deletions, you still need a Deposit to give the ImportJob context, and for auditing.
+An Import Job is a means of synchronising a deposit with the repository, whether the deposit represents the new state in its entirety, or is partial. Even if the only operations you want to perform in an Import Job are deletions, you still need a Deposit to give the ImportJob context - to launch it from - and for auditing.
 
 Before you can ask for an Import Job, the `digitalObject` field of the Deposit must have been set - otherwise the API has nothing to compare it with. This applies to a new Deposit where no DigitalObject yet exists - you're effectively comparing your S3 files with an empty object.
 
@@ -335,7 +354,7 @@ Before you can ask for an Import Job, the `digitalObject` field of the Deposit m
 | ------------------ | --------------------------------- |
 | `@id`              | The URI this import job was obtained from, OR your own identifier for it if generated manually or edited. This URI has no special significance for _processing_ the job.  |
 | `type`             | "ImportJob"                       |
-| `deposit`          | The Deposit that was used to generate this job, or to which it will be sent. The job must be POSTed to the value of this property plus `/importJobs` |
+| `deposit`          | The Deposit that was used to generate this job, and to which it will be sent if executed. The job must be POSTed to the value of this property plus `/importJobs` |
 | `digitalObject`   |  The object in the repository that the job is to be performed on. This object doesn't necessarily exist yet - this job might be creating it. The value must match the `digitalObject` of the deposit, so it's technically redundant, but must be included so that the intent is explicit and self-contained. |
 | `sourceVersion`    | Always provided when you ask the API to generate an ImportJob as a diff and the DigitalObject already exists. May be null for a new object.* |
 | `containersToAdd`  | A list of Container objects to be created within the Digital object. The `@id` property gives the URI of the container to be created, whose path must be "within" the Digital Object and must only use characters from the permitted set. The `name` property of the container may be any UTF-8 characters, and can be used to preserve an original directory name. |
@@ -345,11 +364,13 @@ Before you can ask for an Import Job, the `digitalObject` field of the Deposit m
 | `binariesToPatch`  | A list of Binary objects to be updated within the Digital object from keys in S3. The `@id` property gives the URI of the binary to be patched, which must already exist. The `name` property of the Binary may be any UTF-8 characters, and can be used to preserve an original file name. This may be different from the originally supplied `name`. The `location` must be an S3 key within the Deposit. The `digest` is only required if the SHA256 cannot be obtained by the API from METS file information or from S3 metadata. |
 
 
-> ❓* Do we require the version to be specified (and require it to be the current version) if you've manually built an ImportJob? As a means of avoiding conflicts?
+> ❓* Do we require the version to be specified (and require it to be the current version) if you've manually built an ImportJob? As a means of avoiding conflicts? "I think I'm basing this job on v2, I didn't realise the object was at v7 because Fred has been fiddling about with it".
 
 > ❓What kind of safeguards do we want? e.g., if you specify a binary to delete that isn't there, is that an error? Obviously any binariesToAdd that aren't there is an error. What if you specify a binary to add that's already there? Error - use binariesToPatch instead. Do you need to provide the binary+digest in S3 if you ONLY want to patch the `name` property?
 
-### Generate Import Job
+> ❓In the storage API prototype there are separate path properties for location within the object. Here, we use the fully qualified URI for everything, in the '@id` property: `https://preservation.dlip.leeds.ac.uk/<path/in/repository>/<path/within/object>`. This is harder to manage, callers will have to construct more, but it avoids any repetition and is always explicit. Is it usable though?
+
+#### Generate Import Job
 
 Requesting an Import Job to be created from the files in S3 makes no changes to any state, and is retrieved with a GET:
 
@@ -375,12 +396,12 @@ The Import Job is generated from multiple sources:
 - File and Directory (S3 Object) key names in S3 (will be normalised to reduced character set for the `@id` properties of Containers and Binaries within the Ingest Job and therefore within the resulting DigitalObject)
 
 
-> ❓ You can also have caused a METS file to be created already - TBC, Goobi always brings its own METS file
+> ❓ Goobi always brings its own METS file. Other contributing processes will bring theirs.
 
-You can of course generate this JSON manually. As mentioned it's not required that the `@id` _targets_ of your Containers and Binaries in the intended digital object match the S3 file structure; this will be the case if you requested an Import Job.
+You can of course generate this JSON manually. As mentioned it's not required that the `@id` values of your Containers and Binaries in the intended digital object match the source S3 file structure; this will always be the case if you requested an Import Job from the API but may not convenient for a single file update deep within the structure.
 
 
-### Execute import job
+#### Execute import job
 
 Whether generated for you or manually created, you need to POST a JSON payload to `<deposit-uri>/importJobs`.
 
@@ -399,16 +420,17 @@ There is a special case where you don't need to see or edit the diff-generated I
 }
 ```
 
-This payload is an instruction to the API to synchronise the DigitalObject with the S3 contents of the deposit, in a single action.
+This payload is an instruction to the API to synchronise the DigitalObject with the S3 contents of the deposit, in a single action. It's a Bad Request if the single `@id` in the JSON doesn't share the same deposit path it's POSTed to.
 
 In all cases, the resource returned from submitting an ImportJob is an `ImportJobResult`.
 
-> ❓ Better name? 
+> ❓ Do we need a better name than ImportJob?  
 
+### ImportJobResult
 
 > ❓ Some validation can happen on immediate receipt of the POST - e.g., JSON is well formed, can be parsed into expected objects, has expected deposits, etc. But some probably has to wait until the job is actually picked up - even checking digests, checking for file presence in both S3 and Storage API. We won't begin any fedora transaction until processing actually starts, which means that in theory the job may have been valid when submitted but is no longer (two people are having a go...) I think we don't want excessive locking, we are optimistic but fail quickly on any problem. Maybe this is why you have to provide the `sourceVersion`.
 
-This resource is returned quickly, before the ImportJob actually runs. The ImportJob may take a long time to run, be sitting in a queue, or otherwise not available for a while. You can repeatedly GET an ImportJob to check its progress.
+This resource is returned quickly, before the ImportJob actually runs. The ImportJob may take a long time to run, be sitting in a queue, or otherwise not available for a while. You can repeatedly GET an ImportJob to check its progress. It will be at status "waiting" until it is picked up for processing.
 
 ```jsonc
 {
@@ -419,10 +441,9 @@ This resource is returned quickly, before the ImportJob actually runs. The Impor
     "deposit": "https://preservation.dlip.leeds.ac.uk/deposits/e56fb7yg",
     "digitalObject": "https://preservation.dlip.leeds.ac.uk/repository/example-objects/DigitalObject2",
     "status": "waiting",
-    "dateSubmitted": "",
-    "dateBegun": "",
-    "dateFinished": "",
-    "newVersion": "",
+    "dateBegun": null,
+    "dateFinished": null,
+    "newVersion": null,
     "errors": [],
     "containersAdded": [],
     "binariesAdded": [],
@@ -441,7 +462,6 @@ This resource is returned quickly, before the ImportJob actually runs. The Impor
 | `deposit`             | Explicitly included for convenience; the deposit the job was started from. |
 | `digitalObject`       | Also included for convenience, the repository object the changes specified in the job are being applied to. |
 | `status`              | One of "waiting", "running", "completed", "completedWithErrors" |
-| `dateSubmitted`       | Timestamp indicating when the API received the initial POST of the job |
 | `dateBegun`           | Timestamp indicating when the API started processing the job. Will be null/missing until then. |
 | `dateFinished`        | Timestamp indicating when the API finished processing the job. Will be null/missing until then. |
 | `newVersion`          | The version of the DigitalObject this job caused to be produced. Not known until the job has finished processing * |
@@ -451,6 +471,8 @@ This resource is returned quickly, before the ImportJob actually runs. The Impor
 | `containersDeleted`   | Populated once the job has finished successfully. |
 | `binariesDeleted`     | Populated once the job has finished successfully. |
 | `binariesPatched`     | Populated once the job has finished successfully. |
+
+NB the shared property `created` is a timestamp indicating when the API received the initial POST of the job.
 
 > ❓ * can we know it earlier than that? 
 
