@@ -1,6 +1,6 @@
 # Preservation API
 
-> ❓This question mark indicates a discussion point rather than a  
+> ❓This question mark indicates a discussion point rather than a formal specification.
 
 The Preservation API is consumed by the applications we are going to build, and also by Goobi. Goobi uses it to preserve, and, sometimes, to recover a preserved _DigitalObject_ later for further work. Other applications use it either directly or via a Web UI for Preservation tasks, including evaluation of born digital material and collaboration with donors and other staff.
 
