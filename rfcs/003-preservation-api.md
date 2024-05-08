@@ -620,6 +620,9 @@ If an object is to be merged with **part** of another object, that other object 
 
 
 
+## PUT of binaries
+
+Sequence diagram 3 for API clients who don't have S3 access, need way of putting to deposit via API.
 
 
 

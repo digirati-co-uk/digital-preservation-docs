@@ -1,0 +1,223 @@
+{
+    "archivalGroupPath": "rfc/rfc-002",
+    "source": "s3://uol-expts-staging-01/with-checksums/10315j/",
+    "storageType": "S3",
+    "archivalGroupUri": "https://uol.digirati.io/fcrepo/rest/rfc/rfc-002",
+    "archivalGroupName": "RFC 002",
+    "diffStart": "2024-04-19T14:15:29.9007094+01:00",
+    "diffEnd": "2024-04-19T14:15:33.6095838+01:00",
+    "diffVersion": null,
+    "containersToAdd": [
+      {
+        "path": "objects",
+        "parent": "https://uol.digirati.io/fcrepo/rest/rfc/rfc-002",
+        "name": "objects",
+        "slug": "objects"
+      }
+    ],
+    "filesToAdd": [
+      {
+        "path": "10315.METS.xml",
+        "parent": "https://uol.digirati.io/fcrepo/rest/rfc/rfc-002",
+        "name": "10315.METS.xml",
+        "slug": "10315.METS.xml",
+        "externalLocation": "s3://uol-expts-staging-01/with-checksums/10315j/10315.METS.xml",
+        "storageType": "S3",
+        "contentType": "text/xml",
+        "digest": "fa98850720979436375f1e7a315b60e0f38747ea4d0d439f9d9a82c8e55459d2"
+      },
+      {
+        "path": "objects/372705_001.jpg",
+        "parent": "https://uol.digirati.io/fcrepo/rest/rfc/rfc-002",
+        "name": "372705_001.jpg",
+        "slug": "372705_001.jpg",
+        "externalLocation": "s3://uol-expts-staging-01/with-checksums/10315j/objects/372705_001.jpg",
+        "storageType": "S3",
+        "contentType": "image/jpeg",
+        "digest": "2bceb9711a8f9bad22ca2316f8e79014b00793fc895527a4081b9073c0b93f68"
+      },
+      {
+        "path": "objects/372705_002.jpg",
+        "parent": "https://uol.digirati.io/fcrepo/rest/rfc/rfc-002",
+        "name": "372705_002.jpg",
+        "slug": "372705_002.jpg",
+        "externalLocation": "s3://uol-expts-staging-01/with-checksums/10315j/objects/372705_002.jpg",
+        "storageType": "S3",
+        "contentType": "image/jpeg",
+        "digest": "1968fc27f4d4a1aecf90c4e91a2784356dee07fc1693e9354680ee0db6f16929"
+      },
+      {
+        "path": "objects/372705_003.jpg",
+        "parent": "https://uol.digirati.io/fcrepo/rest/rfc/rfc-002",
+        "name": "372705_003.jpg",
+        "slug": "372705_003.jpg",
+        "externalLocation": "s3://uol-expts-staging-01/with-checksums/10315j/objects/372705_003.jpg",
+        "storageType": "S3",
+        "contentType": "image/jpeg",
+        "digest": "fef6eb03b4a6e1f65bae681080d1ed19462045aa9984eb241f404741002e17ea"
+      },
+      {
+        "path": "objects/372705_004.jpg",
+        "parent": "https://uol.digirati.io/fcrepo/rest/rfc/rfc-002",
+        "name": "372705_004.jpg",
+        "slug": "372705_004.jpg",
+        "externalLocation": "s3://uol-expts-staging-01/with-checksums/10315j/objects/372705_004.jpg",
+        "storageType": "S3",
+        "contentType": "image/jpeg",
+        "digest": "84f183c514c94ea888a11bb4dfdc9a4713743c641f55fa3275bc76001e37dedc"
+      },
+      {
+        "path": "objects/372705_005.jpg",
+        "parent": "https://uol.digirati.io/fcrepo/rest/rfc/rfc-002",
+        "name": "372705_005.jpg",
+        "slug": "372705_005.jpg",
+        "externalLocation": "s3://uol-expts-staging-01/with-checksums/10315j/objects/372705_005.jpg",
+        "storageType": "S3",
+        "contentType": "image/jpeg",
+        "digest": "9fa46ae21709a1ed533389f8b77a588500f045eacddef971fd1307f8070d17a9"
+      },
+      {
+        "path": "objects/372705_006.jpg",
+        "parent": "https://uol.digirati.io/fcrepo/rest/rfc/rfc-002",
+        "name": "372705_006.jpg",
+        "slug": "372705_006.jpg",
+        "externalLocation": "s3://uol-expts-staging-01/with-checksums/10315j/objects/372705_006.jpg",
+        "storageType": "S3",
+        "contentType": "image/jpeg",
+        "digest": "58536a391dd814136e6552c5811a00cf2b0b889329aba6126e9ceded210019b0"
+      },
+      {
+        "path": "objects/372705_007.jpg",
+        "parent": "https://uol.digirati.io/fcrepo/rest/rfc/rfc-002",
+        "name": "372705_007.jpg",
+        "slug": "372705_007.jpg",
+        "externalLocation": "s3://uol-expts-staging-01/with-checksums/10315j/objects/372705_007.jpg",
+        "storageType": "S3",
+        "contentType": "image/jpeg",
+        "digest": "677f9732c7150e44ee29a02c521c950be9c3c1d9e5260d7ff0660ea0b72d3aa9"
+      },
+      {
+        "path": "objects/372705_008.jpg",
+        "parent": "https://uol.digirati.io/fcrepo/rest/rfc/rfc-002",
+        "name": "372705_008.jpg",
+        "slug": "372705_008.jpg",
+        "externalLocation": "s3://uol-expts-staging-01/with-checksums/10315j/objects/372705_008.jpg",
+        "storageType": "S3",
+        "contentType": "image/jpeg",
+        "digest": "2197ed216235a8795033faffa05513431ac4e2b054acea33f064d12b16acabbc"
+      },
+      {
+        "path": "objects/372705_009.jpg",
+        "parent": "https://uol.digirati.io/fcrepo/rest/rfc/rfc-002",
+        "name": "372705_009.jpg",
+        "slug": "372705_009.jpg",
+        "externalLocation": "s3://uol-expts-staging-01/with-checksums/10315j/objects/372705_009.jpg",
+        "storageType": "S3",
+        "contentType": "image/jpeg",
+        "digest": "1fef9e6f17fa5070efe0092327801d68eae8cd1673d0023c3aec08f035814180"
+      },
+      {
+        "path": "objects/372705_010.jpg",
+        "parent": "https://uol.digirati.io/fcrepo/rest/rfc/rfc-002",
+        "name": "372705_010.jpg",
+        "slug": "372705_010.jpg",
+        "externalLocation": "s3://uol-expts-staging-01/with-checksums/10315j/objects/372705_010.jpg",
+        "storageType": "S3",
+        "contentType": "image/jpeg",
+        "digest": "682fb4f96b5a75298cb6e2ac9e28560c7a0a8cf6c198b1a82957fc0a14ca149a"
+      },
+      {
+        "path": "objects/372705_011.jpg",
+        "parent": "https://uol.digirati.io/fcrepo/rest/rfc/rfc-002",
+        "name": "372705_011.jpg",
+        "slug": "372705_011.jpg",
+        "externalLocation": "s3://uol-expts-staging-01/with-checksums/10315j/objects/372705_011.jpg",
+        "storageType": "S3",
+        "contentType": "image/jpeg",
+        "digest": "576bbb5fbea916975fea6c38581c910e77eefda607220832fc079e26a173839d"
+      },
+      {
+        "path": "objects/372705_012.jpg",
+        "parent": "https://uol.digirati.io/fcrepo/rest/rfc/rfc-002",
+        "name": "372705_012.jpg",
+        "slug": "372705_012.jpg",
+        "externalLocation": "s3://uol-expts-staging-01/with-checksums/10315j/objects/372705_012.jpg",
+        "storageType": "S3",
+        "contentType": "image/jpeg",
+        "digest": "398592a70c0a083656257e79862f48f7afa69e1f0e935b218941d0f0fc6a6347"
+      },
+      {
+        "path": "objects/372705_013.jpg",
+        "parent": "https://uol.digirati.io/fcrepo/rest/rfc/rfc-002",
+        "name": "372705_013.jpg",
+        "slug": "372705_013.jpg",
+        "externalLocation": "s3://uol-expts-staging-01/with-checksums/10315j/objects/372705_013.jpg",
+        "storageType": "S3",
+        "contentType": "image/jpeg",
+        "digest": "2c9eaa2a0080b9e20b481e7550c64096dd12731c574b8884a280b4b3fe8fd40e"
+      },
+      {
+        "path": "objects/372705_014.jpg",
+        "parent": "https://uol.digirati.io/fcrepo/rest/rfc/rfc-002",
+        "name": "372705_014.jpg",
+        "slug": "372705_014.jpg",
+        "externalLocation": "s3://uol-expts-staging-01/with-checksums/10315j/objects/372705_014.jpg",
+        "storageType": "S3",
+        "contentType": "image/jpeg",
+        "digest": "9904182cc332a1840c2cfc601048227cc2ddf21f457ba2f1e57009514ee43033"
+      },
+      {
+        "path": "objects/372705_015.jpg",
+        "parent": "https://uol.digirati.io/fcrepo/rest/rfc/rfc-002",
+        "name": "372705_015.jpg",
+        "slug": "372705_015.jpg",
+        "externalLocation": "s3://uol-expts-staging-01/with-checksums/10315j/objects/372705_015.jpg",
+        "storageType": "S3",
+        "contentType": "image/jpeg",
+        "digest": "b215e30cba61f42474ff5b7b3ec19e546bee6534d82ba87aed78c291d0e798e5"
+      },
+      {
+        "path": "objects/372705_016.jpg",
+        "parent": "https://uol.digirati.io/fcrepo/rest/rfc/rfc-002",
+        "name": "372705_016.jpg",
+        "slug": "372705_016.jpg",
+        "externalLocation": "s3://uol-expts-staging-01/with-checksums/10315j/objects/372705_016.jpg",
+        "storageType": "S3",
+        "contentType": "image/jpeg",
+        "digest": "ac82cb3bd88868b72758d9e0177f3c7ead111c29d8d87752bd676f108d2ea678"
+      },
+      {
+        "path": "objects/image.tiff",
+        "parent": "https://uol.digirati.io/fcrepo/rest/rfc/rfc-002",
+        "name": "image.tiff",
+        "slug": "image.tiff",
+        "externalLocation": "s3://uol-expts-staging-01/with-checksums/10315j/objects/image.tiff",
+        "storageType": "S3",
+        "contentType": "image/tiff",
+        "digest": "3aa1134f4c05a7c9b7465940b062122081cc7ed96925b6770145125a34fec78a"
+      },
+      {
+        "path": "objects/monkey.png",
+        "parent": "https://uol.digirati.io/fcrepo/rest/rfc/rfc-002",
+        "name": "monkey.png",
+        "slug": "monkey.png",
+        "externalLocation": "s3://uol-expts-staging-01/with-checksums/10315j/objects/monkey.png",
+        "storageType": "S3",
+        "contentType": "image/png",
+        "digest": "0d4ff166418d4b11c63bc434fa285a8be06f3dfe086039b2a16386992863abaa"
+      }
+    ],
+    "filesToDelete": [],
+    "filesToPatch": [],
+    "containersToDelete": [],
+    "containersAdded": [],
+    "filesAdded": [],
+    "filesDeleted": [],
+    "filesPatched": [],
+    "containersDeleted": [],
+    "isUpdate": false,
+    "start": "0001-01-01T00:00:00",
+    "end": "0001-01-01T00:00:00",
+    "newVersion": null
+  }
+  

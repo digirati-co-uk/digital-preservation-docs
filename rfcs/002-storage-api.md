@@ -2,6 +2,10 @@
 
 This RFC builds on [1. What is stored in Fedora](001-what-is-stored-in-fedora.md) which introduced the Storage API as a wrapper around Fedora to require callers to think in terms of whole digital objects.
 
+The Storage API will only be used _directly_ by a small number of consumers - possibly just the [Preservation API](003-preservation-api.md) and the IIIF Asset Delivery layer, which requires direct access to the binary content in Fedora and uses the Storage API to see its location. The Storage API exposes the underlying OCFL model behind Fedora 6, whereas the Preservation API hides it.
+
+That said, there are concepts in common across both APIs, and one of the design challenges is to understand the difference between them.
+
 This RFC describes the operations available in more detail, and accompanies the [sequence diagrams](../sequence-diagrams/README.md).
 
 A key aspect of the storage API is that it neither accepts nor returns direct binary content - you can't POST binary content, nor does it serve it. Instead, both your request data and its response data has references to content locations (currently AWS S3 or local file paths are supported), and it is assumed that you have whatever separate access to those content locations you need to put files or fetch them.
