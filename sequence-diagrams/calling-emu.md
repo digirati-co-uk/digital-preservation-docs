@@ -1,0 +1,46 @@
+# Deposit with Catalogue Record
+
+> If there is an EMu item for this thing, enter its ID. The app pulls in some details from EMu here to make it easier to identify this thing; “all relevant system IDs”. Can I do it the other way – create an EMu record for the whole object? Probably not. Maybe later.
+
+Need to assign corresponding EMu id at start, or during, a process. You may know what it is at start, you may know later, it may never have an EMu id. 
+
+## Relationship of EMu records to digital objects
+
+- [Export metadata to EMu](export-metadata.md) shows how one digital object can generate multiple child records in EMu.
+- [Splitting deposits](splitting.md) shows how one digital object may be split into two (or more) objects each of which may or may not have an EMu record, and considers the possibility of whether a digital object may correspond to two or more EMu records that are not in a parent/child relationship.
+
+## Sequence
+
+This sequence occurs during the user interaction in [Create Deposit](create-deposit-with-notes.md).
+
+```mermaid
+sequenceDiagram
+    actor A as Staff
+    participant UI as DLIP UI
+    participant API as Preservation API
+    participant EMu
+    participant ID as ID Minter
+
+    A->>UI: Set EMu ID
+    UI->>API: AssociateEMu()
+    activate API
+    note right of API: What is the role of ID minter?<br>Do we tell it we have just made<br>this association?
+    API->>ID: (1) Tell ID Service that the deposit ID and EMu ID are connected
+    API->>EMu: Fetch Metadata
+    API->>API: Update METS
+    note right of API: We only want minimal information.<br>Set the title, provide some info for METS.
+    note right of API: This will also update the deposit row in the DB
+    deactivate API
+```
+
+## Notes
+
+1. Also supply minimal metadata, e.g., Title from EMu, to help ID Minter service requests from other callers.
+
+We might want to make associations between this deposit and other systems, too - but likely just EMu for now. See also [Accession](accession.md).
+
+# Going the other way - accession / appraisal
+
+Can I create an EMu record for the digital object? Can I ask for an accession identifier or a catalogue record from _here_, while looking at the digital object, rather than going to EMu to do that?
+
+> This would be useful for box level partial digitisation or the initial secure and store phase with an accession ID or EMu ID
