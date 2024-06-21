@@ -1,6 +1,6 @@
-# UOL Goobi Requirements Document - DRAFT v3.4
+# UOL Goobi Requirements Document - DRAFT v3.2
 
-18/06/2024
+13/06/2024
 Comments are tagged with the name of the responsible person/group
 
 ## Purpose of this document
@@ -99,7 +99,7 @@ This section details the headline requirements for Goobi as they relate to fixed
 - Enable single sign on to each environment using Active Directory #Development
 	- #done Geoff is it really a regular Active Directory to integrate?
 	- #done Geoff-reply I am not exactly sure about this. I know that there is a SSO mechanism and I remember that it was discussed in one of the early meetings with the UOL team. I am also confident that it is Microsoft based. UOL Please can you confirm how this will work in reality?
-	- #Leeds UoL use Azure Active Directory, Brian to advise on. 18/06/24 - Brian has confirmed that we should be OK to use Open ID as per Intranda's recommendation, but Leeds IT Team can't do much more with this until we have a system to actually set up authentication for.
+	- #Leeds UoL use Azure Active Directory, Brian to advise on
 
 ### Maintenance
 
@@ -274,7 +274,7 @@ The process must be in the project `Deposited Processes` and the `Editing_Deposi
 	- ~~Add files~~
 	- ~~done Geoff this sound soooo complex and difficult to use for real users then. Couldn't it be easier? Should be done with the `Workflow Extender Plugin` as well anyway.~~
 	- ~~done Geoff-reply I am happy with anything that simplifies the steps and the process. Please therefore build in the functionality to the workflow extender plugin.~~
-	- ~~Leeds what are your requirements for editing media files?~~ [internal decision on file management policy]
+	- ~~Leeds what are your requirements for editing media files?~~
 1. ~~Workflow change to activate subsequent steps in the template.~~
 	- ~~done Geoff with my suggestion this would not be needed anymore~~
 	- ~~done Geoff-reply Great news!~~
@@ -495,7 +495,10 @@ This workflow is for large scale digitisation projects where the work will be ca
 - A list of records (one per line) to be digitised with EMu IRN or the ALMA BIBNET references are pasted into the mass import interface of Goobi.
 	- #done Geoff can we have such a file please?
 	- #done Leeds Please can you create a sample of such identifiers as a list (for alma and for EMu) for intranda
-	- #intranda take this into account for the pricing proposal (no excel anymore)
+	- #intranda take this into account for the pricing proposal
+
+*GEOFF WANTS TO MOVE ON FROM HERE*
+
 - A project has been set up in Goobi with a total number of processes, estimated number of pages, a start date, and a deadline for completion.
 - The initial percentage for quality assurance has been set. See #Development above.
 	- #intranda to take this into account for the pricing proposal, if not done already
@@ -503,59 +506,55 @@ This workflow is for large scale digitisation projects where the work will be ca
 	- #done Geoff how exactly will the files look like then and how are the processes named then?
 	- #done Geoff what needs to be developed here exactly? You are talking about the mass upload plugin here, right? Not the mass import plugin.
 	- #done Geoff-reply Apologies it should have read Mass upload The issue is that currently in the settings barcodes are either allowed or not. If they are set to allowed then filename mass uploads do not work because the system is looking for barcodes. If they are not set to allowed then mass uploads with barcodes would not be linked to processes because the filenames would not match. The plugin needs to be developed to allow both depending on the project in the configuration. So: Project A (external digitisation by a company where they are required to do the file naming properly before sending the data back to UOL) is happening at the same time as project B where the internal team are doing mass digitisation using barcodes.
-	- #intranda add a selection into the user interface to let the user decide between barcode detection or file name analysis
 - Goobi project settings will be extended to allow for the setting of requirements for cropping, OCR, ICR, surrogate requirements, the need for pagination, the need for structural metadata etc. #Development
 	- #done Geoff can you please explain further what is needed here exactly?
-	- #done Leeds Geoff-reply Thinking about it I don't think we need this any more because we can use process templates to set these things much more easily.
-	- #done gets ignored for now
+	- #Leeds #Geoff-reply Thinking about it I don't think we need this any more because we can use process templates to set these things much more easily.
 
 ### DRAFT Process template:
 
-1. User will paste a list of identifiers into the mass import interface with identifiers from EMu or ALMA.
+1. User will upload the Excel spreadsheet for a batch of items into Goobi as generated from EMu or ALMA.
 	- #done Geoff can you please share these Excel sheets as sample with us?
 	- #done Geoff-reply Files requested above.
-	- #intranda check if development is needed for this
-2. ~~Goobi will Automatically create the processes.~~
+	- #intranda #Leeds Can intranda provide examples of the import format to UoL
+1. ~~Goobi will Automatically create the processes.~~
 	- ~~done Geoff this should be removed as it is part of the previous step~~
-3. The user will download and print the batch docket and insert the barcode into the front cover of all the items to be digitised.
-4. Item Collection: an assigned person will collect the item from the shelf or location and will record their workstation ID as a property.
+2. The user will download and print the batch docket and insert the barcode into the front cover of all the items to be digitised.
+3. Item Collection: an assigned person will collect the item from the shelf or location and will record their workstation ID as a property.
 	- #done Geoff Who is an assigned person? Will the person select himself or is someone else assigning?
 	- #done Geoff-reply The studio manager (Rob) will assign the person.
-	- #intranda plan the user and user-group assignment here for multiple steps
-5. Assessment: the assigned person(s) will look at the original and will assess its condition and if it needs conservation treatment before digitisation with the options: Conservation Assessment or Ready to digitise.
-6. Workflow change: If `Conservation Assessment` is TRUE then: the `Conservation Assessment` step will be activated and opened, the `waiting for conservation` will be set to LOCKED. If the `ready to digitise` process is selected then the `Image upload` step will be set to OPEN.
-7. Conservation Assessment: Conservation user enters comments into a text box and closes the task.
-8. Goobi then emails a specific conservation email address with the phrase `Conservation assessment needed: ITEM ID:` and the EMu IRN of the process in the subject line, the comments text in the email body. #Development
+	- #Leeds please clarify assignment procedure
+1. Assessment: the assigned person will look at the original and will assess its condition and if it needs conservation treatment before digitisation with the options: Conservation Assessment or Ready to digitise.
+2. Workflow change: If `Conservation Assessment` is TRUE then: the `Conservation Assessment` step will be activated and opened, the `waiting for conservation` will be set to LOCKED. If the `ready to digitise` process is selected then the `Image upload` step will be set to OPEN.
+3. Conservation Assessment: Conservation user enters comments into a text box and closes the task.
+4. Goobi then emails a specific conservation email address with the phrase `Conservation assessment needed: ITEM ID:` and the EMu IRN of the process in the subject line, the comments text in the email body. #Development
 	- #done Geoff what is the `comments text` here? Where is it coming from?
 	- #done Geoff-reply A property.
 	- #intranda include in quote: e-mail plugin
-9. Waiting for conservation: Process property dropdown (Required) with the options: `Please select`/`Proceed with digitisation`/`Delete process` and a box for the user to copy and paste the response text to the enquiry into a process property.
+1. Waiting for conservation: Process property dropdown (Required) with the options: `Please select`/`Proceed with digitisation`/`Delete process` and a box for the user to copy and paste the response text to the enquiry into a process property.
 	- #done Geoff Can you please explain this a bit deeper? I don't get it.
 	- #done Geoff-reply OK, so if after initial assessment the studio team are concerned about the condition of the item then they will want the conservation team to assess it and make a decision about whether it should be digitised or not. After they have decided they will email the studio team. The team will then record the decision as a property in the task and then workflow change will kick in (next step) to turn things on or off based on the property information.
-	- move process to a `deactivated item`-project in case it gets cancelled
-10. #done Workflow change: if `Proceed with digitisation` is recorded then the `Upload images` step will be set to `OPEN`. If `Delete process` is recorded then Goobi will delete the process entirely. #Development
+2. Workflow change: if `Proceed with digitisation` is recorded then the `Upload images` step will be set to `OPEN`. If `Delete process` is recorded then Goobi will delete the process entirely. #Development
 	 - #done most of this does exist already
-	 - #done check if complete deletion is available, include in quote otherwise
-	 - #done this is not needed anymore as we more items into a inactive project if cancelled
-11. Image upload: During digitisation the user will capture the barcoded docket page first and then the item. The user will upload the images using the mass upload workflow plugin. Goobi will then read the barcode and automatically link all the images including the barcode image to the correct process in Goobi.
+	 - #intranda check if complete deletion is available, include in quote otherwise
+1. Image upload: During digitisation the user will capture the barcoded docket page first and then the item. The user will upload the images using the mass upload workflow plugin. Goobi will then read the barcode and automatically link all the images including the barcode image to the correct process in Goobi.
 	-  #done this does exist already
-	- #intranda take this into account for the pricing proposal if not done already (see above: change of UI to select between barcode and file naming)
-12. Quality Assurance: after upload for all file types they will be reviewed in the QA plugin. this plugin must be developed to ensure that a different user than the one that did the digitisation reviews the output. #Development
+	- #intranda take this into account for the pricing proposal if not done already
+2. Quality Assurance: after upload for all file types they will be reviewed in the QA plugin. this plugin must be developed to ensure that a different user than the one that did the digitisation reviews the output. #Development
 	- #intranda plan this development and take it into the pricing proposal
-13. ~~Automatic file renaming: File rename plugin (the barcode docket image will be renamed with the number `_00`~~
+3. ~~Automatic file renaming: File rename plugin (the barcode docket image will be renamed with the number `_00`~~
 	- ~~done Geoff are you sure? Why not move it to the end instead of to the start? Or move it out of the images folder would even be better.~~
 	- ~~done Geoff-reply That is fine but I am just repeating what we did here when you first developed the functionality for me in the italy project.~~
-14. Automatic removal of the barcode page: Goobi will delete the barcode image leaving only the master images of the item in the process.
+4. Automatic removal of the barcode page: Goobi will delete the barcode image leaving only the master images of the item in the process.
 	- #done Geoff Why first rename the file automatically and then delete it afterwards?
 	- #done Geoff-reply As above, I thought it had to happen that way as at QA the user should see the barcode.
-15. #Variant If cropping is required - Automatic image analysis.
-16. #Variant If cropping is required - Layout Wizzard (Note: Layout Wizzard workflow plugin should also be installed*)
-17. #Variant If cropping is required - Automatic cropping (to Cropped master folder retaining the master file)
-18. #Variant If OCR is required - OCR step
-19. #Variant If ICR is required - Transkribus step (using specific model ID if one was provided in step 9 above)
-20. #Variant if pagination is required then the user carries out pagination in the METS editor.
-21. #Variant if structural data is required then the user assigns structural data in the METS editor.
-22. ~~Variant If surrogate JPEGs or PDF files are required then Goobi will create the surrogates in a folders~~
+5. #Variant If cropping is required - Automatic image analysis.
+6. #Variant If cropping is required - Layout Wizzard (Note: Layout Wizzard workflow plugin should also be installed*)
+7. #Variant If cropping is required - Automatic cropping (to Cropped master folder retaining the master file)
+8. #Variant If OCR is required - OCR step
+9. #Variant If ICR is required - Transkribus step (using specific model ID if one was provided in step 9 above)
+10. #Variant if pagination is required then the user carries out pagination in the METS editor.
+11. #Variant if structural data is required then the user assigns structural data in the METS editor.
+12. ~~Variant If surrogate JPEGs or PDF files are required then Goobi will create the surrogates in a folders~~
 	- ~~Geoff how do the expectations for the JPEGs and the PDFs look like exactly?~~
 	- ~~Geoff-reply I have asked that question of UOL~~
 	- ~~Leeds IIIF Services will create the surrogate files, Goobi does not need to create.~~
@@ -566,16 +565,15 @@ This workflow is for large scale digitisation projects where the work will be ca
 15. Goobi creates the checksums for the digital files to be deposited and records that in the METS files Note, this is to be confirmed. #Development
 	- #done Geoff we are waiting for a confirmation then
 	- #done Geoff-reply Yes, as above
-	- #intranda plan this (and the ingest) development as mentioned above as pool of hours
-16. Goobi creates a digital object in the repository #Development
+	- #Leeds please confirm
+1. Goobi creates a digital object in the repository #Development
 	- #intranda take this into account for the pricing proposal if not done already
-17. Goobi deposits the digital object in the repository #Development
+2. Goobi deposits the digital object in the repository #Development
 	- #intranda take this into account for the pricing proposal if not done already
-18. Goobi receives back a message/confirmation that the deposit was successful TBC #Development
+3. Goobi receives back a message/confirmation that the deposit was successful TBC #Development
 	- #done Geoff we are waiting for a confirmation then
 	- #done Geoff-reply Yes, as above
-	- #intranda add a delay plugin here and then do a request to the digirati system if the ingest was successful
-	- #intranda add a delay a second time before the actual deletion is started
+	- #Leeds please confirm
 1. Goobi deletes the master images from the process and retains thumbnails for future reference. #Development
 	- #intranda take this into account for the pricing proposal if not done already
 2. ~~Goobi closes the process and moves the deposited process to a new project entitled `Deposited Processes` Development~~
@@ -587,9 +585,6 @@ This workflow is for large scale digitisation projects where the work will be ca
 	- ~~Geoff I would use the `Workflow Extender Plugin` to be developed first for such use cases.~~
 	- ~~Geoff-reply Yes, as above, agreed.~~
 
-
-
-
 ## Large_Scale_Digitisation_Workflow_Outsourced
 
 This workflow is for large scale digitisation projects where the work will be carried out by third party providers. It is envisaged that this will likely be for image based digitisation in the medium term but a #Variant could be created for moving image or audio projects in the future, based on this process template.
@@ -597,22 +592,35 @@ This workflow is for large scale digitisation projects where the work will be ca
 ### Pre-requisite conditions:
 
 - All items to be digitised are catalogued to item level on EMu or ALMA.
-- Each item is entered in the mass import interface to be important via EMu IRN or the ALMA BIBNET reference.
-	- Dockets are printed out then and put into the books
+- An excel export of the items to be digitised has been created with, as a minimum, a process title and the EMu IRN or the ALMA BIBNET reference.
+	- #done Geoff can we have such a file please?
+	- #done Geoff-reply I have asked for the file from UOL above.
+	- #Leeds please provide the requested data
 - A project has been set up in Goobi with a total number of processes, estimated number of pages, a start date, and a deadline for completion.
-- The supplier has received the materials with the barcodes and a detailed specification.
-- The supplier scans always the barcode-docket page before each book. Naming of the files is not important anymore then
-- The images are uploaded into a given S3-bucket into subfolders 
-- The mass upload plugin reads from the S3-bucket (ignores the naming of files and folders), checks the barcodes and puzzles the images to the correct Goobi processes
-	- #intranda extent the mass upload to read from a S3-bucket
+- Batch spreadsheets have been created as inventories for the supplier.
+	- #done Geoff what does this mean exactly? Where do they come from?
+	- #done Geoff-reply This will essentially be the same spreadsheet as above. sent to the supplier as an inventory of the items that they have collected and enabling them to use the process title information to name the returning media files.
+- The supplier has received the materials and a detailed specification.
+- The images returned will be filenamed for the Goobi process ID and a running image number.
+- The initial percentage for quality assurance has been set. See #Development above.
+	- #done Geoff can you explain please in detail?
+	- #done Geoff-reply As described earlier you asked: what is the percentage expressing? Number of images? Number of processes? Number of errors in Scans? How is this calculated of proven? I replied: The percentage would be number of processes. the system would not need to calculate the number of errors and therefore `when` the percentage set for the project should be lowered. that would be a decision from the team based on what they have found. The key thing is that when their percentage is changed to, say 10%, only 1 in every 10 processes would go to the QA step. That percentage needs to be set at a project level in the configuration and then, after setting the correct number of processes are sent for QA only.
+	- #intranda idea: extend workflow change plugin to include percentage calculation
+- ~~Goobi project settings will be extended to allow for the setting of requirements for cropping, OCR, ICR, surrogate requirements, the need for pagination, the need for structural metadata etc. Development~~
+	- ~~done Geoff can you please explain further what is needed here exactly?~~
+	- ~~done Geoff-reply no longer needed as we can do this with the process templates.~~
 
 ### DRAFT Process template:
 
-1. User will inserts identifiers from EMu or ALMA.
-	- #intranda take this into account
-2. Image upload through mass upload and barcode scan
-	- #intranda plan this
-3. #done Leeds Checking of access rights/licensing/copyright and sensitivity warnings and adding/updating METS.
+1. User will upload the Excel spreadsheet for a batch of items into Goobi as generated from EMu or ALMA.
+	- #done Geoff can you please share these Excel sheets as sample with us?
+	- #done Geoff-reply As above.
+	- #Leeds please provide a sample
+1. ~~Goobi will Automatically create the processes.~~
+	- ~~#Geoff this should be removed as it is part of the previous step done~~
+2. Image upload: Delivered images will be uploaded to Goobi using the mass upload plugin. Goobi will link the images to the processes using the filenames.
+	- #done this does exist already
+3. #Leeds Checking of access rights/licensing/copyright and sensitivity warnings and adding/updating METS.
 4. Quality Assurance: after upload for all file types they will be reviewed in the QA plugin.
 	- #done this does exist already
 5. #Variant If cropping is required - Automatic image analysis.
@@ -622,6 +630,10 @@ This workflow is for large scale digitisation projects where the work will be ca
 9. #Variant If ICR is required - Transkribus step (using specific model ID if one was provided in step 9 above)
 10. #Variant if pagination is required then the user carries out pagination in the METS editor.
 11. #Variant if structural data is required then the user assigns structural data in the METS editor.
+12. ~~Variant If surrogate JPEGs or PDF files are required then Goobi will create the surrogates in a folders~~
+	- ~~Geoff we need clear definitions for the surrogates to be created~~
+	- ~~Geoff-reply As above~~
+	1. ~~Leeds IIIF Services will create the surrogate files, Goobi does not need to create.~~
 13. Goobi re-imports selected metadata fields from either the EMu API or the ALMA API into the METS file #Development
 	- #intranda take this into account for the pricing proposal if not done already
 14. Final QA: carried out by a different user than the image QA person.
@@ -629,15 +641,23 @@ This workflow is for large scale digitisation projects where the work will be ca
 15. Goobi creates the checksums for the digital files to be deposited and records that in the METS files Note, this is to be confirmed. #Development
 	- #done Geoff we are waiting for a confirmation then
 	- #done Geoff-reply As above
-16. Goobi creates a digital object in the repository #Development
+1. Goobi creates a digital object in the repository #Development
 	- #intranda take this into account for the pricing proposal if not done already
-17. Goobi deposits the digital object in the repository #Development
+2. Goobi deposits the digital object in the repository #Development
 	- #intranda take this into account for the pricing proposal if not done already
-18. Goobi receives back a message/confirmation that the deposit was successful TBC #Development
+3. Goobi receives back a message/confirmation that the deposit was successful TBC #Development
 	- #done Geoff we are waiting for a confirmation then
 	- #done Geoff-reply As above
-19. Goobi deletes the master images from the process and retains thumbnails for future reference. #Development
+1. Goobi deletes the master images from the process and retains thumbnails for future reference. #Development
 	- #intranda take this into account for the pricing proposal if not done already
+2. ~~Goobi closes the process and moves the deposited process to a new project entitled `Deposited Processes` Development~~
+	- ~~Geoff Why not leave the items in the projects?~~
+	- ~~done However this functionality does exist already~~
+	- ~~Geoff-reply As above~~
+3. ~~Goobi changes the process template to a new process template called `Editing_Deposited_Processes` with the step: `Select editing action` set to OPEN.~~
+	- ~~Note: the intention here is that the unique identifier passed to Goobi in step 27 above will enable Goobi to pull back the master media from the repository ready for edits to take place.~~
+	- ~~Geoff I would use the `Workflow Extender Plugin` to be developed first for such use cases.~~
+	- ~~Geoff-reply As above, Yes please! :-)~~
 
 # Next steps
 
