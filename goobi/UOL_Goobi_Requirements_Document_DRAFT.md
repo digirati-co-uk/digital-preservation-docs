@@ -25,7 +25,7 @@ This document is intended as a briefing to intranda from Digitisation.IO about t
 			- #done Timing of polling needs to be configurable
 			- #done User requests and internal staff requests go into Emu and link to object/collection – these are then polled and pulled into Goobi to create a new digitisation ticket/request. A flag is needed when there are no object/item level records and therefore the selected metadata records in Emu to attach the digitisation output/s to. Is this a new step in the Goobi workflow? This flag would either stop the digitization or the ingestion to Fedora/Preservation API we need confirmation from intranda as to where this sits in the workflow. A report on what tickets/requests are held up at this stage will enable UoL to understand the cataloguing backlog. N.B. Some of the content to be migrated from the Z drive will need this flag in place.
 			- intranda to confirm they can poll Emu via API for digitisation requests
-				- #Leeds how exactly can we poll new records if we do not know their identifiers, how to find out about new requests?
+				- #done Leeds how exactly can we poll new records if we do not know their identifiers, how to find out about new requests? This will be based on the last time the requests have been polled, so goobi needs to record this date/time
 			- #done Excel imports are for item/object metadata.
 			- #done Having a separate workflow for digitisation without cataloguing is necessary, but not just for images to be joined with catalogue records. The requirement may actually be two workflows:
 				1. #done A workflow to capture and store images, ready to be matched with records/IDs when catalogued. Images would be stored in a `holding area` until this is possible.
@@ -39,10 +39,10 @@ This document is intended as a briefing to intranda from Digitisation.IO about t
 	- #intranda For EMu a custom development needs to take place to do the import and must be included in the pricing proposal then.
 	- #done Geoff-reply What do you need intranda to be able to test this and find out how much development is needed?
 		- intranda needs detailed information for:
-			- #Leeds how to poll (know about new records in EMu)
-			- #Leeds Anthony to provide API endpoint to query digitization requests, created within a certain time frame, carrying the "digitization pending" status
-			- #Leeds have a concordance between EMu-json and METS (Leeds to confirm metadata to carry across.)
-			- #Leeds Create the crosswalk that we talked about in our EMu meeting
+			- #done Leeds how to poll (know about new records in EMu) [request module - AS to confirm]. Example of request module given to Steffan/Simon
+			- #done Leeds Anthony to provide API endpoint to query digitization requests, created within a certain time frame, carrying the "digitization pending" status
+			- #done Leeds have a concordance between EMu-json and METS (Leeds to confirm metadata to carry across.) Current metadata from EMu has been sent to steffan/simon
+			- #done Leeds Create the crosswalk that we talked about in our EMu meeting
 		- #done Have intranda been able to test this, can they share the response?
 4. Goobi will be used to automatically or manually link master digital media files to processes and their metadata. ~~#Development~~
 	- #Done This is out of the box functionality. No further features are needed.
@@ -55,6 +55,7 @@ This document is intended as a briefing to intranda from Digitisation.IO about t
 	- #done Geoff-reply Thank you.
 	- #done Leeds Pagination, structure are crucial for the digitisation workflows, OCR and ICR should be optional.
 2. From the launch of the system, the new approach at UOL will be that even if a user requests digitisation of a small percentage of an item (such as a book) then the team will digitise all of the item.
+	- # done Leeds to review approach at 6 month intervals to understand impact and develop internal decision tree [future action]
 3. At the end of processes where a user has requested an item to be digitised Goobi will need to deliver to them their images by offering a download link (similar to WeTransfer) but only of the specific pages/files requested. This may also require the generation of surrogate files for delivery. The system will need to remind the requesting person to download their files and it must also record when the files have been downloaded to enable the closing of the process. #Development
 	- #done Geoff does this software for the download link and the reminder exist already or shall this be part of the pricing proposal?
 	- #done Geoff-reply No, the software does not exist. I was hoping that something similar in the open source environment could be adapted for this. In any case the download software will need to be developed.
@@ -99,7 +100,7 @@ This section details the headline requirements for Goobi as they relate to fixed
 - Enable single sign on to each environment using Active Directory #Development
 	- #done Geoff is it really a regular Active Directory to integrate?
 	- #done Geoff-reply I am not exactly sure about this. I know that there is a SSO mechanism and I remember that it was discussed in one of the early meetings with the UOL team. I am also confident that it is Microsoft based. UOL Please can you confirm how this will work in reality?
-	- #Leeds UoL use Azure Active Directory, Brian to advise on. 18/06/24 - Brian has confirmed that we should be OK to use Open ID as per Intranda's recommendation, but Leeds IT Team can't do much more with this until we have a system to actually set up authentication for.
+	- #Leeds UoL use Azure Active Directory, Brian to advise on
 
 ### Maintenance
 
@@ -181,8 +182,7 @@ Master media files and METS XML files will be in a nominated S3 Bucket ready for
 2. Goobi imports the METS files and media files, creating new processes #Development
 	- #done Geoff this is actually the same the first one right? So this should be just one single step
 	- #done Geoff-reply Yes, I just split them into two because as part of the import the S3 location will need to be given by the user so that the import plugin can locate the files to be imported. For this therefore I am expecting a text box in the user interface with a button to `IMPORT DATA`
-	- #Leeds to provide Image folders for a mass creation of processes
-	- #intranda to advise to the import is then executed
+	- #done Leeds to provide Image folders for a mass creation of processes [RF or PE supply content - Send Bingley or coins if you need safe open content] [Download link](https://we.tl/t-fxtanfzVm5), password: DLIP2024
 1. Goobi takes the `EMu IRN` information (e.g.: `163535`) or the `ALMA BIBREF` information (e.g.: `991008723399705181`) from the METS files, places them in the CatalogIDDigital field and records which system that it needs to request metadata from as a property #Development
 	- #done Geoff does this mean that the existing metadata in METS is incomplete and needs to be replaced or enriched?
 	- #done Geoff-reply I am not sure here. I expect that the METS file will contain limited data including the IRN/BIBREF and that the system will need to pull the remaining metadata from those systems.
@@ -191,7 +191,7 @@ Master media files and METS XML files will be in a nominated S3 Bucket ready for
 2. Goobi imports selected metadata fields from either the EMu API or the ALMA API into the METS file #Development
 	- #Geoff can we please have a sample of before/after to see how we know what to request and what to take over into the metadata
 	- #done Geoff-reply My understanding is that the ball is with you on this as you now have access to EMu API and ALMA to be able to get records out based on the sample IDs provided. If you can send us what data you can get out of the systems then UOL can specify which fields are needed and where they should be mapped to in the METS file. intranda can you confirm that you have been able to extract data from the systems and provide samples of the data you have extracted?
-	- #Leeds please advise which fields should be imported to enrich initial EPrint metadata
+	- #done Leeds please advise which fields should be imported to enrich initial EPrint metadata [see initial list above as advised by AS]
 3. Goobi links the media files into the METS file
 	- #done Geoff this is done automatically inside of the previous step and can be removed, right?
 	- #done Geoff-reply I assume so. UOL Will the linking of the binaries to the METS file be in place when the data is made available for the ingest?
@@ -201,7 +201,7 @@ Master media files and METS XML files will be in a nominated S3 Bucket ready for
 	- #done Geoff-reply UOL Is the answer to this pending the finalisation of the ingest API being developed by Digirati?
 	- #done Leeds Yes, Goobi should create the checksums and store in the METS file.
 		[https://github.com/uol-dlip/docs/blob/rfc-001-what-store-in-fedora/rfcs/003-preservation-api.md#mets-obligations](https://github.com/uol-dlip/docs/blob/rfc-001-what-store-in-fedora/rfcs/003-preservation-api.md#mets-obligations)
-	- #done Leeds Add sensitivity/access/copyright/licensing step here.
+	- #done Leeds Add sensitivity/access/copyright/licensing step here. [step in EMu - review flag needed in EMu]
 	- #intranda include checksum creation and metadata configuration for access conditions in the pricing proposal
 	- #Digirati specify requirements for checksums: algorithm, SHA256?
 1. Goobi creates a digital object in the repository #Development
@@ -215,11 +215,11 @@ Master media files and METS XML files will be in a nominated S3 Bucket ready for
 3. Goobi receives back a message/confirmation that the deposit was successful #Development
 	- #done Geoff isn't it the same as the step before or part of it?
 	- #done Geoff-reply It could be part of it but I understood that the ingest could take some time and therefore the return message will only be possible after some hours and then Goobi will need to receive and process a message signalling completion of the ingest to trigger the nest step (deletion of the master files).
-	- #done Leeds Is that assumption correct?
+	- #done Leeds Is that assumption correct? [YES]
 	- #intranda
 1. Goobi deletes the master images from the process and retains derivatives for future reference. #Development
 	- #intranda to include this into the pricing proposal for installation and configuration
-	- #Leeds specify desired quality/size of derivatives
+	- #done Leeds specify desired quality/size of derivatives [RF / PE review size - 72dpi 1280 on the longest side, criteria is that text needs to be legible, this may be too big or small? RF: proposed derivative spec seems fine for purpose. This won't be a one-size-fits-all solution so may need to be changed in future development.]
 2. ~~done Goobi closes the process and moves the deposited process to a new project entitled `Deposited Processes` Development~~
 	- ~~done Geoff are you really sure you want this? I think this is redundant.~~
 	- ~~done Geoff-reply My logic for this is that if the template is extended to allow an open step to start a corrections process then the processes will have one open step at the point where it should be seen as completed. This will mean that it will still display in the processes page as all the steps will not be `green` or `completed`. If we move them to a new project and limit user access to that project then the processes can all sit in there with an open step and the users will not be distracted in the other projects. If there is a better/easier way however then we should go for that of course.~~
@@ -260,7 +260,7 @@ The process must be in the project `Deposited Processes` and the `Editing_Deposi
 	- ~~done Geoff we are waiting for a clarification then~~
 	- ~~done Geoff-reply Yes, we need to know the process for triggering a delete within the repository using the Digirati API. UOL Please can you ask Digirati if it will be possible to trigger a delete from repository action from the API that they are developing? I am assuming that this could be one of the outcomes from editing a process. Please can you also confirm that assumption UOL ?~~
 	- #Leeds An ImportJob could delete all the containers and binaries in a digital object. This would produce a new OCFL version and remove from the IIIF services; the previous versions would still be available to anyone.
-	- #Leeds could you clarify this?
+	- #Leeds could you clarify this? [PE is this true? that was my understanding]
 1. ~~If `Reimport metadata` is selected then Goobi will reimport the metadata from EMu or ALMA using the `IRN` or `BIBNET` reference as already detailed (this is in situations where the metadata has changed in the EMu or ALMA systems) Development~~
 	- ~~done Geoff for such a case real data would be helpful again~~
 	- ~~done Geoff-reply As before, intranda please can you confirm if you have been able to access the EMu and ALMA systems to retrieve data?~~
@@ -274,14 +274,14 @@ The process must be in the project `Deposited Processes` and the `Editing_Deposi
 	- ~~Add files~~
 	- ~~done Geoff this sound soooo complex and difficult to use for real users then. Couldn't it be easier? Should be done with the `Workflow Extender Plugin` as well anyway.~~
 	- ~~done Geoff-reply I am happy with anything that simplifies the steps and the process. Please therefore build in the functionality to the workflow extender plugin.~~
-	- ~~Leeds what are your requirements for editing media files?~~ [internal decision on file management policy]
+	- ~~Leeds what are your requirements for editing media files?~~ [#Leeds done internal decision on file mangaement policy]
 1. ~~Workflow change to activate subsequent steps in the template.~~
 	- ~~done Geoff with my suggestion this would not be needed anymore~~
 	- ~~done Geoff-reply Great news!~~
 2. ~~For replacement, deletion, or adding of files the `file upload plugin` will be provided to the user in the task page.~~
 	- ~~done Geoff still feels too difficult this way. However this functionality is there already.~~
 	- ~~done Geoff-reply Good news. If there is a file browser or the Image QA plugin allowed deletion of the media and resorting the order etc. then that could also be used? Maybe you at intranda could consider that development as part of the other enhancements suggested?~~
-	- ~~Leeds what are your requirements for editing media files?~~
+	- ~~Leeds what are your requirements for editing media files?~~ [#Leeds done - repeat of line 278]
 1. After file upload the QA plugin will be provided for checking the files. (Note: if the selected action is rotate files only then step 8 will remain deactivated and only this step will be provided)
 	- The QA plugin will need to be developed to allow for the QA of moving image and audio files #Development
 		- #done this does exist already and does not need to be extended for audio and video
@@ -289,7 +289,7 @@ The process must be in the project `Deposited Processes` and the `Editing_Deposi
 	- The Rename feature of the QA plugin will need to be developed to enable the fully manual renaming and reordering of files #Development
 		- #done Geoff what exactly would have to be done then. As long as the reordering is allowed no users should do file naming. Goobi could do that already automatically in the background.
 		- #done Geoff-reply That makes sense to me. if drag and drop reordering is allowed and then the number suffix to the file names is re created by Goobi then separate renaming would not be needed.
-		- #done Leeds do you want to keep sequential file names up to date on reorder?
+		- #done Leeds do you want to keep sequential file names up to date on reorder? [how will this affect digital preservation and file monitoring? assume it won't as it relates more to OCFL]
 	- #intranda consider this for quote: extension of QA plugin for renaming and reordering of files
 	- #intranda after image reordering in QA plugin, file names should be updated sequentially
 1. Metadata edition: after all media steps the metadata edition step will be enabled to allow for pagination or structure changes.
@@ -357,7 +357,7 @@ The process must be in the project `Deposited Processes` and the `Editing_Deposi
 		- #done Geoff please see my comments above
 		- #done Geoff-reply replied above
 		- #done Leeds every 60 mins
-		- #Leeds make sure that the requests to EMu allow us to get a list all orders younger than a specific date
+		- # Leeds make sure that the requests to EMu allow us to get a list all orders younger than a specific date. Email of EMu requests sent to Simon/Steffan
 		- #intranda test if the communication works as written in the mail from Anthony
 	- The metadata from the requests will be imported as project properties (e.g.: specifications, information, email address of requesting person, Request tracker ticket number etc.) #Development
 		- #done Geoff please see my comments above, as we need real data for testing
@@ -385,7 +385,7 @@ The process must be in the project `Deposited Processes` and the `Editing_Deposi
 		- #done Geoff we need concrete samples to understand how the users request would look like and which data we get exactly there
 		- #done Geoff-reply agreed, I have requested that data from UOL above.
 	- #done Leeds decide how to proceed: use batches or sub projects or single processes
-	- #done Leeds decide how user assignment should be done
+	- #done Leeds decide how user assignment should be done [Leeds to document]
 1. Item Collection: the assigned person will collect the item from the shelf or location and will record their workstation ID as a property.
 2. Assessment: the assigned person will look at the original and will assess it in comparison to the sub project properties (request ticket information). The user will select from 2 property options: Clarification needed or Ready to digitise.
 3. Workflow change: If `Clarification needed` is `TRUE` then: the clarification step will be activated and opened, the `waiting for clarification` will be set to `LOCKED`. If the `ready to digitise` process is selected then the `Digitisation Triage` step will be set to `OPEN`.
@@ -440,10 +440,10 @@ The process must be in the project `Deposited Processes` and the `Editing_Deposi
 25. #Variant If ICR is required - Transkribus step (using specific model ID if one was provided in step 9 above)
 26. #Variant If Moving image - Transcoding plugin using FFMPEG to create Mp4 with H264 codec #Development
 	- #done Geoff can we please have reference files for testing here?
-	- #Leeds please can you arrange for some reference files (source and target format) to be transferred to intranda as requested?
+	- #Leeds please can you arrange for some reference files (source and target format) to be transferred to intranda as requested? [no open content to transfer, can find low risk content if needed]
 27. #Variant If Audio file - Transcoding from FLAC to WAV/Mp3 #Development
 	- #done Geoff can we please have reference files for testing here?
-	- #Leeds please can you arrange for some reference files (source and target format) to be transferred to intranda as requested?
+	- #done Leeds please can you arrange for some reference files (source and target format) to be transferred to intranda as requested? [RF transfer some Liddle files] [Download link](https://we.tl/t-fxtanfzVm5), password: DLIP2024
 28. #Variant if pagination is required then the user carries out pagination in the METS editor.
 29. #Variant if structural data is required then the user assigns structural data in the METS editor.
 30. Goobi re-imports selected metadata fields from either the EMu API or the ALMA API into the METS file #Development
@@ -494,7 +494,7 @@ This workflow is for large scale digitisation projects where the work will be ca
 - All items to be digitised are catalogued to item level on EMu or ALMA.
 - A list of records (one per line) to be digitised with EMu IRN or the ALMA BIBNET references are pasted into the mass import interface of Goobi.
 	- #done Geoff can we have such a file please?
-	- #done Leeds Please can you create a sample of such identifiers as a list (for alma and for EMu) for intranda
+	- #done Leeds Please can you create a sample of such identifiers as a list (for alma and for EMu) for intranda [see Internet Archive record - https://archive.org/details/b21524956 image to download from there, and record is here https://explore.library.leeds.ac.uk/special-collections-explore/241077]
 	- #intranda take this into account for the pricing proposal (no excel anymore)
 - A project has been set up in Goobi with a total number of processes, estimated number of pages, a start date, and a deadline for completion.
 - The initial percentage for quality assurance has been set. See #Development above.
