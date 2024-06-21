@@ -1,4 +1,4 @@
-# UOL Goobi Requirements Document - DRAFT v3.4
+# UOL Goobi Requirements Document - DRAFT v3.5
 
 18/06/2024
 Comments are tagged with the name of the responsible person/group
