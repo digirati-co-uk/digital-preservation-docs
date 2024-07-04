@@ -15,6 +15,9 @@ create table if not exists public.files
 );
 ```
 
+Maybe we DO need this, for reporting, on file types, formats, across digital and digitised, etc.
+Aggregate technical metadata.
+
 -- room for flags, status etc later.
 -- maybe a JSON column?
 
