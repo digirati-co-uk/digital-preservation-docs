@@ -14,7 +14,10 @@ create table if not exists public.assets
 
     -- new field - the manifest this asset was INTRODUCED in.
     -- doesn't mean it hasn't been used in other manifests since - but that's not going to be normal.
-    manifest_context  varchar
+    -- manifest_context  varchar
+    -- maybe not? Maybe just use the reverse relationship from canvas_paintings?
+    -- usedBy collection belonging to asset in API
+    
 );
 
 comment on table public.assets is '(This is the Images table in protagonist!)';

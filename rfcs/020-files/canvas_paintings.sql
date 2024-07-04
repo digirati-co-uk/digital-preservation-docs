@@ -18,6 +18,8 @@ create table if not exists public.canvas_paintings
     target             text,   -- could be json, or jsonb
     static_width       integer,
     static_height      integer 
+
+    --do we need timestamps on these rows?
 );
 
 comment on column public.canvas_paintings.manifest_id is 'from  the manifest table';
