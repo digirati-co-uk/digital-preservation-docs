@@ -118,6 +118,7 @@ For representing a file: any kind of file stored in the repository.
     "@id": "https://preservation.dlip.leeds.ac.uk/repository/example-objects/DigitalObject1/my-directory/My_File.pdf",
     "type": "Binary",
     "name": "My File.pdf",
+    "contentType": "application/pdf",
     "digest": "b6aa90e47d5853bc1b84915f2194ce9f56779bc96bcf48d122931f003d62a33c",
     "location": "s3://dlip-working-bucket/deposits/e5tg66hn/my-directory/My_File.pdf",
     "content": "https://preservation.dlip.leeds.ac.uk/content/example-objects/DigitalObject1/my-directory/My_File.pdf",
@@ -130,6 +131,7 @@ For representing a file: any kind of file stored in the repository.
 | `@id`        | URI of the Binary in the API. The path may only contain characters from the *permitted set*.   |
 | `type`       | "Binary"                       |
 | `name`       | The original name, which may contain any UTF-8 character. |
+| `contentType`| The internet type of the file, e.g., `application/pdf`. The Preservation platform will usually deduce this for you, it is not required on ingest. |
 | `digest`     | The SHA-256 checksum for this file. This will always be returned by the API, but is only required when **sending** to the API if the checksum is not provided some other way - see below. |
 | `location`   | The S3 URI within a Deposit where this file may be accessed. If just browsing, this will be empty. If importing and sending this data to the API as part of an ImportJob, this is the S3 location the API should read the file from.  |
 | `content`    | An endpoint from which the binary content of the file may be retrieved (subject to authorisation). This is always provided by the API for API users to read a single file (it's not a location for the API to fetch from) |
@@ -316,6 +318,7 @@ Before you can ask for an Import Job, the `digitalObject` field of the Deposit m
     "type": "ImportJob",
     "deposit": "https://preservation.dlip.leeds.ac.uk/deposits/e56fb7yg",
     "digitalObject": "https://preservation.dlip.leeds.ac.uk/repository/example-objects/DigitalObject2",
+    "digitalObjectName": "Manuscript 2024-b",
     "sourceVersion": {
        "name": "v2",
        "date": "2024-03-14T14:58:58"
@@ -355,7 +358,8 @@ Before you can ask for an Import Job, the `digitalObject` field of the Deposit m
 | `@id`              | The URI this import job was obtained from, OR your own identifier for it if generated manually or edited. This URI has no special significance for _processing_ the job.  |
 | `type`             | "ImportJob"                       |
 | `deposit`          | The Deposit that was used to generate this job, and to which it will be sent if executed. The job must be POSTed to the value of this property plus `/importJobs` |
-| `digitalObject`   |  The object in the repository that the job is to be performed on. This object doesn't necessarily exist yet - this job might be creating it. The value must match the `digitalObject` of the deposit, so it's technically redundant, but must be included so that the intent is explicit and self-contained. |
+| `digitalObject`    |  The object in the repository that the job is to be performed on. This object doesn't necessarily exist yet - this job might be creating it. The value must match the `digitalObject` of the deposit, so it's technically redundant, but must be included so that the intent is explicit and self-contained. |
+| `digitalObjectName`|  The display name of the Digital object, required when creating a new one. |
 | `sourceVersion`    | Always provided when you ask the API to generate an ImportJob as a diff and the DigitalObject already exists. May be null for a new object.* |
 | `containersToAdd`  | A list of Container objects to be created within the Digital object. The `@id` property gives the URI of the container to be created, whose path must be "within" the Digital Object and must only use characters from the permitted set. The `name` property of the container may be any UTF-8 characters, and can be used to preserve an original directory name. |
 | `binariesToAdd`  | A list of Binary objects to be created within the Digital object from keys in S3. The `@id` property gives the URI of the binary to be created, whose path must be "within" the Digital Object and must only use characters from the permitted set. The `name` property of the Binary may be any UTF-8 characters, and can be used to preserve an original file name. The `location` must be an S3 key within the Deposit. The `digest` is only required if the SHA256 cannot be obtained by the API from METS file information or from S3 metadata. All API-generated jobs will include this field. Note that in the second example above, the URI last path element, the `name` property, and the S3 location last path element are all different - this is permitted, although perhaps unusual. |
