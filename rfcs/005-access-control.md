@@ -4,12 +4,12 @@ This RFC addresses how we will handle access control (authentication and authori
 
 * Preservation API (P-API)
 * Storage API (S-API)
-* Digital Preservation Web UI (UI, below)
+* Digital Preservation Web UI (UI)
 * Fedora
 
 Key considerations:
 * Security
-* Simplicity
+* Simplicity and ease of maintenance
 * Standards based (OAuth2 and OIDC)
 * Identity of users accurately represented in Fedora, ie they are independent of any source identity provider as they must be meaningful if Fedora alone is restored.
 
@@ -22,7 +22,7 @@ Key considerations:
 
 A high level summary is:
 
-* User provisioned and management is an external concern to all systems mentioned above.
+* User provisioning and management is an external concern to all systems mentioned above.
 * UI will use OAuth2 authorization code flow. `id_token` will contain user identity.
 * S-API and P-API will use OAuth2 client credentials flow. `access_token` will contain user identity.
 * All interactions with Fedora will go via the S-API. S-API will manage access and dictate `fedora:createdBy` and `fedora:lastModifiedBy` values.
@@ -30,6 +30,8 @@ A high level summary is:
 ### Human Interactions
 
 UI will use the oauth2 [authorization code](https://oauth.net/2/grant-types/authorization-code/) grant, the end result of which is that the UI will have an [`id_token`](https://auth0.com/docs/secure/tokens/id-tokens), to identify the current user, and an [`access_token`](https://auth0.com/docs/secure/tokens/access-tokens) that can be used when accessing S-API and P-API.
+
+ ![UI Auth](./img/ui_auth.drawio.png)
 
 ### Machine to Machine
 
@@ -41,9 +43,11 @@ For the purposes of security both the P-API and S-API will share a single "secur
 
 Custom claims within the token will be able to govern what access is available, e.g. whether S-API and P-API access is allowed. Exactly what these claims are will be addressed as we progress with the project along with any custom scopes.
 
+![API Auth](./img/api_auth.drawio.png)
+
 ### Fedora
 
-The `access_token` provided to S-API will contain the identify of the caller as the [subject (`sub`)](https://www.rfc-editor.org/rfc/rfc7519#section-4.1.2 claim). This may be a human indirectly using the API via UI interactions, or a machine directly consuming the API, as mentioned above this identity needs to be accurately represented in the underlying OCFL document.
+The `access_token` provided to S-API will contain the identify of the caller as the [subject (`sub`)](https://www.rfc-editor.org/rfc/rfc7519#section-4.1.2) claim. This may be a human indirectly using the API via UI interactions, or a machine directly consuming the API. This identity needs to be accurately represented in the underlying OCFL document.
 
 Fedora supports a few different [authentication and authorization](https://wiki.lyrasis.org/display/FEDORA6x/Authentication+and+Authorization) mechanisms for access control. However we should conting to use "Fedora as a means to OCFL" as outlines in [RFC 001](./001-what-is-stored-in-fedora.md#fedora-as-a-means-to-ocfl). With regards to access-control it means having all access-control logic contained within the S-API, with it enforcing access and indicating to Fedora which user carried out each action.
 
@@ -56,6 +60,14 @@ PREFIX fedora: <http://fedora.info/definitions/v4/repository#>
  fedora:lastModifiedBy "frodo";
 ```
 
+### Implementation Detail
+
+Given we are using dotnet and AzureAD the best way to implement this is via [Microsoft Authentication Library (MSAL)](https://learn.microsoft.com/en-us/entra/identity-platform/msal-overview) as this can do a lot of the heavy lifting on our behalf - e.g. token acquisition, expiry, caching, refreshing etc.
+
+For the UI we could consider offloading the authentication to the [AWS LoadBalancer](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/listener-authenticate-users.html) but implementation saving would be negligible if MSAL is as simple to implement as documented.
+
+The expectation is that we will use RS256 signed tokens as this seems to be what [AzureAD](https://login.microsoftonline.com/common/v2.0/.well-known/openid-configuration) configuration supports, although alternative algorithms will be supported if required.
+
 ### Questions
 
 * According to [MSDN](https://learn.microsoft.com/en-us/azure/active-directory-b2c/tokens-overview#claims) the `"sub"` claim from AzureAD is _"By default....populated with the object ID of the user in the directory."_. The example given (`884408e1-2918-4cz0-b12d-3aa027d7563b`) does not immediately identify the user, something like `dlip/frodo` or `dlip/goobi` would be more descriptive. Is it possible to configure AzureAD to return something more meaningful as `"sub"`, or do we need something else - and custom claim or some sort of lookup service?
@@ -63,14 +75,6 @@ PREFIX fedora: <http://fedora.info/definitions/v4/repository#>
 * Would we want to use some semblance of Fedora's built in [Web Access Control](https://wiki.lyrasis.org/display/FEDORA6x/Web+Access+Control)? This could make the interactions with S-API more complex so I think it's best to keep it all in S-API. If we wanted to implement something like this, we would need multiple 'FedoraAdmins' as these are the credentials presented to Fedora.
 * Will we require any 'anonymous' access to the UI?
 * How will automated tests authenticate with identity provider for testing UI, is there restrictions requiring MFA?
-
-### Implementation Detail
-
-Given we are using dotnet and AzureAD the best way to implement this is via [Microsoft Authentication Library (MSAL)](https://learn.microsoft.com/en-us/entra/identity-platform/msal-overview) as this can do a lot of the heavy lifting on our behalf - e.g. token acquisition, expory, caching, refreshing etc.
-
-For the UI we could consider offloading the authentication to the [AWS LoadBalancer](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/listener-authenticate-users.html) but I think the implementation saving would be negligible if MSAL is as simple to implement as documented.
-
-The expectation is that we will use RS256 signed tokens as this seems to be what [AzureAD](https://login.microsoftonline.com/common/v2.0/.well-known/openid-configuration) configuration supports, although alternative algorithms will be supported if required.
 
 ### Next Steps
 
