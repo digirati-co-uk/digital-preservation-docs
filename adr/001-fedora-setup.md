@@ -19,7 +19,8 @@ We will use the following configuration:
 
 * OCFL Storage Root will be on [S3](https://wiki.lyrasis.org/display/FEDORA6x/Amazon+S3)
 * PostgreSQL database will be used for OCFL cache
-* Digest algorithm use by OCFL will be sha256
+* Digest algorithm for OCFL will be SHA-256, rather than the default SHA-512. 
+  * S3 supports some [checksum algorithms](https://docs.aws.amazon.com/AmazonS3/latest/userguide/checking-object-integrity.html) out of the box, SHA-512 is not supported but SHA-256 is. It's useful for us to allow some upload scenarios (from the UI especially) to use S3 built-in.
 * OCFL extension [Hashed N-tuple Storage Layout](https://ocfl.github.io/extensions/0004-hashed-n-tuple-storage-layout.html) will be used with default values.
 
 ## Customisation
@@ -40,4 +41,5 @@ The following are some areas we may want to investigate as we approach productio
 
 * Hook into the [JMS messaging system](https://wiki.lyrasis.org/display/FEDORA6x/Messaging) to get audit events. We could use Amazon MQ, which is a managed Apache ActiveMQ service, as it supports STOMP and openwire protocols. However, this isn't as simple to setup as SQS as it involves provisioning compute resources to run brokers.
 * Consume [Prometheus metrics](https://wiki.lyrasis.org/display/FEDORA6x/Metrics) from Fedora, again AWS have a managed service for this should we need it. Could be handy for figuring out scaling and performance.
-* Scaling. Vertical scaling seems to be the common approach for Fedora. If horizontal scaling we could investigate sticky sessions or single write/multi read nodes. See [Fedora Slack](https://fedora-project.slack.com/archives/C8B5TSR4J/p1725379974486389) discussion related to this.
+* Scaling. Vertical scaling seems to be the common approach for Fedora. If horizontal scaling we could investigate sticky sessions or single write/multi read nodes. See [Fedora Slack](https://fedora-project.slack.com/archives/C8B5TSR4J/p1725379974486389) discussion related to this. 
+  * Some users are running Fedora in very heavy-duty configs (e.g. a cluster of [8 x 32vCPU/64GB RAM machines](https://fedora-project.slack.com/archives/C8B5TSR4J/p1714134170838719)) and we're currently not sure why this is required. We will need to find out with load testing.
