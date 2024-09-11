@@ -70,9 +70,10 @@ The expectation is that we will use RS256 signed tokens as this seems to be what
 
 ### Questions
 
+* _"the acquisition of the access token is an external concern"_ - this is the biggest unknown, it assumes that their Identity Provider is able to issue tokens to known _services_ as well as known _people_. Is this a safe assumption?
 * According to [MSDN](https://learn.microsoft.com/en-us/azure/active-directory-b2c/tokens-overview#claims) the `"sub"` claim from AzureAD is _"By default....populated with the object ID of the user in the directory."_. The example given (`884408e1-2918-4cz0-b12d-3aa027d7563b`) does not immediately identify the user, something like `dlip/frodo` or `dlip/goobi` would be more descriptive. Is it possible to configure AzureAD to return something more meaningful as `"sub"`, or do we need something else - and custom claim or some sort of lookup service?
 * What would the process be for creating 'users', both human and machine, in AzureAD?
-* Would we want to use some semblance of Fedora's built in [Web Access Control](https://wiki.lyrasis.org/display/FEDORA6x/Web+Access+Control)? This could make the interactions with S-API more complex so I think it's best to keep it all in S-API. If we wanted to implement something like this, we would need multiple 'FedoraAdmins' as these are the credentials presented to Fedora.
+* Would we want to use some semblance of Fedora's built in [Web Access Control](https://wiki.lyrasis.org/display/FEDORA6x/Web+Access+Control)? This could make the interactions with S-API more complex so I think it's best to keep it all in S-API. If we wanted to implement something like this, we would need multiple 'FedoraAdmins' as these are the credentials presented to Fedora. Ideally we do not need to do this as it could make interactions unnecessarily complex.
 * Will we require any 'anonymous' access to the UI?
 * How will automated tests authenticate with identity provider for testing UI, is there restrictions requiring MFA?
 
