@@ -30,8 +30,14 @@ The first kind of resource _may_ be reusable, and certainly can have more common
 
 Possibly base classes that are extended in different contexts (e.g., only the Storage API version gets `origin`).
 
-### WIP
+### Outcome
 
-Build container browsing and container creation in a vertical slice that uses a shared approach.
+`Container`, `ArchivalGroup` and `Binary` are classes used throughout the codebase when we are sending resources for preservation, or receiving them from Preservation. They live here:
 
-Issues - ArchivalGroup vs DigitalObject - different names in the two different contexts.
+https://github.com/uol-dlip/digital-preservation/tree/main/src/DigitalPreservation/DigitalPreservation.Common.Model
+
+`WorkingDirectory` and `WorkingFile` are used when we are interacting with files and directories on disk (or more likely, in S3). They live here:
+
+https://github.com/uol-dlip/digital-preservation/tree/main/src/DigitalPreservation/DigitalPreservation.Common.Model/Transit
+
+The name _DigitalObject_ has been dropped. Better to use `ArchivalGroup` everywhere even though it's not quite as obvious what it is to newcomers. It avoids confusion and allows someone who knows Fedora to understand the intent of the UI (for example).
