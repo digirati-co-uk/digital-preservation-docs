@@ -5,19 +5,26 @@ This begins by looking at data flows that result in new manifests used on the ex
 
 ## EPrints into Fedora
 
-(custom eprints migration script)
+This assumes the existence of a custom EPrints migration script, that
+
+ - can acquire an access token to consume the Preservation API
+ - has read/write access to the S3 bucket (and sub key) that will be provided by the Preservation API
 
 Begin with ePrints record? It has EMu IRN `123456` and ePrints ID `epxyz`.
 
-Script calls ID service - "mint me an _archival group_ URI for the thing with EMu 123456"
+The script calls the **Identity Service** - 
+
+> "mint me an _archival group_ URI for the thing with EMu IRN 123456"
 
 (Do we pass it both IDs? "FYI you can link 123456 and epxyx straight off the bat")
 
-ID service returns something - what does its minted AG URI look like?
+The Identity Service service returns a response that includes the Archival Group URI.
 
-(Need to tidy this up with the actual PID formats)
+_What does its minted AG URI look like?_
 
- - Simple but possibly naive? - `/repository/emu/cat/123456`
+(Need to tidy this up with the actual PID formats, here are some )
+
+ - Simple but possibly naive - `/repository/emu/cat/123456`
  - Transformed (assume this more ARK-like) - `/repository/emu/cat/fgh-123456-sdf`
  - Opaque - `/repository/emu/cat/a6gr99n3`
  - Hierarchical - `/repository/emu/cat/a6gr99n3/tgb53pf4`
@@ -104,7 +111,7 @@ But we'll be using the METS file later because it can tell us more that may have
  - access conditions
  - any additional technical metadata we might want to surface in the IIIF (not much probably)
 
-IIIF-Builder loads the METS file and uses it to build a IIIF Manifest - bu instead of constructing the Canvases manually, it sends the manifest with a payload of `PaintedResource` objects:
+IIIF-Builder loads the METS file and uses it to build a IIIF Manifest - but instead of constructing the Canvases manually, it sends the manifest with a payload of `PaintedResource` objects:
 
 https://deploy-preview-2--dlcs-docs.netlify.app/api-doc/iiif#paintedresource
 
@@ -177,4 +184,27 @@ I could now ask the ID service:
 
 This is the process for born digital, starting with "I want to preserve the files for EMu IRN 567890" and then "I want 567890 to be available as IIIF"
 
-(todo)
+An archivist goes to the Preservation UI in a browser. While ad-hoc archival groups can be created anywhere in the structure, the UI has a special process for EMu. The "New Deposit" is a drop-down menu that offers "from EMu". The archivist picks this one and the UI shows them a dialogue box that asks for the EMu IRN or classmark (i.e., it accepts `652832` or `MS 2067/B/2/6/2`).
+
+The Preservation UI asks the Identity service for an Archival Group URI (as above) for this identifier. If it already exists then this becomes an EDIT operation - let's assume it's new.
+
+The Preservation UI then goes to EMu API directly (possibly the Catalogue API later) and collects some information, most obviously the title which will be both the name of the archival group, and added to the METS file. Any other rights information or data we want from EMu in the METS can be gathered here. 
+
+The Preservation UI (and API) create and manage a METS file for this object, and the UI of the deposit page is a visual representation of this METS file structure.
+
+The UI then asks the Preservation API to create a deposit for this archival group.
+
+As the archivist uploads files, the Preservation UI adds them to the METS file. This is the manual equivalent of the EPrints script pushing the EPrints files into the deposit working area.
+
+Once the assembly of the Archival Group is complete, it is submitted as in the above example and the rest of the workflow is the same.
+
+
+## Alternative paths
+
+Objects involving many files, or otherwise complex structures or diverse material, will begin their workflow in BitCurator. Initial work is done here and ends up with a BagIt bag folder structure being created.
+
+Once done the archivist uploads the whole BagIt structure to a staging area using either an SFTP client, or a direct S3-supporting file transfer client (they will both end up in a bucket). This crucially does not go via the Preservation Web UI with potentially huge file transfers over HTTP.
+
+Once done, the archivist goes to the Preservation UI and creates a new Deposit "From BagIt", providing the root S3 location (or FTP location, which the UI will transform into the S3 location). On the server the Preservation API interrogates the BagIt and creates a METS file in the Deposit, transferring over the data files but not necessarily the BagIt artifacts and other forensic analysis tool outputs. The API might use these outputs, but convert their information into data that can go into the METS file.
+
+The end result is a Deposit with a METS file and the full contents, which can then process as the earlier example above.
