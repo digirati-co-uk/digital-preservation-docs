@@ -48,10 +48,27 @@ var result = identityService.AreEquivalent(
 
 The Identity Service service returns a response that includes the Archival Group URI.
 
-Maybe it always returns a dictionary of all the identifiers it knows about that are equivalent to the one sent, including one just minted when necessary.
+**Maybe it always returns a dictionary of all the identifiers it knows about that are equivalent to the one sent, including one just minted when necessary:**
 
+```
+{
+    "id": "https://id.leeds.ac.uk/id/a6gr99n3",
+    "equivalent": [
+        {
+            "id": "https://id.leeds.ac.uk/emu/123456",
+            "type": "EMuIdentifier"
+        }
+    ]
+}
+```
 
-It doesn't exist yet but when it does, you can go and look at it at https://digipres-api.leeds.ac.uk/repository/emu/a6gr99n3 (or whichever of the above is used)
+You could go full Linked Art on this and return a linked art object, with those equivalents of type `Identifier`, then `classifiedAs: emuIdentifier`, `classifiedAs: archivalGroupIdentifier`, etc.
+
+There's also the redirect behaviour of the id service - https://id.leeds.ac.uk/id/a6gr99n3 can't redirect to anything because it doesn't know which equivalent you might want. But https://id.leeds.ac.uk/iiif/a6gr99n3 could redirect to the IIIF Manifest (not serve it directly), and https://id.leeds.ac.uk/web/a6gr99n3 could redirect to the web page, and so on.
+
+> TODO - proposal for the full object returned by ID service.
+
+It doesn't exist yet but when it does, you can go and look at the Archival Group at https://digipres-api.leeds.ac.uk/repository/emu/a6gr99n3 (or whichever of the above is used)
 
 OPTIONALLY - if we want ID service to track this -
 
