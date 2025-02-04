@@ -14,35 +14,57 @@ Begin with ePrints record? It has EMu IRN `123456` and ePrints ID `epxyz`.
 
 The script calls the **Identity Service** - 
 
-> "mint me an _archival group_ URI for the thing with EMu IRN 123456"
+> "give me an _archival group_ URI for the thing with EMu IRN 123456"
+
+The id service will either mint a new record, or return the URI it already has (HTTP 201 or 200).
+
+Our client code for the identity service would make this call something like this:
+
+```c#
+var idResult = identityService.GetIdentifier(
+    "123456", 
+    IdentifierTypes.EMuIRN, IdentifierTypes.ArchivalGroup);
+var agUri = idResult.Uri;
+// or idResult.ArchivalGroup ? 
+// agUri is https://digipres-api.leeds.ac.uk/repository/emu/a6gr99n3
+```
+
+Possibly we pass some pseudo-qualified-URL rather than the raw "123456" string, thereby avoiding the need to say what kind of ID the known one is. We still need to say what kind of identifier we want:
+
+```c#
+var idResult = identityService.GetIdentifier(
+    "https://id.leeds.ac.uk/emu/123456", IdentifierTypes.ArchivalGroup);
+```
 
 (Do we pass it both IDs? "FYI you can link 123456 and epxyx straight off the bat")
 
+```c#
+// something like this? Or do we leave that to identity service to sort out itself?
+var result = identityService.AreEquivalent(
+    "https://id.leeds.ac.uk/emu/123456",
+    "https://id.leeds.ac.uk/eprints/epxyz");
+
+```
+
 The Identity Service service returns a response that includes the Archival Group URI.
 
-_What does its minted AG URI look like?_
+Maybe it always returns a dictionary of all the identifiers it knows about that are equivalent to the one sent, including one just minted when necessary.
 
-(Need to tidy this up with the actual PID formats, here are some )
 
- - Simple but possibly naive - `/repository/emu/cat/123456`
- - Transformed (assume this more ARK-like) - `/repository/emu/cat/fgh-123456-sdf`
- - Opaque - `/repository/emu/cat/a6gr99n3`
- - Hierarchical - `/repository/emu/cat/a6gr99n3/tgb53pf4`
- - Bit of both -  `/repository/emu/cat/a6gr99n3/123456`
-
-It doesn't exist yet but when it does, you can go and look at it at https://digipres-api.leeds.ac.uk/repository/emu/cat/123456 (or whichever of the above is used)
+It doesn't exist yet but when it does, you can go and look at it at https://digipres-api.leeds.ac.uk/repository/emu/a6gr99n3 (or whichever of the above is used)
 
 OPTIONALLY - if we want ID service to track this -
 
-Script calls ID service - "mint me a _DEPOSIT ID_ for the thing with EMu 123456"
-(we might not want to do this because the Preservation API can always tell us the deposits for an Archival Group)
+Script calls ID service - "Get me a _DEPOSIT ID_ for the thing with EMu 123456"
 
-Script then calls Preservation API:
+_We might not want to do this because the Preservation API can always tell us the deposits for an Archival Group. Also, there is a 1:1 relationship between `emu/123456` and `preservation/a6gr99n3`, but there is a 1:n relationship between `preservation/a6gr99n3` and its deposits. So the id service would always have to return a list of deposit IDs, which may be less useful. Or the id service knows that when minting deposit IDs for an archival group, it can mint them like `deposit/a6gr99n3_1`, `deposit/a6gr99n3_2`, etc... That feels a little iffy though, they are then kind of semi-opaque._
+
+The EPrints migration script then calls the Preservation API:
 
 ```
 POST /deposits
 {
-    "archivalGroup": "https://digipres-api.leeds.ac.uk/repository/emu/cat/123456",
+    "archivalGroup": "https://digipres-api.leeds.ac.uk/repository/emu/a6gr99n3",
     "archivalGroupName": "(E2) Research and papers : 2007-2011",
     "submissionText": "(optional note)"
 }
@@ -50,9 +72,21 @@ POST /deposits
 
 The Preservation API recognises the URI as an EMu ID and validates it (this will happen for Born Digital human-driven work but that might be a function of the Preservation UI application rather than the API)
 
-Script receives a Deposit object (with minted ID) that includes a `.files` property - the S3 working location.
+_NB `archivalGroupName` is optional here because the Preservation API will read that from EMu when validating the request._
 
-Script uploads the contents of the EPrints object to that location (preserving folder structure)
+The script receives a Deposit object (with ID either minted by the Preservation API and unknown to the ID service, or one minted by the ID service at the Preservation API's request). This Deposit includes a `.files` property - the S3 working location. 
+
+```jsonc
+{
+    "id": "https://digipres-api.leeds.ac.uk/deposits/g5hm32pd",
+    "type": "Deposit",
+    "files": "s3://dlip-working-bucket/deposits/g5hm32pd",
+    // etc
+}
+```
+
+
+The migration script uploads the contents of the EPrints object to the `files` location (preserving folder structure)
 
 QUESTION: 
 
@@ -60,14 +94,14 @@ QUESTION:
  - ...or send the ePrints METS file as part of the payload?
  - ...or ask the Preservation API to make a METS file from the structure?
 
-(the latter two are both possible and easier for the script!)
+(the latter two are both possible and easier for the script, and the second is preferred - less work for all).
 
-Script then tells the Preservation API to ingest directly:
+The script then tells the Preservation API to ingest directly:
 
 ```
-POST /deposit/g5hm32pd/importjobs
+POST /deposits/g5hm32pd/importjobs
 {
-    "id": "https://digipres-api.leeds.ac.uk/deposit/g5hm32pd/importjobs/diff"
+    "id": "https://digipres-api.leeds.ac.uk/deposits/g5hm32pd/importjobs/diff"
 }
 ```
 
@@ -88,7 +122,7 @@ Preservation API publishes an event that says "A new Archival Group exists". How
 IIIF-Builder acts on the new event.
 It can see the Archival Group URI in the activity stream event. It asks the ID service:
 
-"mint a IIIF Manifest URI for this Archival Group URL, and give me back all the other IDs you know"
+"mint/get a IIIF Manifest URI for this Archival Group URL, and give me back all the other IDs you know"
 
 (Internally Identity Service knows the EMu ID already and can use that to make decisions)
 
@@ -97,7 +131,7 @@ Later, one of these IDs will be the **Catalogue API URI** for this item. For now
 IIIF-Builder then requests the Archival Group from the Preservation API.
 
 ```
-GET https://digipres-api.leeds.ac.uk/repository/emu/cat/123456
+GET https://digipres-api.leeds.ac.uk/repository/emu/a6gr99n3
 ```
 
 This gives it a listing of the contents _and their origin locations in S3_, including the METS file.
@@ -118,7 +152,7 @@ https://deploy-preview-2--dlcs-docs.netlify.app/api-doc/iiif#paintedresource
 Example:
 https://github.com/dlcs/iiif-presentation-tests/blob/8e848de2c6a2437bdc1243a4c692469c6c17ce77/tests/apiscratch/t0070---managed-asset-manifests.spec.ts#L24
 
-each `paintedResource.asset` property includes the `origin` S3 URI that IIIF-Builder can see in the ArchivalGroup resource.
+Each `paintedResource.asset` property includes the `origin` S3 URI that IIIF-Builder can see in the ArchivalGroup resource.
 
 It also calls the Catalogue API (or pseudo catalogue API) URI it learned from the identity service
 
