@@ -4,9 +4,9 @@ There are two distinct scenarios for classes that represent files and folders ac
 
 The first are _resources_ returned by an HTTP API. They are information objects; they are navigable structures.
 
-Containers and Binaries in Fedora
-Containers and Binaries in the Storage API
-Containers and Binaries in the Preservation API
+- Containers and Binaries in Fedora
+- Containers and Binaries in the Storage API
+- Containers and Binaries in the Preservation API
 
 The resources live at URIs that represent their stored, permanent locations.
 When we browse the storage API, or Preservation API via the web user interface, we are interacting with these resources.

@@ -1,6 +1,6 @@
 # Polymorphic Serialisation / Deserialisation
 
-The Architectural Decision is to write CUSTOM derserialisers.
+The Architectural Decision is to write CUSTOM deserialisers.
 
 ## Background
 
