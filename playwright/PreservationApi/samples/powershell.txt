@@ -1,0 +1,3 @@
+Useful snippet:
+
+Get-ChildItem | Get-FileHash -Algorithm SHA256 | %{$_.Hash.ToLower(), $_.Path}
