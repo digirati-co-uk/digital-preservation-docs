@@ -211,8 +211,10 @@ test('iiif-builder-demonstration', async ({request}) => {
         // Our manifest is an "API" manifest; it uses `paintedResources` and we
         // are sending it in as the authed user with the extras header.
 
-        // We are PUTting it to the Flat APU endpoint, but not specifying an
-        // internal flat ID, so the platform will mint one.
+        // We are PUTting it to the Flat API endpoint, using the apiManifestUri that
+        // we created earlier. 
+        
+        // Alternatively we might get this ID from the identity service.
 
         // At this point we don't know whether the Manifest exists.
         // Although if the activity was a "Create" then almost certainly it won't.
@@ -248,7 +250,7 @@ test('iiif-builder-demonstration', async ({request}) => {
             putHeaders["If-Match"] = eTag;
         }
 
-        const initialPostResponse = await request.put(apiManifestUri, {
+        const initialPutResponse = await request.put(apiManifestUri, {
             headers: putHeaders,
             data: manifest
         });
@@ -260,7 +262,7 @@ test('iiif-builder-demonstration', async ({request}) => {
         // expect(initialPostResponse.status()).toEqual(201); // HTTP Created
         // This could only happen if it's a new Manifest with no assets - so can be created synchronously.
         // which?
-        expect(initialPostResponse.status()).toEqual(202); // HTTP Accepted
+        expect(initialPutResponse.status()).toEqual(202); // HTTP Accepted
         // 200 also acceptable for update that needs no processing
         // 200 and 201 both treated the same in this code.
         // Is it accepted here even if it's new?
@@ -273,8 +275,8 @@ test('iiif-builder-demonstration', async ({request}) => {
         // must handle it.
 
         // Now there is no ETag, because it's in-flight.
-        expect(initialPostResponse.headers()["ETag"]).not.toBeDefined(); // see t0071 for more details
-        const newlyCreatedManifest = await initialPostResponse.json();
+        expect(initialPutResponse.headers()["ETag"]).not.toBeDefined(); // see t0071 for more details
+        const newlyCreatedManifest = await initialPutResponse.json();
 
         expect(newlyCreatedManifest['items']).toHaveLength(3);
         expect(newlyCreatedManifest).toEqual(expect.objectContaining({
@@ -290,6 +292,9 @@ test('iiif-builder-demonstration', async ({request}) => {
 
         // Try to obtain the manifest again immediately - it is "in flight"
         // This GET can be made with either apiManifestUri or publicManifestUri
+
+        // GET apiManifestUri will return a 200 or 202 and show the in-flight manifest
+        // GET publicManifestUri will return a 200 if this is an update, if it's a create and not yet finished it'll be 404
         const inFlightManifestResp = await request.get(apiManifestUri, {
             headers: {
                 "Authorization": `Basic ${iiifCsCredentials}`,
