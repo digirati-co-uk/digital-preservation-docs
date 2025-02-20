@@ -1,8 +1,14 @@
 # Introduction
 
-(diagram here, summarised below - the Preservation stack)
+This documentation is about how to _use_ the Leeds Digital Preservation Stack. It is aimed at developers using the Preservation API, and also the Storage API.
 
-```
+It is also aimed at users of the Preservation user interface.
+
+## The Preservation Stack
+
+![Diagram of preservation Stack](images/preservation-stack.png)
+
+<!--
     OCFL (in S3)     - direct origin access to (very) trusted readers
                        replication to other locations
 
@@ -30,11 +36,11 @@
                      - Upload files
                      - Trigger pipelines
 
-```
+-->
 
 ## OCFL
 
-The [Oxford Common File Layout](https://ocfl.io/1.1/spec/) (OCFL) is what ends up preserved "on disk" - or in our case, in AWS S3. OCFL is the goal of the rest of the digital preservation stack. Versioned archival objects, in a file layout that conforms to an agreed specification.
+The [Oxford Common File Layout](https://ocfl.io/1.1/spec/) (OCFL) is what ends up preserved "on disk" - or in our case, in AWS S3. OCFL is the **goal** of the rest of the digital preservation stack. Versioned archival objects, in a file layout that conforms to an agreed specification.
 
 The idea is that we can recover everything that was preserved just from a backup of the OCFL file system (or S3). For example, we find a hard drive with an OCFL file layout and a copy of the OCFL specification.
 
@@ -44,6 +50,7 @@ We don't need running systems just for there to be preserved content.
 
 The individual units of Preservation - the things we consider to have boundaries that sensibly define versions - correspond to [OCFL objects](https://ocfl.io/1.1/spec/#object-spec). An object might have one file or might have hundreds. It might correspond to a digitised archival _Item_, a digitised book, or a born digital _Item_. 
 
+The OCFL contents can be replicated to other locations for backup.
 
 ## Fedora
 
@@ -51,7 +58,7 @@ The individual units of Preservation - the things we consider to have boundaries
 
 We could write the OCFL directly to disk or S3, managing it ourselves. But we don't do that, because [Fedora 6](https://wiki.lyrasis.org/display/FEDORA6x) does this for us. OCFL is how Fedora 6 persists the repository to disk, and how it manages versions.
 
-Fedora 6 offers many modelling and management features; its implementation of the Linked Data Platform and ability to store arbitrary triples allows it to be used to model complex objects within the repository.
+Fedora 6 offers many modelling and management features; its implementation of the _Linked Data Platform_ and ability to store arbitrary triples allows it to be used to model complex objects within the repository.
 
 _We choose not to make use of these features_. We are using Fedora as the means of writing OCFL. 
 
@@ -67,43 +74,48 @@ For this reason, we only use a subset of Fedora's capabilities.
 
 All communication with Fedora is via the Storage API. Nothing else can talk to Fedora!
 
-Async processing of import job
+Direct use of the Storage API is rare, as most use cases are better served by the Preservation API, which offers a richer model and workflow for Digital Preservation tasks. You might develop an application against the Storage API if all you are doing is reading preserved content. The Storage API allows navigation of the repository structure as a hierarchy of Containers, containing Archival Groups (preserved objects) which in turn contain further Containers and Binaries (the preserved files). When the API returns Binaries, their `origin` property gives direct access to the underlying location of the file in AWS S3.
 
-Manages transactions, validation
+Creating an updating Archival Groups is done by sending the Storage API an **Import Job** - a JSON document that describes Containers and Binaries (folders and files) somewhere on disk or S3 _outside of Fedora_ that the Storage API should ingest _into Fedora_. The Storage API manages the Fedora transaction for this work and controls the process of getting the content (no matter how many files) into Fedora. The Storage API validates the import job and then performs it asynchronously. Callers can observe the process of an Import Job by requesting an Import Job Result - which could take minutes or hours to complete.
 
-Allows retrieval of containers and archival groups
+The Storage API can store anything you can describe in an Import Job, as long as it has access to the origin locations of the binaries. It needs the import job to provide:
 
-By listing container.binaries with their origins, allows trusted callers to learn the direct location on disk
-
-(stream of content?)
-
-The Storage API can store anything you can describe in an Import Job, as long as it has access to the origin locations of the binaries
-
-All it needs in an import job are 
-
-- URIs of source and destination
-- SHA256 hash (digest) of each binary
+- URIs of source and destination, where the source might be an S3 URI and the destination is the Storage API URI of the binary
+- SHA256 hash (digest) of each binary - the Storage API expects Fedora to agree with the supplied digest.
 - Name (records non-URI-safe original file and directory names, e.g., "my notes.doc")
-- Content Type of binaries
+- Content Type of binaries (e.g., `application/pdf`)
 
-It offers no modelling capabilities other than the file system layout.
+It offers no modelling capabilities other than the file system layout. The Storage API has no concept of the files it is storing and can store anything in an Archival Group.
 
-Direct use of the Storage API is rare, as most use cases are better served by the Preservation API
 
 ## Preservation API
 
-The Preservation API
-Role of METS
-Uses METS to model digital objects
+Whereas the Storage API can be thought of as _Fedora-facing_ - hiding the specific of Fedora behind an interface that's only concerned with Archival Groups, Containers, Binaries and Import Jobs - the Preservation API is _application-facing_ - it provides the mechanisms to build workflows for human- and machine- driven preservation activities.
 
-(later) Manage logical structure
+The Preservation API understands METS files, and will create a METS file for an Archival Group. It expects that the Archival Groups it deals with have a METS file in their root that describes or models the digital object. It also understands METS files created by other systems (for example, a METS file in an Archival Group created by Goobi).
+
+The Preservation API introduces the concept of a **Deposit**, which provides the location "somewhere on disk or S3 _outside of Fedora_" required by the Storage API. A Deposit is like a workspace for assembling, modifying or exporting an Archival Group.
+
+Typically, a user (whether human via the UI, or machine via the API) will:
+
+ - create a Deposit, which gives the user a working area they can put files in. By default, for a new Deposit, a mets.xml file will be created in the root alongside an /objects folder ready to put content in.
+ - create directories within the deposit, and upload or copy files into those directories
+ - supply additional administrative metadata at the root, directory or file level to specify access conditions and rights statements.
+ - generate an import job from the deposit files (a diff operation between the Deposit content and the Archival Group, which will be _all_ diff if the Archival Group does not yet exist).
+
+A user can generate an import job themselves for fine control of the operation.
+They can then execute the import job (the Preservation API mutates it and sends it to the Storage API).
+
+A user can also create a new Deposit by exporting an existing Archival Group. This is how content is retrieved from the Preservation API - it puts the content on disk.
+
+The Preservation API knows about METS files and Deposits; the Storage API knows only about files - sources and destinations.
+
 
 ## Preservation UI
 
-Browse the repository
+The Preservation UI provides a user interface over the Preservation API, as well as working on the Deposit directly. For example, uploading a new file into the Deposit and editing the METS file can be done directly by the Preservation UI, the Preservation API doesn't know about it. 
 
-Work on a deposit
-A combined view of METS (what is in the Archival Group) and Deposit (what is in the working area)
+Another common scenario for the Preservation UI would be to create a Deposit, specify an Archival Group target for the Deposit, and then independently upload a very large BagIt bag of files that has been worked on in BitCurator into the Deposit working area. Later the user would come back to the Preservation UI and get it to process the files.
 
 
 ## IIIF Builder

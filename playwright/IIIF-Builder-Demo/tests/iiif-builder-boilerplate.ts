@@ -50,6 +50,14 @@ export class IdentityServiceClient {
         }
         return ""; // obvs not sensible...
     }
+
+    async getIdentifiers(uri: string) {
+        return {
+            IdentifierTypes.IIIFManifest: "https://iiif.leeds.ac.uk/eprints/a6gr99n3",
+            IdentifierTypes.CatalogueApi: "https://catalogue.leeds.ac.uk/a6gr99n3"
+
+        }
+    }
 }
 
 export class CatalogueApiClient {
