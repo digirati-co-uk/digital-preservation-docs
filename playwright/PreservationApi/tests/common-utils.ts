@@ -21,7 +21,8 @@ export async function uploadFile(
     s3: S3Client,
     depositUri: string,
     localFilePath: string,
-    relativePathInDigitalObject: string) {
+    relativePathInDigitalObject: string,
+    withChecksum: boolean=false) {
 
     const s3Url = parseS3Url(depositUri);
 
@@ -34,9 +35,9 @@ export async function uploadFile(
         Bucket: s3Url.bucket,
         Key: pathInDeposit,
         Body: readFileSync(localFilePath),
-        CacheControl: "no-cache"
+        CacheControl: "no-cache",
         // Note that we don't need to set this if the METS file provides it:
-        // ChecksumAlgorithm: "SHA256"
+        ChecksumAlgorithm: withChecksum ? "SHA256" : null
         // But if you DO provide this information in S3 metadata, we will validate it against the METS file.
     });
 
