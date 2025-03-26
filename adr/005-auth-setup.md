@@ -204,13 +204,13 @@ This token does have the role (API) defined and this could be used to define a s
 
 ### Using Machine Token
 
-A machine token can be used to access the APIs, but it must be accompanied by a header value "xMachineName" with a string value of the application, system or identification of caller. There is an authorization filter in place which will deny calls if the header value is not supplier.  
+A machine token can be used to access the APIs, but it must be accompanied by a header value "X-Client-Identity" with a string value of the application, system or identification of caller. There is an authorization filter in place which will deny calls if the header value is not supplier.  
 
 A curl example would be 
 
 ```
 curl --location --request PUT 'https://localhost:7228/repository/test000009' \
---header 'xMachineName: myapplication' \
+--header 'X-Client-Identity: myapplication' \
 --header 'Content-Type: application/json' \
 --header 'Authorization: Bearer eyJ0eXAiOiJK..........kjknM-_55g' \
 --data '{
