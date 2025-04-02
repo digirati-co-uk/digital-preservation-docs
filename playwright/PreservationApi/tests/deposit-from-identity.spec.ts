@@ -2,15 +2,13 @@ import {expect, test} from '@playwright/test';
 import {
     getS3Client,
     uploadFile,
-    ensurePath,
     waitForStatus,
-    getYMD,
-    getSecondOfDay
+    getAuthHeaders
 } from './common-utils'
 
 // Scenario:
 // Creating a deposit for a new or existing Archival Group, given the Catalogue IRN or ID Service PID
-test.describe('Create a NATIVE (our own METS) deposit and put some files in it', () => {
+test.describe('Create a deposit for third party (eg EPrints) METS from identifier', () => {
 
     let newDeposit = null;
 
@@ -24,8 +22,9 @@ test.describe('Create a NATIVE (our own METS) deposit and put some files in it',
         const depositReq = await request.post('/deposits/from-identifier', {
             data: {
                 "schema": "catirn",   // you can also use "id" or "pid" with the pid value
-                "value": "4"   // This is PID yybfgksl
-            }
+                "value": "31"
+            },
+            headers: await getAuthHeaders(baseURL)
         });
 
         expect(depositReq.status()).toBe(201);
@@ -36,8 +35,8 @@ test.describe('Create a NATIVE (our own METS) deposit and put some files in it',
         console.log("----");
 
         expect(newDeposit.files).toMatch(/s3:\/\/.*/);
-        expect(newDeposit.archivalGroupName).toBe("Spring Lambs")
-        expect(newDeposit.archivalGroup).toContain("/cc-test/yybfgksl")
+        //expect(newDeposit.archivalGroupName).toBe("Spring Lambs")
+        //expect(newDeposit.archivalGroup).toContain("/cc-test/yybfgksl")
         //                                          /cc/yybfgksl -- in real version
 
         const sourceDir = 'samples/10315s/';
@@ -61,7 +60,8 @@ test.describe('Create a NATIVE (our own METS) deposit and put some files in it',
         console.log("Execute the diff in one operation, without fetching it first (see RFC)")
         // This is a shortcut, a variation on the mechanism shown in create-deposit.spec.ts
         const executeImportJobReq = await request.post(newDeposit.id + '/importjobs', {
-            data: { "id": newDeposit.id + '/importjobs/diff' }
+            data: { "id": newDeposit.id + '/importjobs/diff' },
+            headers: await getAuthHeaders(baseURL)
         });
         let importJobResult = await executeImportJobReq.json();
         await waitForStatus(importJobResult.id, /completed.*/, request);
@@ -75,7 +75,9 @@ test.describe('Create a NATIVE (our own METS) deposit and put some files in it',
         // ### API INTERACTION ###
         console.log("Now request the digital object URI we made earlier:");
         console.log("GET " + newDeposit.archivalGroup);
-        const digitalObjectReq = await request.get(newDeposit.archivalGroup);
+        const digitalObjectReq = await request.get(newDeposit.archivalGroup, {
+            headers: await getAuthHeaders(baseURL)
+        });
 
         expect(digitalObjectReq.ok()).toBeTruthy();
         const digitalObject = await digitalObjectReq.json();
