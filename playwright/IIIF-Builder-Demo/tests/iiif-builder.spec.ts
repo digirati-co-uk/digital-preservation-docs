@@ -36,7 +36,8 @@ test('iiif-builder-demonstration', async ({request}) => {
         // it last read (e.g., 10 minutes ago). It finds one new Event in the stream.
         const streamHomeResponse = await request.get(preservationActivityStream, {
             headers: {
-                "Authorization": `Bearer ${preservationApiBearerToken}`
+                "Authorization": `Bearer ${preservationApiBearerToken}`,
+                "Identity": "iiif-builder"
             }
         });
         const streamHome = await streamHomeResponse.json();
@@ -94,7 +95,7 @@ test('iiif-builder-demonstration', async ({request}) => {
         publicManifestUri = await idService.getIdentifier(archivalGroupUri, IdentifierTypes.IIIFManifest);
         catalogueUri = await idService.getIdentifier(archivalGroupUri, IdentifierTypes.CatalogueApi);
 
-        // disucssion - we could ask the identity service for both
+        // discussion - we could ask the identity service for both
         // publicManifestUri and apiManifestUri (the internal, flat, admin URI)
         // and it could give completely different looking URIs.
 
