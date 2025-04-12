@@ -105,10 +105,10 @@ export async function ensurePath(path: string, request: APIRequestContext) {
     }
 }
 
-export async function waitForStatus(uri: string, status: any, request: APIRequestContext){
+export async function waitForStatus(uri: string, status: any, request: APIRequestContext, headers=null){
       await expect.poll(async () => {
         console.log(`polling object: ${uri}`);
-        const resp = await request.get(uri);
+        const resp = await request.get(uri, { headers: headers });
         const respObj = await resp.json();
         console.log("status: " + respObj.status);
         return respObj.status;
