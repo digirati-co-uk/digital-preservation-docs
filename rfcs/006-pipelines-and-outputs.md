@@ -119,3 +119,20 @@ This might be necessary if for some reason the mounted S3 file system is problem
 This is where the Leeds and Cambridge approaches are probably most similar, as described in [Building our repository ingest workflow](https://digitalpreservation-blog.lib.cam.ac.uk/building-our-repository-ingest-workflow-e09a0d2cdddc). See "How it works".
 
 They scale up the job (Siegfried for file format, ClamAV for virus scanning) from 0 to 1 instances (and possibly beyond) in response to events. There is no evidence of an additional working file system in that diagram.
+
+---
+
+Notes
+
+Format expected from BitCurator
+
+```
+\-- (bagged-folder)
+    \-- data
+        \-- objects
+            (the files to be preserved)
+        \-- metadata
+            (tool-outputs from siegfried et el)
+     -- manifest-sha256.txt
+     -- bagit.txt
+```
