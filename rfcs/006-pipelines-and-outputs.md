@@ -191,6 +191,8 @@ You then upload your bag _into_ this structure - it should match, so you basical
 An example flow might be starting with the raw data here:
 https://github.com/uol-dlip/digital-preservation-e2e-tests/tree/bitcurator-fixtures/test-data/bitcurator/original/tom-example-1
 
+![Original analysed layout](img/original-layout.png)
+
 In the BitCurator environment, you run Brunnehilde on this data:
 
 ```
