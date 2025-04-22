@@ -96,7 +96,7 @@ A containerised service that:
 * Has the deposit bucket(s) mounted as a file system ([s3fs](https://github.com/s3fs-fuse/s3fs-fuse) or [mountpoint-s3](https://github.com/awslabs/mountpoint-s3/tree/main))
 * Has a background process, that we write in .NET or Python, that listens to SQS
 * The background process picks up events from SQS - an instruction to execute a tool over a deposit
-* The background process invokes the tool (execute a command line), saving the output *back to the Deposit* at a templated path, something like `/__tools/file-format/{timestamp}-{some-event-id}/output.yaml`
+* The background process invokes the tool (execute a command line), saving the output *back to the Deposit* at a templated path, something like `/metadata/siegfried/{timestamp}-{some-event-id}/output.yaml` (see discussion of layout later).
 * When Siegfried returns (process invocation ends), the background process puts another message on another job-done SQS.
 * The Preservation API (likely a new separate process) picks up the "finished" message, which contains the Deposit URI and the tool output location.
 * The Preservation API locks the METS file for editing and incorporates the tool output into the METS as above
@@ -131,7 +131,7 @@ Currently all our deposits look like this:
 ```
 (root)/
   --objects/
-       (images, docs etc - the preserved thing)
+       (images, docs, more folders etc - the preserved thing)
   --mets.xml
 ```
 
@@ -149,18 +149,18 @@ However, if you work on files in BitCurator and then bag them, the bag looks lik
 
 ## Proposal - Deposit layout for BagIt
 
-**Firstly**, we make a metadata directory part of our standard template:
+**Firstly**, we make a `metadata/` directory part of our standard template:
 
 ```
 (root)/
   --metadata/
        (tool outputs etc)
   --objects/
-       (images, docs etc - the preserved thing)
+       (images, docs, more folders etc - the preserved thing)
   --mets.xml
 ```
 
-In this layout, any tool we run via a pipeline can save its output in the metadata folder, in a sub-folder /{toolname}, e.g.,
+In this layout, any tool we run via a pipeline can save its output in the `metadata/` folder, in a sub-folder `{toolname}/`, e.g.,
 
 ```
 (root)/
@@ -174,7 +174,7 @@ In this layout, any tool we run via a pipeline can save its output in the metada
   --mets.xml
 ```
 
-**Secondly**, we support the creation of, and processing of, a Deposit layout that moves the above structure one level down. BOTH layouts are supported and the system is clever enough to work out which is being used in any particular Deposit.
+**Secondly**, we support the creation of, and processing of, a Deposit layout that has the above structure one level down. BOTH layouts are supported and the system is clever enough to work out which is being used in any particular Deposit.
 
 So, if you create a new Deposit with a layout "for BagIt" (indicating that you intend to upload a BagIt layout into the Deposit, typically from the BitCurator environment) then you'll get an "empty" layout like this:
 
@@ -199,14 +199,14 @@ In the BitCurator environment, you run Brunnehilde on this data:
 > brunnhilde.py --hash sha256 /home/test-data/bitcurator/tom-example-1 analysis-of-tom-1
 ```
 
-This saves the Brunnehilde output in the home directory (in the absence of a fuller path):
+This saves the Brunnehilde output in `tom-example-1/` in the home directory (in the absence of a fuller path):
 
 ![Brunnehilde output](img/brunnehilde-output.png)
 
 > _The exact workflow in BitCurator is up to the archivist, this is just an example. It's the final layout for bagging that's important. But note that this workflow also generates a virus scan report._
 
 
-What we want to do now is produce a layout with our files for preservation in /objects and the tool output(s) in /metadata, in sub folders named for their tools. So, we arrange our working files like so:
+What we want to do now is produce a layout with our files for preservation in `objects/` and the tool output(s) in `metadata/`, in sub folders named for their tools. So, we arrange our working files like so:
 
 ![Ready for bagging](img/ready-for-bagging.png)
 
@@ -214,7 +214,7 @@ What we want to do now is produce a layout with our files for preservation in /o
 > _We captured sha256 when we ran Brunnehilde or Siegfried directly. We are going to capture sha256 again when we run BagIt, so even the unlikely event of corruption while assembling the files for bagging will be detectable later; the Preservation API will match the captured hashes from both sources._
 
 
-This is now ready for bagging. If the above image shows the contents of the directory `tom-example-1`, then we run bagit on that directory. At its simplest with "bag in place" behaviour:
+This is now ready for bagging. If the above image shows the contents of the directory `tom-example-1/`, then we run bagit on that directory. At its simplest with "bag in place" behaviour:
 
 ```
 > bagit.py --source-organization DLIP --sha256 tom-example-1
@@ -224,7 +224,7 @@ This is now ready for bagging. If the above image shows the contents of the dire
 
 ![Bagged object](img/bagged.png)
 
-We need a deposit to upload this into. In the UI, we can create one either from scratch, or by entering an EMu CATIRN or Identity Service PID:
+We need a Deposit to upload this into. In the UI, we can create one either from scratch, or by entering an EMu CATIRN or Identity Service PID:
 
 _(screen shot if and when implemented!)_
 
@@ -240,7 +240,7 @@ We tick the box "This Deposit will be populated with a BagIt bag", and a deposit
 
 Using our transfer tool of choice, we then upload the created Bag contents into this structure.
 
-> At time of writing the only tool that will do this is the AWS Console, which Archivists will need access to until another transfer mechanism is possible. Note that the Preservation UI allows you to open the AWS Console _directly_ at the right location for upload.
+> At time of writing the only tool that will do this is the AWS Console, which Archivists will need access to until another transfer mechanism is possible. Note that the Preservation UI allows you to open the AWS Console _directly_ at the right location for upload - as long as you have permission to see it.
 
 Care must be taken to match the directory structure so, that we end up with the Deposit looking like this:
 
@@ -277,9 +277,9 @@ Care must be taken to match the directory structure so, that we end up with the 
    --tagmanifest-sha256.txt
 ```
 
-At this point the `mets.xml` file is still the one created when the Deposit was created - it doesn't have anything about the new files in it yet.
+At this point the `mets.xml` file is still the one created when the Deposit was created - it doesn't have anything about the new files in it yet - the Preservation API is unaware of what you have been up to in S3.
 
-In the Deposit UI, this can be done in two steps (could be one, but maybe stick with two for safety/explicitness):
+In the Deposit UI, the METS can be updated in two steps (could be one, but maybe stick with two for safety/explicitness):
 
 ![Add to METS](img/add-to-mets.png)
 
@@ -290,7 +290,7 @@ This process finds and reads ALL tool outputs it recognises (Siegfried initially
 
 ## Deposit behaviour
 
-A BagIt-based deposit is the same as a normal deposit, it just has the relevant files and folders one level down under data/ rather than in the root. And we now treat metadata/ as part of the normal template.
+A BagIt-based deposit is the same as a normal deposit, it just has the relevant files and folders one level down under `data/` rather than in the root. And we now treat `metadata/` as part of the normal template.
 
 If you run an import job, the created Archival Group **does not have this additional data directory** - it has `objects/`, `metadata/` and `mets.xml` at the root. And if you then export the Archival Group into a new Deposit (for example, to create a v2) it exports with `objects/`, `metadata/` and `mets.xml` at the root: no `data/` directory.
 
@@ -304,9 +304,9 @@ During this process the bagit .txt files in the root are copied into a `__bagit/
 
 In the above discussion no tool/pipeline invocation happened because the tools were run in the BitCurator environment.
 
-The outputs were manually put into the deposit (in appropriate locations under metadata/) and then the Preservation API processed them.
+The outputs were manually put into the deposit (in appropriate locations under `metadata/`) and then the Preservation API processed them.
 
-This latter processing step is identical in a pipeline operation, and the layout of the deposit is identical, except that the production of the tool outputs is automated - given a Deposit, a pipeline running on that deposit will run the same tools used by the Archivist in the Bitcurator environment and save the outputs in the same way, and then invoke the integration with METS. The mechanism used to run the tool(s) on the files in the Deposit S3 location is independent of the rest of this flow, it just needs to accept the same starting conditions and deliver the same ending conditions.
+This latter processing step is identical in a pipeline operation, and the layout of the deposit is identical, except that the production of the tool outputs is automated - given a Deposit, a pipeline running on that deposit will run the same tools used by the archivist in the BitCurator environment and save the outputs in the same way, and then invoke the integration with METS. The mechanism used to run the tool(s) on the files in the Deposit S3 location is independent of the rest of this flow, it just needs to accept the same starting conditions and deliver the same ending conditions.
 
 
 ## Tool outputs from pipelines
