@@ -63,9 +63,15 @@ test.describe('Create a deposit for third party (eg EPrints) METS from identifie
         let importJobResult = await executeImportJobReq.json();
         await waitForStatus(importJobResult.id, /completed.*/, request, headers);
         console.log("... and poll it until it is either complete or completeWithErrors...");
+        // log the final output of the importJobResult
+        const finalResultResp = await request.get(importJobResult.id, {
+            headers: headers
+        });
+        const finalResult = await finalResultResp.json();
+        console.log(finalResult);
+
 
         // Creation completed - what follows checks that it did what we expected.
-
 
         // Now we should have a preserved digital object in the repository:
 

@@ -120,7 +120,8 @@ test.describe('Create a NATIVE (our own METS) deposit and put some files in it',
         // library but interacts with the filesystem directly)
 
         // In this example, it's easy to navigate this filesystem:
-        const objects = fileSystem.directories[0];
+        const objects = fileSystem.directories.find(d => d.name == 'objects');
+        expect(objects).not.toBeNull();
         expect(objects.files).toHaveLength(4); // the four files mentioned above
 
         // but these aren't in the METS file; we can call an additional endpoint to add them,
