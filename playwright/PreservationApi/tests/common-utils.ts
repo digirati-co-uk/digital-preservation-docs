@@ -3,6 +3,12 @@ import {ListObjectsV2Command, paginateListObjectsV2, PutObjectCommand, S3Client}
 import {fromIni} from '@aws-sdk/credential-providers';
 import {parseS3Url} from 'amazon-s3-url'
 import {readFileSync} from "fs";
+import {
+    AuthenticationResult,
+    AuthorizationCodeRequest,
+    ClientCredentialRequest,
+    ConfidentialClientApplication
+} from "@azure/msal-node";
 
 
 export function getS3Client() {
@@ -21,7 +27,8 @@ export async function uploadFile(
     s3: S3Client,
     depositUri: string,
     localFilePath: string,
-    relativePathInDigitalObject: string) {
+    relativePathInDigitalObject: string,
+    withChecksum: boolean=false) {
 
     const s3Url = parseS3Url(depositUri);
 
@@ -34,9 +41,9 @@ export async function uploadFile(
         Bucket: s3Url.bucket,
         Key: pathInDeposit,
         Body: readFileSync(localFilePath),
-        CacheControl: "no-cache"
+        CacheControl: "no-cache",
         // Note that we don't need to set this if the METS file provides it:
-        // ChecksumAlgorithm: "SHA256"
+        ChecksumAlgorithm: withChecksum ? "SHA256" : null
         // But if you DO provide this information in S3 metadata, we will validate it against the METS file.
     });
 
@@ -98,10 +105,10 @@ export async function ensurePath(path: string, request: APIRequestContext) {
     }
 }
 
-export async function waitForStatus(uri: string, status: any, request: APIRequestContext){
+export async function waitForStatus(uri: string, status: any, request: APIRequestContext, headers=null){
       await expect.poll(async () => {
         console.log(`polling object: ${uri}`);
-        const resp = await request.get(uri);
+        const resp = await request.get(uri, { headers: headers });
         const respObj = await resp.json();
         console.log("status: " + respObj.status);
         return respObj.status;
@@ -109,4 +116,38 @@ export async function waitForStatus(uri: string, status: any, request: APIReques
         intervals: [2000], // every 2 seconds
         timeout: 60000 // allow 1 minute to complete
     }).toMatch(status);
+}
+
+export async function getAuthHeaders(baseUrl: string)
+{
+    if(baseUrl.includes("localhost")){
+        return {};
+    }
+    const clientId : string = process.env.API_CLIENT_ID;
+    const clientSecret : string = process.env.API_CLIENT_SECRET;
+    const tenantId = process.env.API_TENANT_ID;
+    const scope: string = `api://${clientId}/.default`;
+    const authorityURL: string = `https://login.microsoftonline.com/${tenantId}/oauth2/token`;
+
+    const client = new ConfidentialClientApplication({
+        auth: {
+            clientId: clientId,
+            authority: authorityURL,
+            clientSecret: clientSecret,
+        }
+    });
+
+    const request = {
+        scopes: [ scope ]
+    };
+
+    let response = await client.acquireTokenByClientCredential(request);
+
+    let headers = {
+        'Authorization': `Bearer ${response.accessToken}`,
+        'X-Client-Identity': 'Playwright-tests',
+        'Accept': 'application/json',
+    };
+
+    return headers;
 }

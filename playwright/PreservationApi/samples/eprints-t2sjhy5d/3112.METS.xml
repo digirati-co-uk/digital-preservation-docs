@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mets-objects>
+  <mets:mets xmlns:mets="http://www.loc.gov/METS/" xmlns:mods="http://www.loc.gov/mods/v3" xmlns:premis="http://www.loc.gov/premis/v3" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" OBJID="eprint_3112" LABEL="Eprints Item" xsi:schemaLocation="http://www.loc.gov/METS/ http://www.loc.gov/standards/mets/mets.xsd http://www.loc.gov/standards/premis/ http://www.loc.gov/standards/premis/v2/premis-v2-0.xsd http://www.loc.gov/standards/mix/ http://www.loc.gov/standards/mix/mix.xsd http://www.loc.gov/mods/v3 http://www.loc.gov/standards/mods/v3/mods-3-3.xsd">
+    <mets:metsHdr CREATEDATE="2024-09-12T03:01:16Z">
+      <mets:agent ROLE="CREATOR" TYPE="OTHER" OTHERTYPE="SOFTWARE">
+        <mets:name>EPrints 3.3.15</mets:name>
+      </mets:agent>
+    </mets:metsHdr>
+    <mets:dmdSec ID="DMD_eprint_3112">
+      <mets:mdWrap MDTYPE="MODS">
+        <mets:xmlData>
+          <mods:titleInfo>
+            <mods:title>Still Life (Triple Alliance)</mods:title>
+          </mods:titleInfo>
+          <mets:abstract>Signed on the cheque which forms part of the collage</mets:abstract>
+          <mets:recordInfo>
+            <mets:recordIdentifier source="id.library.leeds.ac.uk">t2sjhy5d</mets:recordIdentifier>
+            <mets:recordIdentifier source="EPrints">3112</mets:recordIdentifier>
+            <mets:recordIdentifier source="EMu">182</mets:recordIdentifier>
+            <mets:recordInfoNote type="IngestionID">20130709123937_3.11.10-private</mets:recordInfoNote>
+          </mets:recordInfo>
+          <mets:originInfo>
+            <mets:publisher>University of Leeds</mets:publisher>
+          </mets:originInfo>
+        </mets:xmlData>
+      </mets:mdWrap>
+    </mets:dmdSec>
+    <mets:amdSec ID="AMD_eprint_3112">
+      <mets:techMD ID="AMD_eprint_3112_79988">
+        <mets:mdWrap MDTYPE="OTHER" MIMETYPE="text/xml">
+          <premis:object version="3.0" xsi:type="premis:file" xsi:schemaLocation="http://www.loc.gov/premis/v3 http://www.loc.gov/standards/premis/v3/premis.xsd">
+            <premis:objectIdentifier>
+              <premis:objectIdentifierType>local</premis:objectIdentifierType>
+              <premis:objectIdentifierValue>LEEUA_1923.001_02.tif</premis:objectIdentifierValue>
+            </premis:objectIdentifier>
+            <premis:objectCharacteristics>
+              <premis:fixity>
+                <premis:messageDigestAlgorithm>sha256</premis:messageDigestAlgorithm>
+                <premis:messageDigest>0891068f33a50752c502f33162110b8f4a865a4082579cd5d049074741b7fd85</premis:messageDigest>
+              </premis:fixity>
+              <premis:size>19329546</premis:size>
+              <premis:format>
+                <premis:formatDesignation>
+                  <premis:formatName>Tagged Image File Format</premis:formatName>
+                </premis:formatDesignation>
+                <premis:formatRegistry>
+                  <premis:formatRegistryName>PRONOM</premis:formatRegistryName>
+                  <premis:formatRegistryKey>fmt/353</premis:formatRegistryKey>
+                </premis:formatRegistry>
+              </premis:format>
+            </premis:objectCharacteristics>
+            <premis:storage>
+              <premis:contentLocation>
+                <premis:contentLocationType>URL</premis:contentLocationType>
+                <premis:contentLocationValue>files/LEEUA_1923.001_02.tif</premis:contentLocationValue>
+              </premis:contentLocation>
+            </premis:storage>
+          </premis:object>
+        </mets:mdWrap>
+      </mets:techMD>
+    </mets:amdSec>
+    <mets:fileSec>
+      <mets:fileGrp USE="reference">
+        <mets:file ID="eprint_3112_79988" SIZE="19329546" MIMETYPE="image/tiff" ADMID="AMD_eprint_3112_79988">
+          <mets:FLocat LOCTYPE="URL" xlink:type="simple" xlink:href="objects/LEEUA_1923.001_02.tif"/>
+        </mets:file>
+      </mets:fileGrp>
+    </mets:fileSec>
+    <mets:structMap>
+      <mets:div DMDID="DMD_eprint_3112" ADMID="AMD_eprint_3112">
+        <mets:div>
+          <mets:fptr FILEID="eprint_3112_79988"/>
+        </mets:div>
+      </mets:div>
+    </mets:structMap>
+  </mets:mets>
+</mets-objects>

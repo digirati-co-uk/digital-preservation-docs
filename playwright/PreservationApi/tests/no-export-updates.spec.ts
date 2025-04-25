@@ -43,6 +43,7 @@ test.describe('Update an Archival Group without exporting anything first', () =>
         const importJob = {
             id: importJobId,
             type: 'ImportJob',
+            createdBy: newDeposit.createdBy, // now required
             deposit: newDeposit.id,
             archivalGroup: archivalGroupUri,
             IsUpdate: true,      // TODO: We need to be explicit about this, but should the server work it out?
@@ -136,6 +137,7 @@ test.describe('Update an Archival Group without exporting anything first', () =>
         const importJob2 = {
             id: importJobId2,
             type: 'ImportJob',
+            createdBy: anotherDeposit.createdBy, // now required
             deposit: anotherDeposit.id,
             archivalGroup: archivalGroupUri,
             IsUpdate: true,      // TODO: We need to be explicit about this, but should the server work it out?
