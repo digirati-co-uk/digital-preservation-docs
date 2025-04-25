@@ -1,0 +1,23 @@
+38352c917f694b3bbd8aaafd7aafbc8cb097b142bb3dc6f247e25ba374f48747  data/metadata/brunnhilde/report.html
+da005d4abcb74b284ce050f1431367d065b88800993ad06082c514591b62b85f  data/metadata/brunnhilde/siegfried.csv
+acc21126fda2d463d6be3e15024e6161277ad2301da8ea1c521378fff1c6c1a3  data/metadata/brunnhilde/tree.txt
+a11c8bf57327393db240fa14cb9ce3d4666b4d9fe58f1609a21aac3728ac7e24  data/metadata/brunnhilde/csv_reports/formatVersions.csv
+a420bb230e4e25ccd1f412dbc49b9d7d084ed81a4c22f020adf00c171e7acaad  data/metadata/brunnhilde/csv_reports/formats.csv
+ae350c800a83418b1366a87ab8a551f217dcce57a1cc91fe310a00e3c68eb87a  data/metadata/brunnhilde/csv_reports/mimetypes.csv
+df7af1f906e7265c0760ed99c8bf3aaa1cdd12a70f24c615bd5fd75d9826b71b  data/metadata/brunnhilde/csv_reports/years.csv
+dd20baf5d68af738e525e40321b8c22e7a6318b1a1b73e99e84cebc3f808bbcf  data/metadata/brunnhilde/logs/viruscheck-log.txt
+469dfc8a5a6d12d7b1dbba2071763efc28c658ba8b27650e6743e06a67cb6ac7  data/metadata/siegfried/siegfied.yml
+4650877617ebc07caa9ec21c8405c6b72d6f20d3904758879b6bfc16f2a45bdc  data/objects/Fedora-Usage-Principles.docx
+3aa1134f4c05a7c9b7465940b062122081cc7ed96925b6770145125a34fec78a  data/objects/IMAGE-2.tiff
+243c32394db4879c2fee146a0175ad5d402ed151656e7fb5ea580d04e2d4a6db  data/objects/warteck.jpg
+e4267807db7270096340540b93834d3c47d56c964d5b5b27fa9a398fde52165e  data/objects/awkward/7 ways to celebrate #WomensHistoryMonth 💜 And a sneak peek at SICK new art.htm
+5c96ddc2f012cdededdad116a913bf7e57ba8b9684c8a1b9b429b77f7d13629a  data/objects/awkward/慷獹琠散敬牢瑡圣浯湥䡳獩潴祲潍瑮㼿䄠摮愠猠敮歡瀠敥瑡匠䍉敮⁷牡�.msg
+11d89be87a4a3bef41bca60193ca158e78172b6bf4164691bc68134b9289950d  data/objects/nyc/DSCF0969.JPG
+77e3e1c6920aef1b77c35e9830fa54d274b7beef54d6e25d56f6dbe0874f29b0  data/objects/nyc/DSCF0981.JPG
+ee82fe4bdbb3fd3cae1c4a5e3c35bdae7510cfa60432b1c825d4421141499663  data/objects/nyc/DSCF0993.JPG
+27745ff980dffa4d48e02b1cb4d19a94565f3ffdffaf14dec23597c82bfd7d63  data/objects/nyc/DSCF1004.JPG
+ab4f19d0c0df461fc1b020cb8d83d17c16a6f39249c4bad3574c6d68966b20ec  data/objects/nyc/DSCF1008.JPG
+e2e9f06f8180d1f101eb5e02f97b70bc395750e6ffdecf045db43605acb50682  data/objects/nyc/DSCF1044.JPG
+1b1036eb0a88daef957b2ed4740ffffb9dea3914665ab598024ae3595f612567  data/objects/nyc/DSCF1090.JPG
+a30141f944906ab4ff4ac03c7f341cee9ba165f6036b9e70e5e2c5bf8428b4fd  data/objects/nyc/DSCF1128.JPG
+0298a9c0bf853aaaca9e95dc4c0d0d769b66347102dea65ba6ede6fce1548162  data/objects/nyc/DSCF1156.JPG

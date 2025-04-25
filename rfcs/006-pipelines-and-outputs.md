@@ -327,6 +327,110 @@ Should pipeline runs put their outputs into timestamped folders under `metadata/
 In this scenario the tool-output-processing code is just extended to find the _latest_ outputs, allowing for multiple runs.
 
 
+## Workflow
+
+Initial:
+
+```
+working-dir/
+   --my-item/
+      --metadata/
+         -- (initially empty)
+      --objects/
+         -- (here are the actual files and folders of the thing)
+```
+
+Run command:
+
+```
+user@BitCurator:~/working_dir$ brunnhilde.py --hash sha256 my-item/objects my-item/metadata/brunnhilde
+```
+
+(i.e., run Brunnhilde over the objects directory inside my-item, and save the output in a brunnhilde folder inside the metadata folder inside my-item)
+
+This produces:
+
+```
+working-dir/
+   --my-item/
+      --metadata/
+         --brunnhilde/
+            --csv_reports/
+               --formats.csv
+               --formatVersions.csv
+               --mimetypes.csv
+               --years.csv
+            --logs/
+               --viruscheck-log.txt
+            --report.html
+            --siegfried.csv
+            --tree.txt
+      --objects/
+         -- (here are the actual files and folders of the thing)
+```
+
+You could also do just Siegfried, or even both. For example, if we now did:
+
+```
+user@BitCurator:~/working_dir$ mkdir my-item/metadata/siegfried
+user@BitCurator:~/working_dir$ sf -hash sha256 my-item/objects > my-item/metadata/siegfried/siegfied.yml
+```
+
+... then we'd end up with an additional `siegfried` folder:
+
+
+```
+working-dir/
+   --my-item/
+      --metadata/
+         --brunnhilde/
+            --csv_reports/
+               --formats.csv
+               --formatVersions.csv
+               --mimetypes.csv
+               --years.csv
+            --logs/
+               --viruscheck-log.txt
+            --report.html
+            --siegfried.csv
+            --tree.txt
+         --siegfried/
+            --siegfried.yml
+      --objects/
+         -- (here are the actual files and folders of the thing)
+```
+
+Again the actual files are untouced, we have been running tools from outside `my-item/`, on the `objects/` folder _inside_ `my-item/`, and saving the outputs inside a "tool-name" directory inside the `metadata/` folder in `my-item/`.
+
+Now we can bag this:
+
+```
+user@BitCurator:~/working_dir$ bagit.py --source-organization uol-dlip --sha256 my-item
+```
+
+This is a "bag in place" and it moves the contents of `my-item/` one level down:
+
+```
+working-dir/
+   --my-item/
+      --data/
+         --metadata/
+            --brunnhilde/
+               -- (as above, omitted for brevity)
+            --siegfried/
+               --siegfried.yml
+         --objects/
+            -- (here are the actual files and folders of the thing)
+      --bag-info.txt
+      --bagit.txt
+      --manifest-sha256.txt
+      --tagmanifest-sha256.txt
+```
+
+This is what we upload into the deposit:
+
+
+
 ## Notes
 
 Format expected from BitCurator
