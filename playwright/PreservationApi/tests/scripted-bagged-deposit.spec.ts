@@ -66,7 +66,7 @@ test.describe('Create a NATIVE (our own METS) deposit in BagIt layout, and put f
             "data/metadata/brunnhilde/report.html",
             "data/metadata/brunnhilde/siegfried.csv",
             "data/metadata/brunnhilde/tree.txt",
-            "data/metadata/siegfried/siegfied.yml",
+            "data/metadata/siegfried/siegfried.yml",
             "data/objects/awkward/7 ways to celebrate #WomensHistoryMonth 💜 And a sneak peek at SICK new art.htm",
             "data/objects/awkward/慷獹琠散敬牢瑡圣浯湥䡳獩潴祲潍瑮㼿䄠摮愠猠敮歡瀠敥瑡匠䍉敮⁷牡�.msg",
             "data/objects/nyc/DSCF0969.JPG",
@@ -123,7 +123,8 @@ test.describe('Create a NATIVE (our own METS) deposit in BagIt layout, and put f
         // library but interacts with the filesystem directly)
 
         // In this example, it's easy to navigate this filesystem:
-        const objects = fileSystem.directories.find(d => d.localPath == 'data/objects');
+        const data = fileSystem.directories.find(d => d.localPath == 'data');
+        const objects = data.directories.find(d => d.localPath == 'data/objects');
         expect(objects).not.toBeNull();
         expect(objects.files).toHaveLength(3); // the three files in the root of object
 
