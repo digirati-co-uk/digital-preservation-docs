@@ -373,7 +373,7 @@ You could also do just Siegfried, or even both. For example, if we now did:
 
 ```
 user@BitCurator:~/working_dir$ mkdir my-item/metadata/siegfried
-user@BitCurator:~/working_dir$ sf -hash sha256 my-item/objects > my-item/metadata/siegfried/siegfied.yml
+user@BitCurator:~/working_dir$ sf -hash sha256 my-item/objects > my-item/metadata/siegfried/siegfried.yml
 ```
 
 ... then we'd end up with an additional `siegfried` folder:
