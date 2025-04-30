@@ -373,7 +373,7 @@ You could also do just Siegfried, or even both. For example, if we now did:
 
 ```
 user@BitCurator:~/working_dir$ mkdir my-item/metadata/siegfried
-user@BitCurator:~/working_dir$ sf -hash sha256 my-item/objects > my-item/metadata/siegfried/siegfied.yml
+user@BitCurator:~/working_dir$ sf -hash sha256 my-item/objects > my-item/metadata/siegfried/siegfried.yml
 ```
 
 ... then we'd end up with an additional `siegfried` folder:
@@ -400,7 +400,7 @@ working-dir/
          -- (here are the actual files and folders of the thing)
 ```
 
-Again the actual files are untouced, we have been running tools from outside `my-item/`, on the `objects/` folder _inside_ `my-item/`, and saving the outputs inside a "tool-name" directory inside the `metadata/` folder in `my-item/`.
+Again the actual files are untouched, we have been running tools from outside `my-item/`, on the `objects/` folder _inside_ `my-item/`, and saving the outputs inside a "tool-name" directory inside the `metadata/` folder in `my-item/`.
 
 Now we can bag this:
 
@@ -427,7 +427,7 @@ working-dir/
       --tagmanifest-sha256.txt
 ```
 
-This is what we upload into the deposit:
+The content of my-item is what we upload into the deposit - i.e., data/ and the bagit files end up in the root of the deposit.
 
 
 
