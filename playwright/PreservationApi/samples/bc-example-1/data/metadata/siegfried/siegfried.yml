@@ -50,22 +50,7 @@ matches  :
     mime    : 'text/html'
     class   : 'Text (Mark-up)'
     basis   : 'extension match htm; byte match at [[2 10] [615486 14]] (signature 2/2)'
-    warning : 
----
-filename : 'bc-example-1/objects/awkward/慷獹琠散敬牢瑡圣浯湥䡳獩潴祲潍瑮㼿䄠摮愠猠敮歡瀠敥瑡匠䍉敮⁷牡�.msg'
-filesize : 165888
-modified : 2025-04-20T12:45:53Z
-errors   : 
-sha256   : 5c96ddc2f012cdededdad116a913bf7e57ba8b9684c8a1b9b429b77f7d13629a
-matches  :
-  - ns      : 'pronom'
-    id      : 'x-fmt/430'
-    format  : 'Microsoft Outlook Email Message'
-    version : '97-2003'
-    mime    : 
-    class   : 'Email'
-    basis   : 'extension match msg; container name __nameid_version1.0 with name only; name __properties_version1.0 with name only'
-    warning : 
+    warning :
 ---
 filename : 'bc-example-1/objects/nyc/DSCF0969.JPG'
 filesize : 8848005

@@ -1,7 +1,6 @@
 [4.0K Apr 25 13:54]  /home/tomcrane/__packing_area/bc-example-1/objects
 ├── [4.0K Apr 20 12:45]  awkward
 │   ├── [601K Apr 20 12:45]  7 ways to celebrate #WomensHistoryMonth 💜 And a sneak peek at SICK new art.htm
-│   └── [162K Apr 20 12:45]  慷獹琠散敬牢瑡圣浯湥䡳獩潴祲潍瑮㼿䄠摮愠猠敮歡瀠敥瑡匠䍉敮⁷牡�.msg
 ├── [ 17K Apr 20 12:45]  Fedora-Usage-Principles.docx
 ├── [4.2M Apr 20 12:45]  IMAGE-2.tiff
 ├── [ 10M Apr 20 12:45]  warteck.jpg
