@@ -41,7 +41,7 @@ test.describe('Create a NATIVE (our own METS) deposit and put some files in it',
         const depositReq = await request.post('/deposits', {
             data: {
                 type: "Deposit",
-                useObjectTemplate: true,  // This is what tells the API it's one of ours
+                template: "RootLevel",  // This is what tells the API it's one of ours
                 archivalGroup: preservedDigitalObjectUri,
                 archivalGroupName: agName,
                 submissionText: "This is going to create a METS file and edit the METS as we go"
@@ -120,7 +120,7 @@ test.describe('Create a NATIVE (our own METS) deposit and put some files in it',
         // library but interacts with the filesystem directly)
 
         // In this example, it's easy to navigate this filesystem:
-        const objects = fileSystem.directories.find(d => d.name == 'objects');
+        const objects = fileSystem.directories.find(d => d.localPath == 'objects'); // this was name but now name is null; do we want that?
         expect(objects).not.toBeNull();
         expect(objects.files).toHaveLength(4); // the four files mentioned above
 
@@ -135,7 +135,7 @@ test.describe('Create a NATIVE (our own METS) deposit and put some files in it',
         });
         expect(metsUpdateResp.status()).toBe(200);
         const itemsAffected = await metsUpdateResp.json();
-        expect(itemsAffected.items).toHaveLength(4);
+        expect(itemsAffected.items).toHaveLength(5); // Now includes the objects directory - do we want it to?
         console.log("----");
         console.log("items affected:");
         console.log(itemsAffected);

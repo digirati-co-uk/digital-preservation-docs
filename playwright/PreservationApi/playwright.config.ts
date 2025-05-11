@@ -23,7 +23,7 @@ export default defineConfig({
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL: 'https://localhost:7228', // ,'https://preservation-dev.dlip.digirati.io', //
+    baseURL: 'https://localhost:7228', // ,'https://preservation-dev.dlip.digirati.io', //'https://localhost:7000', //
     extraHTTPHeaders: {
       'Accept': 'application/json',
     },

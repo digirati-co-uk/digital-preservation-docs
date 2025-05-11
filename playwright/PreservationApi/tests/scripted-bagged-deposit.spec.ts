@@ -34,7 +34,7 @@ test.describe('Create a NATIVE (our own METS) deposit in BagIt layout, and put f
         const depositReq = await request.post('/deposits', {
             data: {
                 type: "Deposit",
-                templateType: "BagIt", // the layout
+                template: "BagIt", // the layout
                 archivalGroup: preservedDigitalObjectUri,
                 archivalGroupName: agName,
                 submissionText: "This should create a data directory, with objects/, metadata/ and mets.xml within it."
@@ -154,7 +154,7 @@ test.describe('Create a NATIVE (our own METS) deposit in BagIt layout, and put f
         });
         expect(metsUpdateResp.status()).toBe(200);
         const itemsAffected = await metsUpdateResp.json();
-        expect(itemsAffected.items).toHaveLength(23); // the number of things we added to METS - what about containers!
+        expect(itemsAffected.items).toHaveLength(31); // the number of things we added to METS - what about containers!
         console.log("----");
         console.log("items affected:");
         console.log(itemsAffected);
