@@ -1,6 +1,6 @@
 import {expect, test} from '@playwright/test';
 import { createArchivalGroup } from './quick-prep.spec'
-import {getS3Client, listKeys, uploadFile, waitForStatus} from "./common-utils";
+import {getAuthHeaders, getS3Client, listKeys, uploadFile, waitForStatus} from "./common-utils";
 import {ListObjectsV2Command} from "@aws-sdk/client-s3";
 
 // Create a new deposit by exporting a version
@@ -13,10 +13,11 @@ test.describe('Export an existing Digital Object and make changes to it, then cr
 
         // Set a very long timeout so you can debug on breakpoints or whatnot.
         test.setTimeout(1000000);
+        const headers = await getAuthHeaders(baseURL);
 
         // Background prep
         console.log("Starting condition is a Preserved Digital Object in the repository - we'll make one for this test");
-        const archivalGroupUri = await createArchivalGroup(request, baseURL);
+        const archivalGroupUri = await createArchivalGroup(request, baseURL, headers);
         console.log("Created " + archivalGroupUri);
 
         // The demonstration
@@ -26,13 +27,14 @@ test.describe('Export an existing Digital Object and make changes to it, then cr
         const exportResp = await request.post('/deposits/export', {
             data: {
                 archivalGroup: archivalGroupUri // This object is actually a deposit; see new version
-            }
+            },
+            headers: headers
         });
         const exportDeposit = await exportResp.json();
         expect(exportDeposit.files).toMatch(/s3:\/\/.*/);
         console.log("The files for " + archivalGroupUri + " will be placed under " + exportDeposit.files);
         console.log("But we need to wait for the export to finish! It might take a long time");
-        await waitForStatus(exportDeposit.id, "new", request);
+        await waitForStatus(exportDeposit.id, "new", request, headers);
 
         const s3Client = getS3Client();
         await listKeys(s3Client, exportDeposit.files);
@@ -50,7 +52,7 @@ test.describe('Export an existing Digital Object and make changes to it, then cr
         console.log("Now generate an importJob from a diff");
         const diffJobGeneratorUri = exportDeposit.id + '/importjobs/diff';
         console.log("GET " + diffJobGeneratorUri);
-        const diffReq = await request.get(diffJobGeneratorUri);
+        const diffReq = await request.get(diffJobGeneratorUri, { headers: headers });
 
         const diffImportJob = await diffReq.json();
         console.log(diffImportJob);
@@ -81,7 +83,8 @@ test.describe('Export an existing Digital Object and make changes to it, then cr
         console.log("Now execute the import job...");
         console.log("POST " + executeJobUri);
         const executeImportJobReq = await request.post(executeJobUri, {
-            data: diffImportJob
+            data: diffImportJob,
+            headers: headers
         });
         let importJobResult = await executeImportJobReq.json();
         console.log(importJobResult);
@@ -94,7 +97,7 @@ test.describe('Export an existing Digital Object and make changes to it, then cr
         console.log("----");
 
         console.log("... and poll it until it is either complete or completeWithErrors...");
-        await waitForStatus(importJobResult.id, /completed.*/, request);
+        await waitForStatus(importJobResult.id, /completed.*/, request, headers);
         console.log("----");
 
         // Now we should have an UPDATED digital object in the repository:
@@ -102,7 +105,7 @@ test.describe('Export an existing Digital Object and make changes to it, then cr
         // ### API INTERACTION ###
         console.log("Now request the digital object URI we made earlier:");
         console.log("GET " + archivalGroupUri);
-        const digitalObjectReq = await request.get(archivalGroupUri);
+        const digitalObjectReq = await request.get(archivalGroupUri, { headers: headers });
 
         expect(digitalObjectReq.ok()).toBeTruthy();
         const digitalObject = await digitalObjectReq.json();

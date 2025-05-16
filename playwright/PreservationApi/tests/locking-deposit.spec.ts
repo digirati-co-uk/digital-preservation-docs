@@ -2,8 +2,8 @@ import {APIRequestContext, expect, test} from "@playwright/test";
 import {createArchivalGroup, createDeposit} from "./quick-prep.spec";
 import {getAuthHeaders} from "./common-utils";
 
-async function logDepositLockDetails(request: APIRequestContext, deposit) {
-    const depositResp = await request.get(deposit.id);
+async function logDepositLockDetails(request: APIRequestContext, deposit, headers) {
+    const depositResp = await request.get(deposit.id, { headers: headers });
     expect(depositResp.status()).toBe(200);
     const returnedDeposit = await depositResp.json();
     console.log("Deposit locked by " + returnedDeposit.lockedBy);
@@ -22,7 +22,7 @@ test.describe('Locking and unlocking a deposit', () => {
 
         // Background prep
         console.log("Starting condition is a Preserved Digital Object in the repository - we'll make one for this test");
-        const deposit = await createDeposit(request, baseURL);
+        const deposit = await createDeposit(request, baseURL, headers);
         console.log("Created deposit " + deposit.id);
 
         // The demonstration
@@ -40,7 +40,7 @@ test.describe('Locking and unlocking a deposit', () => {
         expect(lockResp.status()).toBe(204);
 
         // get the deposit again
-        const lockedDeposit = await logDepositLockDetails(request, deposit);
+        const lockedDeposit = await logDepositLockDetails(request, deposit, headers);
 
         // Now try some more stuff in the UI
         // Should be prevented from changes
@@ -57,19 +57,20 @@ test.describe('Locking and unlocking a deposit', () => {
         // Now lock the deposit as a different user, e.g., in the UI
 
         // get the deposit again
-        const lockedDeposit2 = await logDepositLockDetails(request, deposit);
+        const lockedDeposit2 = await logDepositLockDetails(request, deposit, headers);
 
         // We'll try to add a file to METS (doesn't matter that we didn't upload it, it should be rejected)
         const metsUri = deposit.id + '/mets';
-        const metsResp = await request.get(metsUri);
+        const metsResp = await request.get(metsUri, { headers: headers });
         expect(metsResp.status()).toBe(200);
         const eTag = metsResp.headers()["etag"];
         console.log("posting to METS file:");
+
+        const ifMatchHeaders = structuredClone(headers);
+        ifMatchHeaders["If-Match"] = eTag;
         let metsUpdateResp = await request.post(metsUri, {
             data: [ "objects/some-new-file.tiff" ],
-            headers: {
-                "If-Match": eTag // can't modify METS without this
-            }
+            headers: ifMatchHeaders
         });
         // Leave soft for now as I can't have another user on localhost atm
         expect.soft(metsUpdateResp.status()).toBe(409);
@@ -95,18 +96,18 @@ test.describe('Locking and unlocking a deposit', () => {
         // (won't work, but we're just testing the conflict)
 
         console.log("posting to METS file again:");
+        const ifMatchHeaders2 = structuredClone(headers);
+        ifMatchHeaders2["eTag"] = eTag;
         metsUpdateResp = await request.post(metsUri, {
             data: [ "objects/some-new-file.tiff" ],
-            headers: {
-                "If-Match": eTag // can't modify METS without this
-            }
+            headers: ifMatchHeaders2
         });
         expect(metsUpdateResp.status()).toBe(400); // a different error because we can't edit this non-native METS like this
 
         // Now in the UI try removing the lock through the actions menu
         // (in the ui)
 
-        const unlockedDeposit = await logDepositLockDetails(request, deposit);
+        const unlockedDeposit = await logDepositLockDetails(request, deposit, headers);
         expect(unlockedDeposit.lockedBy).toBeNull();
 
 

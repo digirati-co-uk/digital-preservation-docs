@@ -89,7 +89,7 @@ export function getYMD(){
     return date.toISOString().split('T')[0]
 }
 
-export async function ensurePath(path: string, request: APIRequestContext, headers=null) {
+export async function ensurePath(path: string, request: APIRequestContext, headers) {
     const parts = path.split('/');
     let buildPath = "/repository";
     for (const part of parts) {
@@ -105,7 +105,7 @@ export async function ensurePath(path: string, request: APIRequestContext, heade
     }
 }
 
-export async function waitForStatus(uri: string, status: any, request: APIRequestContext, headers=null){
+export async function waitForStatus(uri: string, status: any, request: APIRequestContext, headers){
       await expect.poll(async () => {
         console.log(`polling object: ${uri}`);
         const resp = await request.get(uri, { headers: headers });

@@ -61,6 +61,7 @@ test.describe('Create a deposit for third party (eg EPrints) METS from identifie
             headers: headers
         });
         let importJobResult = await executeImportJobReq.json();
+        expect(executeImportJobReq.status()).toBe(201);
         await waitForStatus(importJobResult.id, /completed.*/, request, headers);
         console.log("... and poll it until it is either complete or completeWithErrors...");
         // log the final output of the importJobResult
