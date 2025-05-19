@@ -1,4 +1,4 @@
 # Architectural Decision Records
 
 1. [001 Fedora Setup](001-fedora-setup.md)
-
+2. [005 Auth Setup](005-auth-setup.md)
