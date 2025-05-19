@@ -90,14 +90,16 @@ The Application UI AzureAd Application setting is set as thus:
     "ClientId": "3d8bebec-5c12-4ac7-a1c4-d57d7303b011",
     "CallbackPath": "/oauth2/idpresponse",
     "ClientSecret": "<secret if needed>",
-    "ScopeUri": "api://3d8bebec-5c12-4ac7-a1c4-d57d7303b011/TestLeedsAppDigiratiScope"
+    "ScopeUri": "api://3d8bebec-5c12-4ac7-a1c4-d57d7303b011/.default"
   },
 ```
 
-Note the "ScopeUri"; this is the Scope used for exposing API on the Azure Application. Very basic C# code to generate an access token is shown below.
+Note1: the "ScopeUri"; this is the Scope used for exposing API on the Azure Application. Very basic C# code to generate an access token is shown below.
+Note2: The scope name can be used, but generally this can cause connection issues and a `\.default` is recommended. 
+
 
 ```
-string[] scopes = ["api://3d8bebec-5c12-4ac7-a1c4-d57d7303b011/TestLeedsAppDigiratiScope"];
+string[] scopes = ["api://3d8bebec-5c12-4ac7-a1c4-d57d7303b011/.default"];
 string accessToken =  tokenAcquisition.GetAccessTokenForUserAsync(scopes).Result;
 ```
 
@@ -123,14 +125,14 @@ This is based on the setup of the application setup and the permissions on the a
 
 Step1:  login to the scope
 ```
- az login --scope api://3d8bebec-5c12-4ac7-a1c4-d57d7303b011/TestLeedsAppDigiratiScope
+ az login --scope api://3d8bebec-5c12-4ac7-a1c4-d57d7303b011/.default
 ```
 
 Step2: Generate a token the app and scope
 ```
  az account get-access-token  /
  --resource "api://3d8bebec-5c12-4ac7-a1c4-d57d7303b011" / 
- --scope "api://3d8bebec-5c12-4ac7-a1c4-d57d7303b011/TestLeedsAppDigiratiScope" / 
+ --scope "api://3d8bebec-5c12-4ac7-a1c4-d57d7303b011/.default" / 
  --query accessToken
  ```
 
