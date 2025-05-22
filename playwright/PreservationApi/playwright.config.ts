@@ -23,7 +23,7 @@ export default defineConfig({
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL: 'https://preservation-api-test.library.leeds.ac.uk', // 'https://localhost:7228', // ,'https://localhost:7000', // 'https://storage-api-dev.library.leeds.ac.uk'
+    baseURL: 'https://preservation-api.library.leeds.ac.uk', // 'https://localhost:7228', // ,'https://localhost:7000', // 'https://storage-api-dev.library.leeds.ac.uk'
     extraHTTPHeaders: {
       'Accept': 'application/json',
     },

@@ -26,7 +26,7 @@ test.describe('Create a NATIVE (our own METS) deposit and put some files in it',
         test.setTimeout(1000000);
         const headers = await getAuthHeaders(baseURL);
 
-        const parentContainer = `/native-tests/basic-1/${getYMD()}`;
+        const parentContainer = `/_for_testing/native-tests/${getYMD()}`;
         await ensurePath(parentContainer, request, headers);
 
         // We want to have a new WORKING SPACE - a _Deposit_

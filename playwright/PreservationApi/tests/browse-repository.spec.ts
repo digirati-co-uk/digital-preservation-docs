@@ -33,6 +33,7 @@ test.describe('Traverse repository', () => {
         }));
 
         const foundBinaryId = await walkToBinary(request, root, headers);
+        console.log("Found a binary: " + foundBinaryId);
         const binaryReq = await request.get(foundBinaryId, {
             headers: headers
         });

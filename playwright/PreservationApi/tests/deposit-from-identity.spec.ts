@@ -21,8 +21,8 @@ test.describe('Create a deposit for third party (eg EPrints) METS from identifie
         console.log("POST /deposits/from-identifier");
         const depositReq = await request.post('/deposits/from-identifier', {
             data: {
-                "schema": "id",   // you can also use "id" or "pid" with the pid value
-                "value": "t2sjhy5d"
+                "schema": "catirn",   // you can also use "id" or "pid" with the pid value
+                "value": "1000001"
             },
             headers: headers
         });

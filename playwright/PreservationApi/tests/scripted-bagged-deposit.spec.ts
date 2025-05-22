@@ -19,7 +19,7 @@ test.describe('Create a NATIVE (our own METS) deposit in BagIt layout, and put f
         test.setTimeout(1000000);
         const headers = await getAuthHeaders(baseURL);
 
-        const parentContainer = `/native-tests/bagged/${getYMD()}`;
+        const parentContainer = `/_for_testing/bagged/${getYMD()}`;
         await ensurePath(parentContainer, request, headers);
 
         // We want to have a new WORKING SPACE - a _Deposit_

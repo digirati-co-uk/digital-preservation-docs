@@ -5,7 +5,7 @@ import {ensurePath, getS3Client, getShortTimestamp, getYMD, uploadFile, waitForS
 
 
 export async function createDeposit(request: APIRequestContext, baseURL: string, headers){
-    const digitalPreservationParent = `/goobi-demo-updates/${getShortTimestamp()}`;
+    const digitalPreservationParent = `/_for_testing/generic-archival-group/${getShortTimestamp()}`;
     await ensurePath(digitalPreservationParent, request, headers);
     const preservedArchivalGroupUri = `${baseURL}/repository${digitalPreservationParent}/ms-10315`;
     const newDepositResp = await request.post('/deposits', {
