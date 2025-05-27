@@ -59,6 +59,24 @@ test.describe('Locking and unlocking a deposit', () => {
         // get the deposit again
         const lockedDeposit2 = await logDepositLockDetails(request, deposit, headers);
 
+        // try to patch the deposit
+        const patchDepositResp = await request.patch(deposit.id, {
+            data: {
+                id: deposit.id,
+                submissionText: "I am changing the submission text",
+                archivalGroup: deposit.archivalGroup,
+                archivalGroupName: deposit.archivalGroupName
+            },
+            headers: headers
+        });
+        expect(patchDepositResp.status()).toBe(409);
+
+        // try to delete the deposit:
+        const deleteDepositResp = await request.delete(deposit.id, {
+            headers: headers
+        });
+        expect(deleteDepositResp.status()).toBe(409);
+
         // We'll try to add a file to METS (doesn't matter that we didn't upload it, it should be rejected)
         const metsUri = deposit.id + '/mets';
         const metsResp = await request.get(metsUri, { headers: headers });
@@ -92,17 +110,20 @@ test.describe('Locking and unlocking a deposit', () => {
         });
         expect(forceLockResp.status()).toBe(204); // now OK
 
-        // Now try editing again - it won't be a conflict
-        // (won't work, but we're just testing the conflict)
 
-        console.log("posting to METS file again:");
-        const ifMatchHeaders2 = structuredClone(headers);
-        ifMatchHeaders2["eTag"] = eTag;
-        metsUpdateResp = await request.post(metsUri, {
-            data: [ "objects/some-new-file.tiff" ],
-            headers: ifMatchHeaders2
+
+        // try to patch the deposit again
+        const patchDepositResp2 = await request.patch(deposit.id, {
+            data: {
+                id: deposit.id,
+                submissionText: "I am changing the submission text again"
+            },
+            headers: headers
         });
-        expect(metsUpdateResp.status()).toBe(400); // a different error because we can't edit this non-native METS like this
+        expect(patchDepositResp2.status()).toBe(200);
+        const patchedDeposit = await logDepositLockDetails(request, patchDepositResp2, headers);
+        expect(patchedDeposit.submissionText).toBe("I am changing the submission text again");
+
 
         // Now in the UI try removing the lock through the actions menu
         // (in the ui)
@@ -110,8 +131,12 @@ test.describe('Locking and unlocking a deposit', () => {
         const unlockedDeposit = await logDepositLockDetails(request, deposit, headers);
         expect(unlockedDeposit.lockedBy).toBeNull();
 
-
-
+        // try deleting the deposit now
+        // try to delete the deposit:
+        const deleteDepositResp2 = await request.delete(deposit.id, {
+            headers: headers
+        });
+        expect(deleteDepositResp2.status()).toBe(200);
 
     })
 });
