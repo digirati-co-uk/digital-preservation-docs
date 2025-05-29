@@ -1,6 +1,6 @@
 # Preservation API
 
-Throughout this document we will assume for examples that the Preservation API root is at https://preservation.dlip.leeds.ac.uk. There is no API functionality at this root URI, however. The API is JSON over HTTP; most resources have `id` properties that correspond to their HTTP locations, and refer to other resources via fully qualified URIs.
+Throughout this document we will assume for examples that the Preservation API root is at https://preservation-api.library.leeds.ac.uk. There is no API functionality at this root URI, however. The API is JSON over HTTP; most resources have `id` properties that correspond to their HTTP locations, and refer to other resources via fully qualified URIs.
 
 The Preservation API is consumed by the applications we build to implement Preservation tasks, and also by Goobi. Goobi uses it to preserve, and, sometimes, to recover a preserved _ArchivalGroup_ later for further work. Other applications use it either directly or via the Web UI for Preservation tasks, including evaluation of born digital material and collaboration with donors and other staff.
 
@@ -18,7 +18,7 @@ This documentation deals with the Preservation API working on content in Amazon 
 
 ## Authentication
 
-> ❓TODO
+> ❓TODO - Leeds MSAL specifics
 
 The API implements a standard OAuth2 [Client Credentials Flow](https://www.oauth.com/oauth2-servers/access-tokens/client-credentials/) for machine-to-machine access, with [Refresh Tokens](https://www.oauth.com/oauth2-servers/access-tokens/refreshing-access-tokens/) to ensure that access tokens are short lived and can be revoked.
 
@@ -35,6 +35,8 @@ The resources sent to the API and retrieved from the API over HTTP are JSON obje
  - **ImportJobResult**: a report on the execution of an ImportJob. It can be used to track an ongoing job as it is running, or for later examination.
  - **Export**: represents the result of asking the API to export the contents of an ArchivalGroup into a Deposit's working area. Callers can use this resource to determine when the export has finished (an export may take a long time) and to see a list of files exported.
 
+Additional resource types for working with METS files, tool outputs and managing the contents of a Deposit are introduced in context.
+
 
 ### Common metadata
 
@@ -42,12 +44,12 @@ The resource types above all share a set of common properties:
 
 ```jsonc
 {
-    "id": "https://preservation.dlip.leeds.ac.uk/...(path)...",
+    "id": "https://preservation-api.library.leeds.ac.uk/...(path)...",
     "type": "(Resource)", // One of those above
-    "created": "2024-03-14T14:58:46.102335Z",    // carries the original name of the directory
-    "createdBy": "https://preservation.dlip.leeds.ac.uk/users/tom",
+    "created": "2024-03-14T14:58:46.102335Z", 
+    "createdBy": "https://preservation-api.library.leeds.ac.uk/users/tom",
     "lastModified": "2024-03-28T12:00:00.00000Z",
-    "lastModifiedBy": "https://preservation.dlip.leeds.ac.uk/users/donald",
+    "lastModifiedBy": "https://preservation-api.library.leeds.ac.uk/users/donald",
     // ...
     // Other type-specific properties
     // ...
@@ -64,7 +66,8 @@ The resource types above all share a set of common properties:
 | `lastModifiedBy` | A URI representing the user who last modified this resource (may be an API user) |      
 
 
-The *permitted set* of characters that may be used in resource ids (URIs) are the lower case letters `a-z`, the numbers `0-9`, and the characters `-`, `_`, and `.`. Resources that represent preserved or to-be-preserved files and folders have a `name` property that can take any UTF-8 characters; this property is used to record the original name of the resource.
+
+The *permitted set* of characters that may be used in resource ids (URIs) are the lower case letters `a-z`, upper case letters `A-Z`, the numbers `0-9`, and the characters `(`, `)`, `-`, `_`, and `.` with `%` allowed in escape sequences. Resources that represent preserved or to-be-preserved files and folders have a `name` property that can take any UTF-8 characters; this property is used to record the original name of the resource.
 
 The resource types `ImportJob` and `ImportJobResult` also have the first four of these properties, but not `lastModified` and `lastModifiedBy` (as they cannot be modified).
 
@@ -80,21 +83,23 @@ A Container retrieved while browsing the repository via the API might look like 
 
 ```jsonc
 {
-    "id": "https://preservation.dlip.leeds.ac.uk/repository/example-objects/ArchivalGroup1/my-directory",
+    "id": "https://preservation-api.library.leeds.ac.uk/repository/example-objects/ArchivalGroup1/my-directory",
     "type": "Container",
     "name": "my-dírèçtóry",    // carries the original name of the directory
     "containers": [],
     "binaries": [
         // ... see below  
     ],
-    "partOf": "https://preservation.dlip.leeds.ac.uk/repository/example-objects/ArchivalGroup1"
+    "partOf": "https://preservation-api.library.leeds.ac.uk/repository/example-objects/ArchivalGroup1"
 }
 ```
 
 | Property     | Description                       | 
 | ------------ | --------------------------------- |
+|              | _in addition to the standard set above_ |
 | `id`         | URI of the Container in the API. The path part of this URI may only contain characters from the *permitted set*.   |
 | `type`       | "Container"                       |
+|              | _in addition to the standard set above_ |
 | `name`       | The original name, which may contain any UTF-8 character. Often this will be the same as the last path element of the `id`, but it does not have to be. |
 | `containers` | A list of the immediate child containers, if any. All members are of type `Container`. |
 | `binaries`   | A list of the immediate contained binaries, if any. All members are of type `Binary`. |
@@ -102,7 +107,7 @@ A Container retrieved while browsing the repository via the API might look like 
 
 Browsing the repository via the API means following links to child Binaries and Containers, recursively.
 
-The root of the repository is itself a `Container`, at https://preservation.dlip.leeds.ac.uk/repository. However, this has the special `type` value `RepositoryRoot`.
+The root of the repository is itself a `Container`, at https://preservation-api.library.leeds.ac.uk/repository. However, this has the special `type` value `RepositoryRoot`.
 
 ### 📄 Binary
 
@@ -113,15 +118,15 @@ For representing a file: any kind of file stored in the repository.
 
 ```jsonc
 {
-    "id": "https://preservation.dlip.leeds.ac.uk/repository/example-objects/ArchivalGroup1/my-directory/My_File.pdf",
+    "id": "https://preservation-api.library.leeds.ac.uk/repository/example-objects/ArchivalGroup1/my-directory/My_File.pdf",
     "type": "Binary",
     "name": "My File.pdf",
     "contentType": "application/pdf",
     "digest": "b6aa90e47d5853bc1b84915f2194ce9f56779bc96bcf48d122931f003d62a33c",
     "origin": "s3://dlip-working-bucket/deposits/e5tg66hn/my-directory/My_File.pdf",
     "size": 15986,
-    "content": "https://preservation.dlip.leeds.ac.uk/content/example-objects/ArchivalGroup1/my-directory/My_File.pdf?version=v2",
-    "partOf": "https://preservation.dlip.leeds.ac.uk/repository/example-objects/ArchivalGroup1"
+    "content": "https://preservation-api.library.leeds.ac.uk/content/example-objects/ArchivalGroup1/my-directory/My_File.pdf?version=v2",
+    "partOf": "https://preservation-api.library.leeds.ac.uk/repository/example-objects/ArchivalGroup1"
 }
  ```
 
@@ -129,6 +134,7 @@ For representing a file: any kind of file stored in the repository.
 | ------------ | --------------------------------- |
 | `id`         | URI of the Binary in the API. The path may only contain characters from the *permitted set*.   |
 | `type`       | "Binary"                       |
+|              | _in addition to the standard set above_ |
 | `name`       | The original name, which may contain any UTF-8 character. |
 | `contentType`| The internet type of the file, e.g., `application/pdf`. The Preservation platform will usually deduce this for you, it is not required on ingest. |
 | `digest`     | The SHA-256 checksum for this file. This will always be returned by the API, but is only required when **sending** to the API if the checksum is not provided some other way - see below. |
@@ -144,7 +150,7 @@ A preserved ArchivalGroup - e.g., the files that comprise a digitised book, or a
 
 ```jsonc
 {
-    "id": "https://preservation.dlip.leeds.ac.uk/repository/example-objects/ArchivalGroup1",
+    "id": "https://preservation-api.library.leeds.ac.uk/repository/example-objects/ArchivalGroup1",
     "type": "ArchivalGroup",
     "name": "My ArchivalGroup", 
     "version": {
@@ -154,13 +160,13 @@ A preserved ArchivalGroup - e.g., the files that comprise a digitised book, or a
     },
     "versions": [
       {
-       "id": "https://preservation.dlip.leeds.ac.uk/repository/example-objects/ArchivalGroup1?version=v1",
+       "id": "https://preservation-api.library.leeds.ac.uk/repository/example-objects/ArchivalGroup1?version=v1",
        "ocflVersion": "v1",
        "mementoDateTime": "2024-03-12T12:00:00",
        "mementoTimestamp": "20240312120000"
       },
       {
-       "id": "https://preservation.dlip.leeds.ac.uk/repository/example-objects/ArchivalGroup1?version=v2",
+       "id": "https://preservation-api.library.leeds.ac.uk/repository/example-objects/ArchivalGroup1?version=v2",
        "ocflVersion": "v2",
        "mementoDateTime": "2024-03-14T14:58:58",
        "mementoTimestamp": "20240314145858"
@@ -203,7 +209,7 @@ GET /repository/library/manuscripts/ms-342/objects/34r.tiff
 // Get the actual bytes of the preserved object (subject to permissions)
 GET /content/library/manuscripts/ms-342/objects/34r.tiff?version=v2
 
-// Special parameter on the ArchivalGroup: view the mets XML directly
+// Special parameter on the ArchivalGroup: view the METS XML directly
 GET /content/library/manuscripts/ms-342?view=mets
 ```
 
@@ -249,7 +255,7 @@ A working set of files in S3, which will become an ArchivalGroup, or is used for
 
 #### Creating a new deposit
 
-POST a minimal Deposit body to `https://preservation.dlip.leeds.ac.uk/deposits` and the API will create a new Deposit, assigning a URI (from the ID service). 
+POST a minimal Deposit body to `https://preservation-api.library.leeds.ac.uk/deposits` and the API will create a new Deposit, assigning a URI (from the ID service). 
 In this example the intended ArchivalGroup URI, the name of the ArchivalGroup, and a note are all provided up front. These three fields are optional - you can create a Deposit without any information about where it is to go, and decide later.
 
 Request
@@ -260,8 +266,8 @@ Host: preservation.dlip.leeds.ac.uk
 // (other headers omitted)
 {
   "type": "Deposit",
-  "useObjectTemplate": true,
-  "archivalGroup": "https://preservation.dlip.leeds.ac.uk/repository/library/my-new-archivalgroup",
+  "template": "BagIt",
+  "archivalGroup": "https://preservation-api.library.leeds.ac.uk/repository/library/my-new-archivalgroup",
   "archivalGroupName": "My new Archival Group",
   "submissionText": "A note for me and my colleagues later"
 }
@@ -271,7 +277,7 @@ Response
 
 ```
 HTTP/1.1 201 Created
-Location: https://preservation.dlip.leeds.ac.uk/deposits/e56fb7yg
+Location: https://preservation-api.library.leeds.ac.uk/deposits/e56fb7yg
 // (other headers omitted)
 ```
 
@@ -285,9 +291,9 @@ Host: preservation.dlip.leeds.ac.uk
 
 ```jsonc
 {
-    "id": "https://preservation.dlip.leeds.ac.uk/deposits/e56fb7yg",
+    "id": "https://preservation-api.library.leeds.ac.uk/deposits/e56fb7yg",
     "type": "Deposit",  
-    "archivalGroup": "https://preservation.dlip.leeds.ac.uk/repository/library/my-new-archivalgroup",
+    "archivalGroup": "https://preservation-api.library.leeds.ac.uk/repository/library/my-new-archivalgroup",
     "archivalGroupExists": false,
     "archivalGroupName": "My new Archival Group",
     "submissionText": "A note for me and my colleagues later",
@@ -301,13 +307,15 @@ Host: preservation.dlip.leeds.ac.uk
     "exportedBy": null,
     "versionExported": null,
     "metsETag": "hg67fghufp2jiefho875",
+    "lockedBy": null,
+    "lockDate": null,
     "pipelineJobs": [],
 
     // The common resource fields:    
     "created": "2024-03-14T14:58:46.102335Z",    
-    "createdBy": "https://preservation.dlip.leeds.ac.uk/users/tom",
+    "createdBy": "https://preservation-api.library.leeds.ac.uk/users/tom",
     "lastModified": "2024-03-14T14:58:46.102335Z",
-    "lastModifiedBy": "https://preservation.dlip.leeds.ac.uk/users/tom"
+    "lastModifiedBy": "https://preservation-api.library.leeds.ac.uk/users/tom"
 }
 ```
 
@@ -315,7 +323,7 @@ Host: preservation.dlip.leeds.ac.uk
 | --------------------- | --------------------------------- |
 | `id`                  | URI of the Deposit in the API. This is always assigned by the API.   |
 | `type`                | "Deposit"                       |
-| `useObjectTemplate`   | This is a write-only property supplied when creating a new Deposit. If `true` the API wil create an `objects` directory and a METS file that references it.                  |
+| `template`            | This is a write-only property supplied when creating a new Deposit. Values are "None" (the default), "RootLevel" and "BagIt". If `RootLevel` the API wil create an `objects` directory, a `metadata` directory and a METS file that references the two directories. If `BagIt` the same layout is produced but one level down inside a `data` directory. If you have a BagIt bag to upload, choose this layout.                   |
 | `archivalGroup`       | The URI of the ArchivalGroup in the repository that this deposit will become (or was exported from).<br>You don't need to provide this up front. You may not know it yet (e.g., you are appraising files). For some users, it will be assigned automatically. It may suit you to set this shortly before sending the deposit for preservation.                   |
 | `archivalGroupExists` | Whether the resource at `archivalGroup` exists (i.e., the Deposit will update it, rather than create it)  |
 | `archivalGroupName`   | The name of the ArchivalGroup. If new, this will be given to a new Archival Group when created by an Import Job generated from this Deposit. It is not required (it can be set on the ImportJob directly), but is useful for clarity.  |
@@ -344,6 +352,8 @@ If you are not using a METS file, or are using a METS file that the Preservation
 You can also supply them in an Import Job as described below.
 
 Most of the work done on a deposit is in S3, placing files. You can also modify the Deposit, providing (or updating) the `ArchivalGroup`, `submissionText` and `status` fields (the API can also set the status field itself). To perform an Import Job on a deposit, it must have had its `ArchivalGroup` property set, but _when_ in the workflow this happens is up to you.
+
+> TODO New APIs for processing metadata, adding to METS etc.
 
 #### Fetch an individual Deposit
 
@@ -407,9 +417,9 @@ This is used to update `archivalGroup`, `archivalGroupName` and `submissionText`
 ```
 PATCH /deposits/e56fb7yg
 {
-    "id": "https://preservation.dlip.leeds.ac.uk/deposits/e56fb7yg",
+    "id": "https://preservation-api.library.leeds.ac.uk/deposits/e56fb7yg",
     "type": "Deposit",  
-    "archivalGroup": "https://preservation.dlip.leeds.ac.uk/repository/library/my-new-archivalgroup",
+    "archivalGroup": "https://preservation-api.library.leeds.ac.uk/repository/library/my-new-archivalgroup",
     "archivalGroupName": "A Better name",
     "submissionText": "I changed my mind about the name."
 }
@@ -442,7 +452,7 @@ Host: preservation.dlip.leeds.ac.uk
 
 {
   "type": "Deposit",
-  "archivalGroup": "https://preservation.dlip.leeds.ac.uk/repository/example-objects/ArchivalGroup2",
+  "archivalGroup": "https://preservation-api.library.leeds.ac.uk/repository/example-objects/ArchivalGroup2",
   "versionExported": "v2"
 }
 ```
@@ -485,10 +495,10 @@ Before you can ask for an Import Job, the `ArchivalGroup` field of the Deposit m
 
 ```jsonc
 {
-    "id": "https://preservation.dlip.leeds.ac.uk/deposits/e56fb7yg/importJobs/diff",
+    "id": "https://preservation-api.library.leeds.ac.uk/deposits/e56fb7yg/importJobs/diff",
     "type": "ImportJob",
-    "deposit": "https://preservation.dlip.leeds.ac.uk/deposits/e56fb7yg",
-    "ArchivalGroup": "https://preservation.dlip.leeds.ac.uk/repository/example-objects/ArchivalGroup2",
+    "deposit": "https://preservation-api.library.leeds.ac.uk/deposits/e56fb7yg",
+    "ArchivalGroup": "https://preservation-api.library.leeds.ac.uk/repository/example-objects/ArchivalGroup2",
     "ArchivalGroupName": "Manuscript 2024-b",
     "sourceVersion": {
        "name": "v2",
@@ -496,19 +506,19 @@ Before you can ask for an Import Job, the `ArchivalGroup` field of the Deposit m
     },
     "containersToAdd": [
       {
-        "id": "https://preservation.dlip.leeds.ac.uk/repository/example-objects/ArchivalGroup1/my-directory/bar",
+        "id": "https://preservation-api.library.leeds.ac.uk/repository/example-objects/ArchivalGroup1/my-directory/bar",
         "name": "bar"
       },      
     ],
     "binariesToAdd": [
       {
-        "id": "https://preservation.dlip.leeds.ac.uk/repository/example-objects/ArchivalGroup1/my-directory/foo.jpg",
+        "id": "https://preservation-api.library.leeds.ac.uk/repository/example-objects/ArchivalGroup1/my-directory/foo.jpg",
         "name": "foo.jpg",
         "digest": "b6aa90e47d5853bc1b84915f2194ce9f56779bc96bcf48d122931f003d62a33c",
         "location": "s3://dlip-working-bucket/deposits/e56fb7yg/my-directory/foo.jpg"
       },
       {
-        "id": "https://preservation.dlip.leeds.ac.uk/repository/example-objects/ArchivalGroup1/my-directory/bar/strasse.xml",
+        "id": "https://preservation-api.library.leeds.ac.uk/repository/example-objects/ArchivalGroup1/my-directory/bar/strasse.xml",
         "name": "straße.xml",
         "digest": "2c9eaa2a0080b9e20b481e7550c64096dd12731c574b8884a280b4b3fe8fd40e",
         "location": "s3://dlip-working-bucket/deposits/e56fb7yg/my-directory/bar/stra___.xml"
@@ -517,7 +527,7 @@ Before you can ask for an Import Job, the `ArchivalGroup` field of the Deposit m
     "containersToDelete": [],
     "binariesToDelete": [      
       {
-        "id": "https://preservation.dlip.leeds.ac.uk/repository/example-objects/ArchivalGroup1/my-directory/unwanted.txt",
+        "id": "https://preservation-api.library.leeds.ac.uk/repository/example-objects/ArchivalGroup1/my-directory/unwanted.txt",
       }
     ],
     "binariesToPatch": []
@@ -543,7 +553,7 @@ Before you can ask for an Import Job, the `ArchivalGroup` field of the Deposit m
 
 > ❓What kind of safeguards do we want? e.g., if you specify a binary to delete that isn't there, is that an error? Obviously any binariesToAdd that aren't there is an error. What if you specify a binary to add that's already there? Error - use binariesToPatch instead. Do you need to provide the binary+digest in S3 if you ONLY want to patch the `name` property?
 
-> ❓In the storage API prototype there are separate path properties for location within the object. Here, we use the fully qualified URI for everything, in the '@id` property: `https://preservation.dlip.leeds.ac.uk/<path/in/repository>/<path/within/object>`. This is harder to manage, callers will have to construct more, but it avoids any repetition and is always explicit. Is it usable though?
+> ❓In the storage API prototype there are separate path properties for location within the object. Here, we use the fully qualified URI for everything, in the '@id` property: `https://preservation-api.library.leeds.ac.uk/<path/in/repository>/<path/within/object>`. This is harder to manage, callers will have to construct more, but it avoids any repetition and is always explicit. Is it usable though?
 
 #### Generate Import Job
 
@@ -591,7 +601,7 @@ There is a special case where you don't need to see or edit the diff-generated I
 
 ```jsonc
 {
-  "id": "https://preservation.dlip.leeds.ac.uk/deposits/e56fb7yg/importJobs/diff"
+  "id": "https://preservation-api.library.leeds.ac.uk/deposits/e56fb7yg/importJobs/diff"
 }
 ```
 
@@ -609,12 +619,12 @@ This resource is returned quickly, before the ImportJob actually runs. The Impor
 
 ```jsonc
 {
-    "id": "https://preservation.dlip.leeds.ac.uk/deposits/e56fb7yg/importJobs/results/ad5fbm8k",
+    "id": "https://preservation-api.library.leeds.ac.uk/deposits/e56fb7yg/importJobs/results/ad5fbm8k",
     "type": "ImportJobResult",
-    "importJob": "https://preservation.dlip.leeds.ac.uk/deposits/e56fb7yg/importJobs/ad5fbm8k",
-    "originalImportJobId": "https://preservation.dlip.leeds.ac.uk/deposits/e56fb7yg/importJobs/diff",
-    "deposit": "https://preservation.dlip.leeds.ac.uk/deposits/e56fb7yg",
-    "ArchivalGroup": "https://preservation.dlip.leeds.ac.uk/repository/example-objects/ArchivalGroup2",
+    "importJob": "https://preservation-api.library.leeds.ac.uk/deposits/e56fb7yg/importJobs/ad5fbm8k",
+    "originalImportJobId": "https://preservation-api.library.leeds.ac.uk/deposits/e56fb7yg/importJobs/diff",
+    "deposit": "https://preservation-api.library.leeds.ac.uk/deposits/e56fb7yg",
+    "ArchivalGroup": "https://preservation-api.library.leeds.ac.uk/repository/example-objects/ArchivalGroup2",
     "status": "waiting",
     "dateBegun": null,
     "dateFinished": null,
@@ -658,7 +668,7 @@ NB the shared property `created` is a timestamp indicating when the API received
 
 ### Navigating the repository
 
-> RESTfully follow links with HTTP GETs, starting at the repository root `https://preservation.dlip.leeds.ac.uk/repository/`
+> RESTfully follow links with HTTP GETs, starting at the repository root `https://preservation-api.library.leeds.ac.uk/repository/`
 
 We also need to search the repository, with filtering - "I can't browse to it, I don't know where it is" - or "there are 500,000 objects in this folder"
 
