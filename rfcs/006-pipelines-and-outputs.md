@@ -66,7 +66,7 @@ The easiest way for a Siegfried output YAML file to be present in a Deposit is i
 
 We already have a pattern for adding files to METS, through the [IMetsManager](https://github.com/uol-dlip/digital-preservation/blob/main/src/DigitalPreservation/DigitalPreservation.Common.Model/Mets/IMetsManager.cs) interface. The implementation here would get more sophisticated as it edits more of the PREMIS metadata section for each file (a fragment of which is above).
 
-> NB Siegfried can output in JSON format by adding the `--json` flag, and while it would be easier for the Preservation API to parse, it isn't the default output format. People would have to remember to do it in BitCurator, and it would be very annoying of you had forgotten. So we should parse YAML first, and we can add a Siegfried JSON output parser later.
+> NB Siegfried can output in JSON format by adding the `--json` flag, and while it would be easier for the Preservation API to parse, it isn't the default output format. People would have to remember to do it in BitCurator, and it would be very annoying if you had forgotten. So we should parse YAML first, and we can add a Siegfried JSON output parser later.
 
 > NB Archivists might invoke Siegfried indirectly by running [Brunnehilde](https://www.bitarchivist.net/projects/brunnhilde), which will in turn run Siegfried and other tools including ClamAV. If run this way it will produce a file in CSV format called `siegfried.csv`. **So we need Siegfried parsers for both formats, CSV and YAML**.
 
@@ -226,9 +226,10 @@ This is now ready for bagging. If the above image shows the contents of the dire
 
 We need a Deposit to upload this into. In the UI, we can create one either from scratch, or by entering an EMu CATIRN or Identity Service PID:
 
-_(screen shot if and when implemented!)_
 
-We tick the box "This Deposit will be populated with a BagIt bag", and a deposit with the "empty" layout is created:
+![Create new Deposit](img/new-deposit-6.png)
+
+We tick the box "Use BagIt layout", and a deposit with the "empty" BagIt layout is created:
 
 ```
 (root)/
@@ -285,7 +286,7 @@ In the Deposit UI, the METS can be updated in two steps (could be one, but maybe
 
 > _All the operations can be done via the API directly (and therefore scripted) as well as the Web user interface._
 
-This process finds and reads ALL tool outputs it recognises (Siegfried initially) and incorporates the information into the METS file.
+This process finds and reads ALL tool outputs it recognises (Siegfried initially, whether in the Brunnehilde directory or in the Siegfried directory) and incorporates the information into the METS file.
 
 
 ## Deposit behaviour
@@ -294,7 +295,7 @@ A BagIt-based deposit is the same as a normal deposit, it just has the relevant 
 
 If you run an import job, the created Archival Group **does not have this additional data directory** - it has `objects/`, `metadata/` and `mets.xml` at the root. And if you then export the Archival Group into a new Deposit (for example, to create a v2) it exports with `objects/`, `metadata/` and `mets.xml` at the root: no `data/` directory.
 
-During this process the bagit .txt files in the root are copied into a `__bagit/` directory in `metadata/` (note the two underscores) for future reference.
+During this process the bagit .txt files in the root are copied into a `__bagit/` directory in `metadata/` (note the two underscores) for future reference. (Not yet implemented).
 
 
 > The role of BitCurator and BagIt in **editing** an Archival Group once preserved - in subsequent versions - is not defined; we need to work on that in Phase 2. The above discussion would allow edits via the API and UI, but what about going back to BitCurator and re-bagging? _That_ workflow is not defined.
@@ -302,11 +303,12 @@ During this process the bagit .txt files in the root are copied into a `__bagit/
 
 ## Tools / pipeline revisited
 
-In the above discussion no tool/pipeline invocation happened because the tools were run in the BitCurator environment.
+In the above discussion no tool/pipeline invocation happened because the tools were run by a person in the BitCurator environment.
 
 The outputs were manually put into the deposit (in appropriate locations under `metadata/`) and then the Preservation API processed them.
 
-This latter processing step is identical in a pipeline operation, and the layout of the deposit is identical, except that the production of the tool outputs is automated - given a Deposit, a pipeline running on that deposit will run the same tools used by the archivist in the BitCurator environment and save the outputs in the same way, and then invoke the integration with METS. The mechanism used to run the tool(s) on the files in the Deposit S3 location is independent of the rest of this flow, it just needs to accept the same starting conditions and deliver the same ending conditions.
+> [!IMPORTANT]  
+> This latter processing step is identical in a pipeline operation, and the layout of the deposit is identical, except that the production of the tool outputs is **automated** - given a Deposit, a pipeline running on that deposit will run the same tools used by the archivist in the BitCurator environment and save the outputs in the same way, and then invoke the integration with METS. The mechanism used to run the tool(s) on the files in the Deposit S3 location is independent of the rest of this flow, it just needs to accept the same starting conditions and deliver the same ending conditions.
 
 
 ## Tool outputs from pipelines
@@ -326,10 +328,14 @@ Should pipeline runs put their outputs into timestamped folders under `metadata/
 
 In this scenario the tool-output-processing code is just extended to find the _latest_ outputs, allowing for multiple runs.
 
+> [!NOTE]  
+> So far we decided against date folders - there's only one folder per tool. Only one set of data can be present - if it changes, the Archival Group version will have to change too. So you can go back and look at previous versions anyway. This is clearer and unambiguous. 
 
 ## Workflow
 
-Initial:
+**This is what a human user does manually, that an automated pipeline would need to replicate.**
+
+Initial layout the archivist is working on in BitCurator environment:
 
 ```
 working-dir/
@@ -402,7 +408,7 @@ working-dir/
 
 Again the actual files are untouched, we have been running tools from outside `my-item/`, on the `objects/` folder _inside_ `my-item/`, and saving the outputs inside a "tool-name" directory inside the `metadata/` folder in `my-item/`.
 
-Now we can bag this:
+Now we can **bag** this (i.e., produce a BagIt bag):
 
 ```
 user@BitCurator:~/working_dir$ bagit.py --source-organization uol-dlip --sha256 my-item
@@ -429,19 +435,14 @@ working-dir/
 
 The content of my-item is what we upload into the deposit - i.e., data/ and the bagit files end up in the root of the deposit.
 
+This is currently done by uploading files in the AWS S3 Console
 
+# References
 
-## Notes
+Feature in Leeds ADO:
 
-Format expected from BitCurator
+https://dev.azure.com/universityofleeds/Library/_backlogs/backlog/Digirati/Epics?workitem=71301
 
-```
-\-- (bagged-folder)
-    \-- data
-        \-- objects
-            (the files to be preserved)
-        \-- metadata
-            (tool-outputs from siegfried et el)
-     -- manifest-sha256.txt
-     -- bagit.txt
-```
+Demo of human-driven BitCurator flow:
+
+(link to follow)
