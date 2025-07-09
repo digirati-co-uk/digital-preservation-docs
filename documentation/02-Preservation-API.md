@@ -2,13 +2,18 @@
 
 Throughout this document we will assume for examples that the Preservation API root is at https://preservation-api.library.leeds.ac.uk. There is no API functionality at this root URI, however. The API is JSON over HTTP; most resources have `id` properties that correspond to their HTTP locations, and refer to other resources via fully qualified URIs.
 
-The Preservation API is consumed by the applications we build to implement Preservation tasks, and also by Goobi. Goobi uses it to preserve, and, sometimes, to recover a preserved _ArchivalGroup_ later for further work. Other applications use it either directly or via the Web UI for Preservation tasks, including evaluation of born digital material and collaboration with donors and other staff.
+The Preservation API is consumed by the applications we build to implement Preservation tasks:
 
-Whereas the [Storage API](03-Storage-API.md) is a wrapper around Fedora that bridges files-to-be-preserved to Fedora Archival Groups, so the Preservation API bridges Leeds business rules, models of ArchivalGroups and born digital workflow to the Storage API. These processes are then doubly insulated against the specifics of Fedora.
+ - The **Preservation UI** at preservation.library.leeds.ac.uk. This uses the API described here to offer a user interface over the preservation functionality.
+ - **iiif-builder**. This Python process reads an _activity stream_ provided by Preservation API to find new preserved objects to process, then makes further calls to the Preservation API to obtain information about the objects (specifically an _Archival Group_ and its _METS file_).
+ - **Goobi** uses the Preservation API to store digitised objects coming through its workflow, and retrieve them for later work if necessary.
+ - Other ad hoc scripts and tools that will be written over time.
+
+Whereas the [Storage API](03-Storage-API.md) is a wrapper around Fedora that bridges files-to-be-preserved to Fedora [Archival Groups](https://wiki.lyrasis.org/display/FEDORA6x/Glossary#Glossary-ArchivalGroupag), so the Preservation API bridges Leeds business rules, models of Archival Groups and born digital workflow to the Storage API. These processes are then doubly insulated against the specifics of Fedora.
 
 For example:
 
-- The Storage API doesn't know what a METS file is, it's just another file being preserved as part of an _ArchivalGroup_.
+- The Storage API doesn't know what a [METS file](https://www.loc.gov/standards/mets/) is, it's just another file being preserved as part of an _ArchivalGroup_.
 - The Preservation API *does* know what a METS file is, and may use its contents (e.g., checksums, original file names) to construct calls to the Storage API.
 
 However, there are concepts that are common to both, where the Preservation API is basically passing information from or to the Storage API. An example of this is browsing the repository via the API, which passes through (in simplified form) the Storage API concepts of Containers and Binaries.
@@ -18,7 +23,8 @@ This documentation deals with the Preservation API working on content in Amazon 
 
 ## Authentication
 
-> ❓TODO - Leeds MSAL specifics
+> [!WARNING]
+> TODO - Leeds MSAL specifics
 
 The API implements a standard OAuth2 [Client Credentials Flow](https://www.oauth.com/oauth2-servers/access-tokens/client-credentials/) for machine-to-machine access, with [Refresh Tokens](https://www.oauth.com/oauth2-servers/access-tokens/refreshing-access-tokens/) to ensure that access tokens are short lived and can be revoked.
 
@@ -96,25 +102,25 @@ A Container retrieved while browsing the repository via the API might look like 
 
 | Property     | Description                       | 
 | ------------ | --------------------------------- |
-|              | _in addition to the standard set above_ |
 | `id`         | URI of the Container in the API. The path part of this URI may only contain characters from the *permitted set*.   |
-| `type`       | "Container"                       |
-|              | _in addition to the standard set above_ |
+| `type`       | "Container"        
+|              | _in addition to the standard set above_ |               |
 | `name`       | The original name, which may contain any UTF-8 character. Often this will be the same as the last path element of the `id`, but it does not have to be. |
-| `containers` | A list of the immediate child containers, if any. All members are of type `Container`. |
-| `binaries`   | A list of the immediate contained binaries, if any. All members are of type `Binary`. |
+| `containers` | A list of the immediate child containers, if any. All members are of type `Container` or `ArchivalGroup`. Within an ArchivalGroup, `containers` can only have other `Container` objects as members. |
+| `binaries`   | A list of the immediate contained binaries, if any. All members are of type `Binary`. Binaries cannot exist outside of an Archival Group. |
 | `partOf`     | The `id` of the ArchivalGroup the Container is in. Not present if the Container is outside an ArchivalGroup. |
 
 Browsing the repository via the API means following links to child Binaries and Containers, recursively.
 
-The root of the repository is itself a `Container`, at https://preservation-api.library.leeds.ac.uk/repository. However, this has the special `type` value `RepositoryRoot`.
+The root of the repository is itself a `Container`, at https://preservation-api.library.leeds.ac.uk/repository. However, this has the special `type` value `RepositoryRoot`. Visiting that URL with appropriate credentials will show the child Containers of the root in the `containers` property of the JSON response, which in turn allows you to browse down through the hierarchy of containers into Archival Groups, and within Archival Groups, into further containers and binaries.
+
 
 ### 📄 Binary
 
 For representing a file: any kind of file stored in the repository. 
 
  - Binaries can only exist within ArchivalGroups
- - You add or patch binaries by referencing files in S3 by their URIs in an ImportJob, rather than directly passing binary payloads to the API.
+ - You add or patch binaries by referencing files in S3 by their URIs in an ImportJob, rather than directly passing binary payloads to the API. You can't POST binary file contents to the API.
 
 ```jsonc
 {
@@ -136,11 +142,11 @@ For representing a file: any kind of file stored in the repository.
 | `type`       | "Binary"                       |
 |              | _in addition to the standard set above_ |
 | `name`       | The original name, which may contain any UTF-8 character. |
-| `contentType`| The internet type of the file, e.g., `application/pdf`. The Preservation platform will usually deduce this for you, it is not required on ingest. |
-| `digest`     | The SHA-256 checksum for this file. This will always be returned by the API, but is only required when **sending** to the API if the checksum is not provided some other way - see below. |
+| `contentType`| The internet type of the file, e.g., `application/pdf`. The Preservation platform will usually deduce this for you, it is not required on ingest. Also known as "mime type". |
+| `digest`     | The SHA-256 checksum for this file. This is required and is always present on a Binary when sending to the API or retrieving from the API. There are additional API services to determine checksums of files. |
 | `origin`     | The S3 URI within a Deposit where this file may be accessed. If just browsing, this will be empty. If importing and sending this data to the API as part of an ImportJob, this is the S3 location the API should read the file from.  |
 | `size`       | The size of the file in bytes.    |
-| `content`    | An endpoint from which the binary content of the file may be retrieved (subject to authorisation). This is always provided by the API for API users to read a single file (it's not a location for the API to fetch from) |
+| `content`    | An endpoint from which the binary content of the file may be retrieved (subject to authorisation). This is always provided by the API for API users to read a single file (it's not a location for the API to fetch from). |
 | `partOf`     | The `id`  of the ArchivalGroup the Binary is in. Never null when returned by the API. Not required when sending as part of an ImportJob. |
 
 
@@ -160,30 +166,25 @@ A preserved ArchivalGroup - e.g., the files that comprise a digitised book, or a
     },
     "versions": [
       {
-       "id": "https://preservation-api.library.leeds.ac.uk/repository/example-objects/ArchivalGroup1?version=v1",
        "ocflVersion": "v1",
        "mementoDateTime": "2024-03-12T12:00:00",
        "mementoTimestamp": "20240312120000"
       },
       {
-       "id": "https://preservation-api.library.leeds.ac.uk/repository/example-objects/ArchivalGroup1?version=v2",
        "ocflVersion": "v2",
        "mementoDateTime": "2024-03-14T14:58:58",
        "mementoTimestamp": "20240314145858"
       }
     ],
-    "storageMap": { },   // See the StorageMap section in the Storage API documentation
-    "containers": [],    //
-    "binaries": []       //  These behave as with Container and Binary above
+    "storageMap": { },  // see StorageMap section later
+    "containers": [],   
+    "binaries": []       
 }
 ```
 
 
-#### Accessing previous versions
 
-The `versions` property allows you to view previous versions of the object. The `content` property of Binaries returned in an explicit version will also carry an explicit version in their URIs.
-
-#### Browsing the repository
+### Browsing the repository
 
 To retrieve the repository root, containers, ArchivalGroups and Binaries within an Archival Group, send HTTP GET requests. The repository can be navigated starting from the root and following the hierarchy of Containers and Binaries returned in each resource. The following examples assume the caller has permission to see all the resources:
 
@@ -200,18 +201,30 @@ GET /repository/library/manuscripts
 // Request an ArchivalGroup within that container
 GET /repository/library/manuscripts/ms-342
 
+// Special parameter on the ArchivalGroup: view the METS XML directly
+GET /content/library/manuscripts/ms-342?view=mets
+
 // Request a Container within that ArchivalGroup:
 GET /repository/library/manuscripts/ms-342/objects
 
 // ...and a Binary within that Container:
 GET /repository/library/manuscripts/ms-342/objects/34r.tiff
 
+// TODO
 // Get the actual bytes of the preserved object (subject to permissions)
 GET /content/library/manuscripts/ms-342/objects/34r.tiff?version=v2
 
-// Special parameter on the ArchivalGroup: view the METS XML directly
-GET /content/library/manuscripts/ms-342?view=mets
 ```
+
+#### Additional GET parameters
+
+| Parameter    | Description                       | 
+| ------------ | --------------------------------- |
+| `view`       | Valid values are:<br/>`mets` - only valid as GET on Archival Group, and returns the XML content of the METS file.<br/>`lightweight` - valid for Containers and Archival Groups, and returns a single object where the child `containers` and `binaries` properties are empty lists - always unpopulated. |  
+| `version`    | Only valid when the `view` parameter is "lightweight". If the resource is an archival group, the value is a string in either the OCFL version format ("v1", "v2", "v3" etc) or the Memento timestamp format (""). If the resource is anything else, only the Memento format is currently supported. |
+
+> [!WARNING]
+> TODO - Ideally the OCFL format is supported for all resource requests, and the memento format is deprecated. You can find the memento format by asking for the Archival Group's Storage Map (see later).
 
 
 #### HEAD requests
@@ -219,6 +232,7 @@ GET /content/library/manuscripts/ms-342?view=mets
 HEAD requests to the same resource path as above work as expected, but with some additional features. They can be used to efficiently determine whether a resource exists, and also its `type`. A HEAD request will return one of the status codes 200, 404, 401 and 410 - where 410 is HTTP "Gone" - a resource _used to exist_ at this URI but does no longer. This kind of response is called a **tombstone** and corresponds to the same concept in Fedora.
 
 In addition, if the response status code is HTTP 200, the response will include an HTTP Header `X-Preservation-Resource-Type` that gives the `type` value of the resource - "Container", "Binary" or "ArchivalGroup".
+
 
 #### Create a Container with PUT
 
@@ -251,7 +265,17 @@ You can do this in two steps - DELETE without purge (leaving a tombstone), and t
 
 ### Deposit
 
-A working set of files in S3, which will become an ArchivalGroup, or is used for updating an ArchivalGroup. API users ask the Preservation API to create a Deposit, which returns an identifier and a working area in S3 (a key under which to assemble files).
+A working set of files in S3, which will become an ArchivalGroup, or is used for updating an ArchivalGroup. API users ask the Preservation API to create a Deposit, which returns an identifier and a _*Workspace*_ in S3 (a key under which to assemble files). The Workspace belongs exclusively to one Deposit, but other processes can (and must) add and remove files and folders.
+
+A Deposit is a wrapper around a group of files that are intended to become an Archival Group (imported into Preservation) or are the content of an Archival Group at a particular version (an export). You create a Deposit to make the initial Archival Group in, then run an import job which makes the Archival Group. Later, perhaps to add a file, you export the Archival Group into a new Deposit.
+
+The Preservation API does not itself offer a direct way to upload the binary content of a file into S3 (or any other Deposit backing store). It's assumed that your applications do that independently - assemble files in the workspace. Your applications may also provide their own METS file to describe the contents, which the Preservation API can read to look for checksums and other information. The Preservation API can also create and edit METS files for you, and has API operations to add and remove files and folders to the METS file. The preservation API can only modify METS files it has created; you can't introduce a third party METS file and modify it via API operations. You'd have to modify it manually, updating the file in the workspace. 
+
+
+> [!TIP]
+> For .NET implementations, the [WorkspaceManager](04-Workspace-Manager.md) class provides functions to manage the contents of a deposit. Most of those functions are exposed in the HTTP API of the Preservation API, but can be used in independent applications. Both the Presentation API and the [Preservation UI](05-Preservation-UI.md) use this class to manage the file system and edit the METS file.
+
+
 
 #### Creating a new deposit
 
@@ -660,6 +684,20 @@ This resource is returned quickly, before the ImportJob actually runs. The Impor
 NB the shared property `created` is a timestamp indicating when the API received the initial POST of the job.
 
 > ❓ * can we know it earlier than that? 
+
+
+
+### Exports
+
+
+
+### StorageMap
+
+
+### Versions
+
+
+
 
 
 
