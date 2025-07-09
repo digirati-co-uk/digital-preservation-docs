@@ -36,6 +36,11 @@ We need to _automate_ this process. The above will always need supporting, but w
 
  This RFC explores the ??? above. There are already some notes about possible approaches in [RFC 006](006-pipelines-and-outputs.md#ecs-for-siegfried-with-mounted-s3) and [RFC 006](006-pipelines-and-outputs.md#alternative-ecs-or-fargate-for-siegfried-with-ebs-or-efs). This RFC decides on the approach we're going to take.
 
+ 
+Initially, it will be OK to just run Brunnhilde, because that will run Siegfried and ClamAV for us.
+
+Later on we can add more tools.
+
  ## Existing features of Preservation API
 
  The contents of a Deposit are managed by the [WorkspaceManager](https://github.com/uol-dlip/digital-preservation/blob/main/src/DigitalPreservation/DigitalPreservation.Workspace/WorkspaceManager.cs) class. This is used by the Preservation API when you invoke operations on it, but it is also used directly by the UI - the Preservation API doesn't have to see everything you are up to behind the scenes.
