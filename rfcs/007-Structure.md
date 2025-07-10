@@ -41,3 +41,9 @@ Whether we _should_ is another matter; we might end up tying ourselves in knots 
 
 
 Clearly further detailed description of parts within an already described object is a possibility, but are there scenarios where things would break?
+
+Further description within an Archival Group would ideally just be elaboration of the METS file - adding more logical structure and attaching more metadata to it. This need not involve any changes to binaries, just the one XML document (the METS file) that describes them. This need not be computationally expensive. 
+
+This scenario is fine where the Archival Group still corresponds to a IIIF Manifest, and the newly described parts are Ranges.
+It _could_ be OK if the Archival Group becomes a IIIF Collection and the METS structMap describes parts that should be IIIF Manifests.
+The further this gets from the simple mapping of archival description - archival group - IIIF manifest, the more complex the code in iiif-builder becomes. So it's partly a question of how complicated are you willing to let iiif-builder become?
