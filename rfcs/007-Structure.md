@@ -47,3 +47,11 @@ Further description within an Archival Group would ideally just be elaboration o
 This scenario is fine where the Archival Group still corresponds to a IIIF Manifest, and the newly described parts are Ranges.
 It _could_ be OK if the Archival Group becomes a IIIF Collection and the METS structMap describes parts that should be IIIF Manifests.
 The further this gets from the simple mapping of archival description - archival group - IIIF manifest, the more complex the code in iiif-builder becomes. So it's partly a question of how complicated are you willing to let iiif-builder become?
+
+The trigger for iiif-builder doing some work is currently a change to an archival group, rather than a signal from some other system.
+This is probably correct, because if iiif-builder is to make any changes to anything, that information should be present in the METS file.
+Sub-classifying parts should (how?) bring about a change in a METS file (Goobi will do this) which therefore is an edit of an Archival Group and therefore will trigger iiif-builder.
+
+We could clearly build some elements of this into the preservation UI, and Goobi workflows are also all about editing METS files, but is it always a human-driven process?
+
+(see original [sequence diagrams](https://github.com/uol-dlip/docs/blob/continue-written-docs/sequence-diagrams/README.md)).
