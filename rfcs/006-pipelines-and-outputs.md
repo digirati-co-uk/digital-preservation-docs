@@ -446,3 +446,10 @@ https://dev.azure.com/universityofleeds/Library/_backlogs/backlog/Digirati/Epics
 Demo of human-driven BitCurator flow:
 
 (link to follow)
+
+# Questions
+
+1. Do we unlock a deposit after the Brunnhilde command has executed and metadata has been created i.e. call to Preservation API endpoint?
+2. Or, do we have a job done message queue that we publish too and then unlock from there?
+3. Should we track/update jobs and their status within the database?
+
