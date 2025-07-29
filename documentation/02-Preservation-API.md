@@ -31,12 +31,12 @@ The API implements a standard OAuth2 [Client Credentials Flow](https://www.oauth
 
 ## Resource Types
 
-The resources sent to the API and retrieved from the API over HTTP are JSON objects, conforming to the following types:
+The resources sent to the API and retrieved from the API over HTTP are JSON objects. These are the core types:
 
  - **ArchivalGroup**: a preserved _thing_ or object, a set of files in the underlying Fedora repository. It may be just one file, or may be thousands with a complex internal directory structure. ArchivalGroups created by the Preservation API include a METS file that describes the object and provides technical, structural and administrative metadata. An ArchivalGroup returned by the Preservation API corresponds to a [Fedora Archival Group](https://wiki.lyrasis.org/display/FEDORA6x/Glossary#Glossary-ArchivalGroupag), which in turn corresponds to an [OCFL object](https://ocfl.io/1.1/spec/#object-spec) in the Fedora S3 bucket.
  - **Container**: represents a directory or folder in the repository - both for folders within an ArchivalGroup, and for organisational structure in the repository above the level of an ArchivalGroup.
  - **Binary**: any file - text, images, datasets etc. Can only exist within an ArchivalGroup.
- - **Deposit**: a working set of files intended for Preservation (intended to become an ArchivalGroup) and also used for later updates to an ArchivalGroup after an export. Either way, the Deposit provides a "working area" outside of the repository that you can put files in. 
+ - **Deposit**: a working set of files intended for Preservation (intended to become an ArchivalGroup) and also used for later updates to an ArchivalGroup after an export. Either way, the Deposit provides a "working area" outside of the repository that you can put files in, or collect them from in the case of an export. 
  - **ImportJob**: a set of instructions to the Preservation API to create or modify an ArchivalGroup - the Containers and Binaries from a Deposit to preserve. For some workflows you might edit this manually but for others you might never need to see it, the API will create it for you my comparing the deposit working files to the preserved Archival Group; the import job is then the actions required to synchronise the two.
  - **ImportJobResult**: a report on the execution of an ImportJob. It can be used to track an ongoing job as it is running, or for later examination.
  - **Export**: represents the result of asking the API to export the contents of an ArchivalGroup into a Deposit's working area. Callers can use this resource to determine when the export has finished (an export may take a long time) and to see a list of files exported.
@@ -73,7 +73,7 @@ The resource types above all share a set of common properties:
 
 
 
-The *permitted set* of characters that may be used in resource ids (URIs) are the lower case letters `a-z`, upper case letters `A-Z`, the numbers `0-9`, and the characters `(`, `)`, `-`, `_`, and `.` with `%` allowed in escape sequences. Resources that represent preserved or to-be-preserved files and folders have a `name` property that can take any UTF-8 characters; this property is used to record the original name of the resource.
+The *permitted set* of characters that may be used in resource ids (URIs) are the lower case letters `a-z`, upper case letters `A-Z`, the numbers `0-9`, and the characters `(`, `)`, `-`, `_`, and `.` with `%` allowed in escape sequences. Resources that represent preserved or to-be-preserved files and folders have a `name` property that can take any UTF-8 characters; this property is used to record the original name of the resource, typically to preserve exact file names that would be fragile or ugly in escaped URLs.
 
 The resource types `ImportJob` and `ImportJobResult` also have the first four of these properties, but not `lastModified` and `lastModifiedBy` (as they cannot be modified).
 
@@ -182,11 +182,23 @@ A preserved ArchivalGroup - e.g., the files that comprise a digitised book, or a
 }
 ```
 
-
+<!--
+/repository/{*path} 
+⎔ Preservation.API.Features.Repository.RepositoryController::
+GET    => Browse([FromRoute] string? path = null, [FromQuery] string? view = null, [FromQuery] string? version = null)
+HEAD   => HeadResource([FromRoute] string path)
+PUT    => CreateContainer([FromRoute] string? path = null, [FromBody] Container? container = null)
+DELETE => DeleteContainer([FromRoute] string path, [FromQuery] bool purge)
+-->
 
 ### Browsing the repository
 
-To retrieve the repository root, containers, ArchivalGroups and Binaries within an Archival Group, send HTTP GET requests. The repository can be navigated starting from the root and following the hierarchy of Containers and Binaries returned in each resource. The following examples assume the caller has permission to see all the resources:
+<!--
+GET /repository/{*path} 
+⎔ Preservation.API.Features.Repository.RepositoryController::Browse([FromRoute] string? path = null, [FromQuery] string? view = null, [FromQuery] string? version = null)
+-->
+
+To retrieve the repository root, containers, ArchivalGroups and Binaries within an Archival Group, callers send HTTP GET requests. The repository can be navigated starting from the root and following the hierarchy of Containers and Binaries returned in each resource. The following examples assume the caller has permission to see all the resources:
 
 ```
 // Get the repository root:
@@ -210,6 +222,23 @@ GET /repository/library/manuscripts/ms-342/objects
 // ...and a Binary within that Container:
 GET /repository/library/manuscripts/ms-342/objects/34r.tiff
 
+
+```
+
+* All of the above requests will return the latest version of the resource. 
+* A Container will include its nested _**immediate**_ children in the `containers` and `binaries` properties.
+* An Archival Group response includes _**all**_ descendant Containers and Binaries - the entire object, no matter how deep, is returned in a single JSON payload.
+* You can also retrieve any Container or Archival Group _without_ its immediate child resources (`containers` and `binaries` are always empty) by appending `?view=lightweight` to the request.
+* The `version` query string parameter is only supported when the `view` parameter has the value `lightweight`. Previous versions of Archival Groups are viewed using the OCFL endpoint below.
+
+
+```
+// Request a lightweight view of an Archival Group (no child resources returned)
+GET /repository/library/manuscripts/ms-342?view=lightweight
+
+// Request a lightweight view at a particular version:
+GET /repository/library/manuscripts/ms-342?version=v2&view=lightweight
+
 // TODO
 // Get the actual bytes of the preserved object (subject to permissions)
 GET /content/library/manuscripts/ms-342/objects/34r.tiff?version=v2
@@ -221,7 +250,7 @@ GET /content/library/manuscripts/ms-342/objects/34r.tiff?version=v2
 | Parameter    | Description                       | 
 | ------------ | --------------------------------- |
 | `view`       | Valid values are:<br/>`mets` - only valid as GET on Archival Group, and returns the XML content of the METS file.<br/>`lightweight` - valid for Containers and Archival Groups, and returns a single object where the child `containers` and `binaries` properties are empty lists - always unpopulated. |  
-| `version`    | Only valid when the `view` parameter is "lightweight". If the resource is an archival group, the value is a string in either the OCFL version format ("v1", "v2", "v3" etc) or the Memento timestamp format (""). If the resource is anything else, only the Memento format is currently supported. |
+| `version`    | Only valid when the `view` parameter is "lightweight". If the resource is an archival group, the value is a string in either the OCFL version format ("v1", "v2", "v3" etc) or the Memento timestamp format ("20250311111913"). If the resource is anything else, only the Memento format is currently supported. |
 
 > [!WARNING]
 > TODO - Ideally the OCFL format is supported for all resource requests, and the memento format is deprecated. You can find the memento format by asking for the Archival Group's Storage Map (see later).
@@ -229,14 +258,26 @@ GET /content/library/manuscripts/ms-342/objects/34r.tiff?version=v2
 
 #### HEAD requests
 
-HEAD requests to the same resource path as above work as expected, but with some additional features. They can be used to efficiently determine whether a resource exists, and also its `type`. A HEAD request will return one of the status codes 200, 404, 401 and 410 - where 410 is HTTP "Gone" - a resource _used to exist_ at this URI but does no longer. This kind of response is called a **tombstone** and corresponds to the same concept in Fedora.
+<!-- 
+HEAD /repository/{*path} 
+⎔ Preservation.API.Features.Repository.RepositoryController::HeadResource([FromRoute] string path)
+-->
+
+HEAD requests to the same resource path as above work as expected, but with some additional features. They can be used to efficiently determine whether a resource exists, and also its `type`. A HEAD request will return one of the status codes 200, 404, 401 and 410 - where 410 is HTTP "Gone" - a resource _used to exist_ at this URI but does no longer. This kind of response is called a **tombstone** and corresponds to the same [concept in Fedora](https://wiki.lyrasis.org/display/FEDORA6x/Delete+vs+Purge).
 
 In addition, if the response status code is HTTP 200, the response will include an HTTP Header `X-Preservation-Resource-Type` that gives the `type` value of the resource - "Container", "Binary" or "ArchivalGroup".
 
 
 #### Create a Container with PUT
 
+<!--
+PUT /repository/{*path} 
+⎔ Preservation.API.Features.Repository.RepositoryController::CreateContainer([FromRoute] string? path = null, [FromBody] Container? container = null)
+-->
+
 This is only allowed outside of an ArchivalGroup, to create repository structure.
+
+The body can be a container:
 
 ```
 PUT /repository/library/c20-printed-books
@@ -246,10 +287,21 @@ PUT /repository/library/c20-printed-books
 }
 ```
 
-The response is 201 Created with the new Container resource in the body and its `id` property in the `Location` header.
+Or you can omit the body, and the container name will be derived from the path:
+
+```
+PUT /repository/library/c20-printed-books
+```
+
+The response is `201 Created` with the new Container resource in the body and its `id` property in the `Location` header.
 
 
 #### Delete a Container
+
+<!--
+DELETE /repository/{*path} 
+⎔ Preservation.API.Features.Repository.RepositoryController::DeleteContainer([FromRoute] string path, [FromQuery] bool purge)
+-->
 
 A container may only be deleted if it is empty.
 
@@ -259,17 +311,50 @@ DELETE /repository/library/c20-printed-books?purge=true
 
 The `purge` parameter removes the Container completely. Without it, a _tombstone_ HTTP 410 response will be returned for subsequent GET requests to the Container URI, and the API will prevent a resource being created at that path.
 
-You can do this in two steps - DELETE without purge (leaving a tombstone), and then later sending another DELETE with the purge parameter to remove the resource completely. The URI will then return a 404, and another Container may be created at the same path.
+You can also do this in two steps - DELETE without purge (leaving a tombstone), and then later sending another DELETE with the purge parameter to remove the resource completely. The URI will then return a 404, and another Container may be created at the same path.
 
 
 
 ### Deposit
 
-A working set of files in S3, which will become an ArchivalGroup, or is used for updating an ArchivalGroup. API users ask the Preservation API to create a Deposit, which returns an identifier and a _*Workspace*_ in S3 (a key under which to assemble files). The Workspace belongs exclusively to one Deposit, but other processes can (and must) add and remove files and folders.
+<!-- 
+⎔ Preservation.API.Features.Deposits.DepositsController::
 
-A Deposit is a wrapper around a group of files that are intended to become an Archival Group (imported into Preservation) or are the content of an Archival Group at a particular version (an export). You create a Deposit to make the initial Archival Group in, then run an import job which makes the Archival Group. Later, perhaps to add a file, you export the Archival Group into a new Deposit.
+// need to check the .NET Controller Attributes are correct
 
-The Preservation API does not itself offer a direct way to upload the binary content of a file into S3 (or any other Deposit backing store). It's assumed that your applications do that independently - assemble files in the workspace. Your applications may also provide their own METS file to describe the contents, which the Preservation API can read to look for checksums and other information. The Preservation API can also create and edit METS files for you, and has API operations to add and remove files and folders to the METS file. The preservation API can only modify METS files it has created; you can't introduce a third party METS file and modify it via API operations. You'd have to modify it manually, updating the file in the workspace. 
+GET    /deposits                  => ListDeposits([FromQuery] DepositQuery? query)
+GET    /deposits/{id}             => GetDeposit([FromRoute] string id)
+GET    /deposits/{id}/mets        => GetDepositMets([FromRoute] string id)
+POST   /deposits/{id}/mets        => AddItemsToMets([FromRoute] string id, [FromBody] List<string> localPaths)
+POST   /deposits/{id}/mets/delete => DeleteItemsToMets([FromRoute] string id, [FromBody] DeleteSelection deleteSelection)
+GET    /deposits/{id}/filesystem  => GetFileSystem([FromRoute] string id, [FromQuery] bool refresh = false)
+GET    /deposits/{id}/combined ☠ => GetCombinedDirectory([FromRoute] string id, [FromQuery] bool refresh = false)
+PATCH  /deposits/{id}             => PatchDeposit([FromRoute] string id, [FromBody] Deposit deposit)
+DELETE /deposits/{id}             => DeleteDeposit([FromRoute] string id)
+POST   /deposits                  => CreateDeposit([FromBody] Deposit deposit)
+POST   /deposits/from-identifier  => CreateDepositFromIdentifier([FromBody] SchemaAndValue schemaAndValue)
+POST   /deposits/export           => ExportArchivalGroup([FromBody] Deposit deposit)
+POST   /deposits/{id}/lock        => CreateLock([FromRoute] string id, [FromQuery] bool force = false)
+DELETE /deposits/{id}/lock        => DeleteLock([FromRoute] string id)
+-->
+
+A working set of files in S3, which:
+
+* will become an ArchivalGroup that doesn't yet exist
+* or can be used for updating an ArchivalGroup
+* or can be used to obtain the files in an Archival Group for other purposes.
+
+The latter two are deposits created by Exports.
+
+API users ask the Preservation API to create a Deposit, which returns an identifier and a _*Workspace*_ in S3 (an S3 key prefix under which to assemble files). The Workspace belongs exclusively to one Deposit, but other processes external to the Preservation API can (and must) add and remove files and folders to the Workspace.
+
+> [!NOTE]
+> A Deposit is a wrapper around a group of files that are intended to become an Archival Group (imported into Preservation) or are the content of an Archival Group at a particular version (an export). You create a Deposit to make the initial Archival Group in, then run an import job which makes the Archival Group. Later, perhaps to add a file, you export the Archival Group into a new Deposit.
+
+The Preservation API does not itself offer a direct way to upload the binary content of a file into S3 (or any other Deposit backing storage). It's assumed that your applications do that independently - assemble files in the workspace. Your applications may also provide their own METS file to describe the contents, which the Preservation API can read to look for checksums and other information. The Preservation API can also create and edit METS files for you, and has API operations to add and remove files and folders to the METS file. The Preservation API can only modify METS files it has created; you can't introduce a third party METS file and modify it via API operations. You'd have to modify it manually, updating the METS file in the workspace yourself. 
+
+> [!NOTE]
+> If the Preservation API is managing METS, you might upload some files to the workspace (via AWS S3 APIs, or FTP, or whatever) and then send a list of those files to a Preservation API endpoint to add them to the METS file. Later you might send another list to remove files from METS. 
 
 
 > [!TIP]
@@ -352,17 +437,18 @@ Host: preservation.dlip.leeds.ac.uk
 | `archivalGroupExists` | Whether the resource at `archivalGroup` exists (i.e., the Deposit will update it, rather than create it)  |
 | `archivalGroupName`   | The name of the ArchivalGroup. If new, this will be given to a new Archival Group when created by an Import Job generated from this Deposit. It is not required (it can be set on the ImportJob directly), but is useful for clarity.  |
 | `submissionText`     | A space to leave notes for colleagues or your future self |
-| `files`               | An S3 key that represents a parent location. Use the "space" under this key to assemble files for an ImportJob. |
+| `files`               | An S3 key prefix that represents a parent location. Use the _Workspace_ under this key to assemble files for an ImportJob. |
 | `status`              | Usually "new" when a Deposit is created. If you requested this deposit to be created from an existing ArchivalGroup as an export (see export below), then you need to wait until this status becomes "new" before you can be sure that all the files are in S3. You won't be able to do any work from the deposit until this happens. Possible values are "exporting", "new" and "preserved".  When you create a Deposit for an existing Archival Group by POSTing to /deposits, this is *not* an export and the status will be "new" immediately. |
-| `active`             | Whether the Deposit is editable (can be worked on). Once an import job has run for a deposit it is no longer active, but still may be retrieved from the API. |
+| `active`             | Whether the Deposit is editable (can be worked on). Once an import job has run for a deposit it is no longer active, but still may be retrieved from the API for a time (lifecycle policies may remove the deposit completely after an extended period). |
 | `preserved`          | Timestamp indicating when an import job from this deposit resulted in a new ArchivalGroup or new version of an ArchivalGroup.  |
 | `preservedBy`        | URI of the user/api caller that executed the import job. |
 | `versionPreserved`   | The OCFL version (e.g., "v1", "v2", "v3") that resulted from this Deposit   |
 | `exported`           | If this deposit was created as a result of asking the API to export an ArchivalGroup, the date that happened.  |
 | `exportedBy`         | Who triggered the export |
 | `versionExported`    | ...and the version of the ArchivalGroup that was exported then.  |
-| `metsETag`           | The Preservation API supports operations to modify the METS file (adding/removing files or folders), and you can also edit the Deposit contents, including the METS file, independently of the Preservation API. Either way, you will need this ETag value to update the METS file.   | 
-| `pipelineJobs`       | A list of jobs that have run on this deposit (see pipelines below) |
+| `metsETag`           | The Preservation API supports operations to modify the METS file (adding/removing files or folders), and you can also edit the Deposit contents, including the METS file, independently of the Preservation API. Either way, you will need to supply this ETag value to update the METS file, and your changes will be rejected if it is no longer valid for the workspace (someone else has edited the METS file)  | 
+| `lockedBy`           | URI of a user/api caller that is holding a lock on the Deposit, preventing modification. Usually null - a lock is not required to edit, only to stop others from editing. |
+| `lockDate`           | If `lockedBy` is not null, a timestamp indicating when that user acquired the lock. |
 
 
 #### Working on a deposit
