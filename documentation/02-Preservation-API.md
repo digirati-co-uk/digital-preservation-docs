@@ -144,10 +144,15 @@ For representing a file: any kind of file stored in the repository.
 | `name`       | The original name, which may contain any UTF-8 character. |
 | `contentType`| The internet type of the file, e.g., `application/pdf`. The Preservation platform will usually deduce this for you, it is not required on ingest. Also known as "mime type". |
 | `digest`     | The SHA-256 checksum for this file. This is required and is always present on a Binary when sending to the API or retrieving from the API. There are additional API services to determine checksums of files. |
-| `origin`     | The S3 URI within a Deposit where this file may be accessed. If just browsing, this will be empty. If importing and sending this data to the API as part of an ImportJob, this is the S3 location the API should read the file from.  |
+| `origin`     | The S3 URI within a Deposit where this file may be accessed. For a Binary within an Archival Group, this is the the location in the underlying repository storage (i.e., it is already preserved). If importing and sending this data to the API as part of an ImportJob, this is the S3 location the API should read the file from.  |
 | `size`       | The size of the file in bytes.    |
 | `content`    | An endpoint from which the binary content of the file may be retrieved (subject to authorisation). This is always provided by the API for API users to read a single file (it's not a location for the API to fetch from). |
 | `partOf`     | The `id`  of the ArchivalGroup the Binary is in. Never null when returned by the API. Not required when sending as part of an ImportJob. |
+
+> [!IMPORTANT]
+> The `origin` property of a preserved Binary exposes the underlying storage location in the OCFL file layout. It is a deliberate design decision to surface this information rather than obfuscate the actual locations of files. That doesn't mean you can necessarily access it - it's likely that very few callers would have access to this location, but those that need it (e.g., providing runtime access to content) can use it as they need. The file content may be stored at multiple locations (e.g., backups, replication) but the `origin` property only gives one value.
+> The `content` property streams the content from the `origin` location (and is also subject to access restrictions), but many applications are better served by dealing with files at source (in S3 or on a file system) as they see fit, rather than introduce an intermediate stream over HTTP into any access scenario.
+
 
 
 ### 📦 ArchivalGroup
@@ -322,27 +327,27 @@ You can also do this in two steps - DELETE without purge (leaving a tombstone), 
 
 // need to check the .NET Controller Attributes are correct
 
-GET    /deposits                  => ListDeposits([FromQuery] DepositQuery? query)
-GET    /deposits/{id}             => GetDeposit([FromRoute] string id)
-GET    /deposits/{id}/mets        => GetDepositMets([FromRoute] string id)
+xGET    /deposits                  => ListDeposits([FromQuery] DepositQuery? query)
+xGET    /deposits/{id}             => GetDeposit([FromRoute] string id)
+xGET    /deposits/{id}/mets        => GetDepositMets([FromRoute] string id)
 POST   /deposits/{id}/mets        => AddItemsToMets([FromRoute] string id, [FromBody] List<string> localPaths)
 POST   /deposits/{id}/mets/delete => DeleteItemsToMets([FromRoute] string id, [FromBody] DeleteSelection deleteSelection)
 GET    /deposits/{id}/filesystem  => GetFileSystem([FromRoute] string id, [FromQuery] bool refresh = false)
 GET    /deposits/{id}/combined ☠ => GetCombinedDirectory([FromRoute] string id, [FromQuery] bool refresh = false)
-PATCH  /deposits/{id}             => PatchDeposit([FromRoute] string id, [FromBody] Deposit deposit)
-DELETE /deposits/{id}             => DeleteDeposit([FromRoute] string id)
-POST   /deposits                  => CreateDeposit([FromBody] Deposit deposit)
+xPATCH  /deposits/{id}             => PatchDeposit([FromRoute] string id, [FromBody] Deposit deposit)
+xDELETE /deposits/{id}             => DeleteDeposit([FromRoute] string id)
+xPOST   /deposits                  => CreateDeposit([FromBody] Deposit deposit)
 POST   /deposits/from-identifier  => CreateDepositFromIdentifier([FromBody] SchemaAndValue schemaAndValue)
-POST   /deposits/export           => ExportArchivalGroup([FromBody] Deposit deposit)
-POST   /deposits/{id}/lock        => CreateLock([FromRoute] string id, [FromQuery] bool force = false)
-DELETE /deposits/{id}/lock        => DeleteLock([FromRoute] string id)
+xPOST   /deposits/export           => ExportArchivalGroup([FromBody] Deposit deposit)
+xPOST   /deposits/{id}/lock        => CreateLock([FromRoute] string id, [FromQuery] bool force = false)
+xDELETE /deposits/{id}/lock        => DeleteLock([FromRoute] string id)
 -->
 
 A working set of files in S3, which:
 
 * will become an ArchivalGroup that doesn't yet exist
 * or can be used for updating an ArchivalGroup
-* or can be used to obtain the files in an Archival Group for other purposes.
+* or can be used to obtain the files in an Archival Group for other purposes (e.g. just to look at them).
 
 The latter two are deposits created by Exports.
 
@@ -351,7 +356,7 @@ API users ask the Preservation API to create a Deposit, which returns an identif
 > [!NOTE]
 > A Deposit is a wrapper around a group of files that are intended to become an Archival Group (imported into Preservation) or are the content of an Archival Group at a particular version (an export). You create a Deposit to make the initial Archival Group in, then run an import job which makes the Archival Group. Later, perhaps to add a file, you export the Archival Group into a new Deposit.
 
-The Preservation API does not itself offer a direct way to upload the binary content of a file into S3 (or any other Deposit backing storage). It's assumed that your applications do that independently - assemble files in the workspace. Your applications may also provide their own METS file to describe the contents, which the Preservation API can read to look for checksums and other information. The Preservation API can also create and edit METS files for you, and has API operations to add and remove files and folders to the METS file. The Preservation API can only modify METS files it has created; you can't introduce a third party METS file and modify it via API operations. You'd have to modify it manually, updating the METS file in the workspace yourself. 
+The Preservation API does not itself offer a direct way to upload the binary content of a file into S3 (or any other Deposit backing storage). You can't POST binary data to an API endpoint. It's assumed that your applications do that independently - assemble files in the workspace allocated to them by the API. Your applications may also provide their own METS file to describe the contents, which the Preservation API can read to look for checksums and other information. The Preservation API can also create and edit METS files for you, and has API operations to add and remove files and folders to the METS file. The Preservation API can only modify METS files it has created; you can't introduce a third party METS file and modify it via API operations. You'd have to modify it manually, updating the METS file in the workspace yourself. 
 
 > [!NOTE]
 > If the Preservation API is managing METS, you might upload some files to the workspace (via AWS S3 APIs, or FTP, or whatever) and then send a list of those files to a Preservation API endpoint to add them to the METS file. Later you might send another list to remove files from METS. 
@@ -362,10 +367,16 @@ The Preservation API does not itself offer a direct way to upload the binary con
 
 
 
-#### Creating a new deposit
+#### Creating a new Deposit
 
-POST a minimal Deposit body to `https://preservation-api.library.leeds.ac.uk/deposits` and the API will create a new Deposit, assigning a URI (from the ID service). 
-In this example the intended ArchivalGroup URI, the name of the ArchivalGroup, and a note are all provided up front. These three fields are optional - you can create a Deposit without any information about where it is to go, and decide later.
+<!--
+POST /deposits                  
+⎔ Preservation.API.Features.Deposits.DepositsController::CreateDeposit([FromBody] Deposit deposit)
+-->
+
+POST a minimal Deposit body to `https://preservation-api.library.leeds.ac.uk/deposits` and the API will create a new Deposit, assigning a URI (the `id` property).
+
+In this example the intended ArchivalGroup URI, the name of the ArchivalGroup, and a note are all provided up front. These three fields are optional - you can also create a Deposit without any information about where it is to go or what it is called, and decide on these later.
 
 Request
 
@@ -390,7 +401,8 @@ Location: https://preservation-api.library.leeds.ac.uk/deposits/e56fb7yg
 // (other headers omitted)
 ```
 
-The deposit at the provided `Location` will look like this (common user and date fields omitted as above):
+The deposit at the provided `Location` will look like this:
+
 
 ```
 GET /deposits/e56fb7yg HTTP/1.1
@@ -450,8 +462,53 @@ Host: preservation.dlip.leeds.ac.uk
 | `lockedBy`           | URI of a user/api caller that is holding a lock on the Deposit, preventing modification. Usually null - a lock is not required to edit, only to stop others from editing. |
 | `lockDate`           | If `lockedBy` is not null, a timestamp indicating when that user acquired the lock. |
 
+#### More on templates
 
-#### Working on a deposit
+When the `template` property value is "None", you are in complete control of the file structure of the deposit, and can arrange files how you like. The Preservation API will look for a METS file in the root from which it can derive the necessary SHA256 checksums for the files, and optional additional metadata such as the name of the file. If you then ask the API to generate an import job it will use this METS-derived data.
+
+If you create your own import job manually, you can supply checksums at this point, and the Deposit content can be anything.
+
+If the backing store is S3, the Preservation API can also read SHA256 checksums from S3 Object Attributes, but only if this attribute has been set. If you are not providing a checksum via METS and want the Preservation API to create an import job for you, you will have to upload files to S3 with the `ChecksumAlgorithm` parameter set to `SHA256`. See [Checking object integrity](https://docs.aws.amazon.com/AmazonS3/latest/userguide/checking-object-integrity.html) on AWS.
+
+When providing your own METS to supply this information, the METS file must include (at least) SHA256 checksums for the deposit files, as `premis` metadata:
+
+```
+<premis:fixity>
+   <premis:messageDigestAlgorithm xsi:type="premis:messageDigestAlgorithm">SHA256</premis:messageDigestAlgorithm>
+   <premis:messageDigest>49ea24a3070c92a393289685ad9d3c3d71e5c23f0ac72e76e63aac658dc3ee59</premis:messageDigest>
+</premis:fixity>
+```
+
+When the `template` property is "RootLevel" the Deposit will be created like this:
+
+```
+/
+   objects/
+   metadata/
+   mets.xml
+```
+
+(The objects and metadata folder are empty)
+
+And when the `template` property is "BagIt", the Deposit will be created like this:
+
+```
+/
+  data/
+    objects/
+    metadata/
+    mets.xml
+```
+
+This form is ideal for upload an unpacked BagIt bag into - and the Preservation API will read any BagIt manifest file in the root of this structure and use checksums from it. The Preservation API will also read the outputs of various tools if they are placed in specific subfolders under `metadata/`.
+
+For more information see the section *Processing tool outputs* below.
+
+> [!WARNING]
+> (Need more explanation about processing tool outputs - needs its own section)
+
+
+#### Working on a Deposit
 
 You can do whatever you like in the S3 space provided by a deposit. Upload new files to S3, rearrange the files, etc.
 
@@ -465,7 +522,13 @@ Most of the work done on a deposit is in S3, placing files. You can also modify 
 
 > TODO New APIs for processing metadata, adding to METS etc.
 
+
 #### Fetch an individual Deposit
+
+<!--
+GET /deposits/{id}         
+⎔ Preservation.API.Features.Deposits.DepositsController::GetDeposit([FromRoute] string id)
+-->
 
 Deposits are always at the path `/deposits/<identifier>`
 
@@ -475,20 +538,35 @@ GET /deposits/e56fb7yg
 
 The response will be in the form of the example above.
 
+
 #### Fetch METS XML for deposit
+
+<!--
+GET /deposits/{id}/mets    
+⎔ Preservation.API.Features.Deposits.DepositsController::GetDepositMets([FromRoute] string id) 
+-->
 
 ```
 GET /deposits/e56fb7yg/mets
 ```
 
-This additional path parameter will return an XML response which is the content of the METS file. This doesn't have to be a Preservation-API specific METS file; the API will return the content of the first file in the root of the deposit that it recognises as a METS file. It looks for a file called "mets.xml" by preference.
+This additional path parameter will return an XML response which is the content of the METS file. This doesn't have to be a Preservation-API specific METS file; the API will return the content of the first file in the root of the deposit that it recognises as a METS file. It looks for a file in the root called "mets.xml" by preference, and then for .xml files that contain the string "mets" (case-insensitive) in their filenames.
 
 
 #### Listing and searching Deposits
 
+<!--
+GET /deposits    
+⎔ Preservation.API.Features.Deposits.DepositsController::ListDeposits([FromQuery] DepositQuery? query)
+-->
+
 The API provides an extensive set of query parameters for retrieving deposits.
 
 ```
+// By default will return the first page of 100 results, ordered by created date descending, for active deposits only.
+GET /deposits
+
+// Page 37 of results created by a user matching the string "tom"
 GET /deposits?page=37&createdBy=tom
 ```
 
@@ -522,7 +600,12 @@ Supported query parameters are:
 
 #### Patching a Deposit
 
-This is used to update `archivalGroup`, `archivalGroupName` and `submissionText` only.
+<!--
+PATCH /deposits/{id}
+⎔ Preservation.API.Features.Deposits.DepositsController::PatchDeposit([FromRoute] string id, [FromBody] Deposit deposit)
+-->
+
+This is used to update the fields `archivalGroup`, `archivalGroupName` and `submissionText` only.
 
 ```
 PATCH /deposits/e56fb7yg
@@ -538,18 +621,28 @@ PATCH /deposits/e56fb7yg
 
 #### Deleting a Deposit
 
+<!--
+DELETE /deposits/{id}
+⎔ Preservation.API.Features.Deposits.DepositsController::PDeleteDeposit([FromRoute] string id)
+-->
+
 A Deposit can be deleted at any time, for example, to start again on a Deposit, or to abandon one.
 
 ```
 DELETE /deposits/e56fb7yg
 ```
 
-* Deleting a Deposit has no effects on an ArchivalGroup created from it.
+* Deleting a Deposit has no effects on an ArchivalGroup already created from it.
 * Inactive deposits are _automatically_ deleted from S3 working space after a specific time (TBC - e.g., 1 year)
 * A Deposit is not a preserved resource like a Container, Binary or ArchivalGroup. That is, it's not in Fedora. Therefore the discussion about tombstones and purging above does not apply.
 
 
 #### Export: creating a deposit from an existing ArchivalGroup
+
+<!--
+POST /deposits/export
+⎔ Preservation.API.Features.Deposits.DepositsController::ExportArchivalGroup([FromBody] Deposit deposit)
+-->
 
 This is when you want access to the files of an ArchivalGroup in S3, usually because you want to make an update but could be for any purpose. You may be an API client that has access to the working S3 space but not to the underlying Fedora repository (almost certainly!). While you can request an individual HTTP response for any Binary via the `content` property, sometimes you want the whole object to work on.
 
@@ -569,11 +662,64 @@ Host: preservation.dlip.leeds.ac.uk
 
 If `versionExported` is omitted (which will usually be the case) the latest version is exported to create a new Deposit. 
 
-The POST returns a new Deposit object as a JSON body, which includes the S3 location in the `files` property. While the Deposit object is returned immediately, it's not complete until its `status` property is "new" - you can check by polling the Deposit resource. Only after this happens are the files available in S3 (at the location given by `files`). You might see files arriving in S3 while this happens, but you can't do any work with the Deposit until it is at the "new" status.
-
-> The Storage API allows for more fine-grained interaction with the Export process.
+The POST returns a new Deposit object as a JSON body, which includes the S3 location in the `files` property. While the Deposit object is returned immediately, it's not complete until its `status` property is "new" - you can check by polling the Deposit resource at intervals. Only after this happens are the files available in S3 (at the location given by `files`). You might see files arriving in S3 while this happens, but you can't do any work with the Deposit until it is at the "new" status.
 
 
+#### Locking a Deposit
+
+<!--
+POST /deposits/{id}/lock
+⎔ Preservation.API.Features.Deposits.DepositsController::CreateLock([FromRoute] string id, [FromQuery] bool force = false)
+-->
+
+A lock is more of a marker on a Deposit than something that can prevent all activity. The API expects you to work on files in a Deposit location independently, and can have no visibility of your activity until an explicit refresh of its view of storage is asked for. Access to the working location is an AWS or file system concern, not an API concern.
+
+However, the deposit locking mechanism has two purposes:
+
+* User interfaces built on top of the API, used by those without direct access to the deposit working location, can use the lock status to enforce more constraints on user behaviour.
+* The API can prevent direct actions on a locked deposit where the action is requested by someone other than the lock holder - patches, modification of METS files via API, and creaton of Import Jobs.
+
+You can work on a Deposit without acquiring a lock on it.
+
+```
+POST /deposits/e56fb7yg/lock
+```
+
+This will change the values of the Deposit's `lockedBy` and `lockDate` properties, until a further update is made. The identity of the caller becomes the `lockedBy` property. If the Deposit is already locked by someone else, this will return an HTTP 409 Conflict response. You can override this behaviour by adding the `force` query string parameter:
+
+```
+POST /deposits/e56fb7yg/lock?force=true
+```
+
+That will acquire a lock for the caller, whether or not the Deposit is already locked.
+
+
+#### Unlocking a Deposit
+
+<!--
+DELETE /deposits/{id}/lock
+⎔ Preservation.API.Features.Deposits.DepositsController::DeleteLock([FromRoute] string id)
+-->
+
+Any API caller can remove a lock:
+
+```
+DELETE /deposits/e56fb7yg/lock
+```
+
+If there is no existing lock, the operation is a no-op rather than an error.
+
+
+#### Modifying the METS file
+
+Working with tool outputs
+
+Adding to METS
+etc
+
+#### Viewing the storage
+
+This is used by UIs
 
 
 <!-- 
