@@ -196,7 +196,7 @@ PUT    => CreateContainer([FromRoute] string? path = null, [FromBody] Container?
 DELETE => DeleteContainer([FromRoute] string path, [FromQuery] bool purge)
 -->
 
-### Browsing the repository
+## Browsing the repository
 
 <!--
 GET /repository/{*path} 
@@ -250,7 +250,7 @@ GET /content/library/manuscripts/ms-342/objects/34r.tiff?version=v2
 
 ```
 
-#### Additional GET parameters
+### Additional GET parameters
 
 | Parameter    | Description                       | 
 | ------------ | --------------------------------- |
@@ -261,7 +261,7 @@ GET /content/library/manuscripts/ms-342/objects/34r.tiff?version=v2
 > TODO - Ideally the OCFL format is supported for all resource requests, and the memento format is deprecated. You can find the memento format by asking for the Archival Group's Storage Map (see later).
 
 
-#### HEAD requests
+### HEAD requests
 
 <!-- 
 HEAD /repository/{*path} 
@@ -273,7 +273,7 @@ HEAD requests to the same resource path as above work as expected, but with some
 In addition, if the response status code is HTTP 200, the response will include an HTTP Header `X-Preservation-Resource-Type` that gives the `type` value of the resource - "Container", "Binary" or "ArchivalGroup".
 
 
-#### Create a Container with PUT
+### Create a Container with PUT
 
 <!--
 PUT /repository/{*path} 
@@ -301,7 +301,7 @@ PUT /repository/library/c20-printed-books
 The response is `201 Created` with the new Container resource in the body and its `id` property in the `Location` header.
 
 
-#### Delete a Container
+### Delete a Container
 
 <!--
 DELETE /repository/{*path} 
@@ -320,7 +320,7 @@ You can also do this in two steps - DELETE without purge (leaving a tombstone), 
 
 
 
-### Deposit
+## Deposit
 
 <!-- 
 ⎔ Preservation.API.Features.Deposits.DepositsController::
@@ -332,7 +332,7 @@ xGET    /deposits/{id}             => GetDeposit([FromRoute] string id)
 xGET    /deposits/{id}/mets        => GetDepositMets([FromRoute] string id)
 POST   /deposits/{id}/mets        => AddItemsToMets([FromRoute] string id, [FromBody] List<string> localPaths)
 POST   /deposits/{id}/mets/delete => DeleteItemsToMets([FromRoute] string id, [FromBody] DeleteSelection deleteSelection)
-GET    /deposits/{id}/filesystem  => GetFileSystem([FromRoute] string id, [FromQuery] bool refresh = false)
+xGET    /deposits/{id}/filesystem  => GetFileSystem([FromRoute] string id, [FromQuery] bool refresh = false)
 GET    /deposits/{id}/combined ☠ => GetCombinedDirectory([FromRoute] string id, [FromQuery] bool refresh = false)
 xPATCH  /deposits/{id}             => PatchDeposit([FromRoute] string id, [FromBody] Deposit deposit)
 xDELETE /deposits/{id}             => DeleteDeposit([FromRoute] string id)
@@ -367,7 +367,7 @@ The Preservation API does not itself offer a direct way to upload the binary con
 
 
 
-#### Creating a new Deposit
+### Creating a new Deposit
 
 <!--
 POST /deposits                  
@@ -462,7 +462,7 @@ Host: preservation.dlip.leeds.ac.uk
 | `lockedBy`           | URI of a user/api caller that is holding a lock on the Deposit, preventing modification. Usually null - a lock is not required to edit, only to stop others from editing. |
 | `lockDate`           | If `lockedBy` is not null, a timestamp indicating when that user acquired the lock. |
 
-#### More on templates
+### More on templates
 
 When the `template` property value is "None", you are in complete control of the file structure of the deposit, and can arrange files how you like. The Preservation API will look for a METS file in the root from which it can derive the necessary SHA256 checksums for the files, and optional additional metadata such as the name of the file. If you then ask the API to generate an import job it will use this METS-derived data.
 
@@ -508,7 +508,7 @@ For more information see the section *Processing tool outputs* below.
 > (Need more explanation about processing tool outputs - needs its own section)
 
 
-#### Working on a Deposit
+### Working on a Deposit
 
 You can do whatever you like in the S3 space provided by a deposit. Upload new files to S3, rearrange the files, etc.
 
@@ -523,7 +523,7 @@ Most of the work done on a deposit is in S3, placing files. You can also modify 
 > TODO New APIs for processing metadata, adding to METS etc.
 
 
-#### Fetch an individual Deposit
+### Fetch an individual Deposit
 
 <!--
 GET /deposits/{id}         
@@ -539,7 +539,7 @@ GET /deposits/e56fb7yg
 The response will be in the form of the example above.
 
 
-#### Fetch METS XML for deposit
+### Fetch METS XML for deposit
 
 <!--
 GET /deposits/{id}/mets    
@@ -553,7 +553,7 @@ GET /deposits/e56fb7yg/mets
 This additional path parameter will return an XML response which is the content of the METS file. This doesn't have to be a Preservation-API specific METS file; the API will return the content of the first file in the root of the deposit that it recognises as a METS file. It looks for a file in the root called "mets.xml" by preference, and then for .xml files that contain the string "mets" (case-insensitive) in their filenames.
 
 
-#### Listing and searching Deposits
+### Listing and searching Deposits
 
 <!--
 GET /deposits    
@@ -598,7 +598,7 @@ Supported query parameters are:
 *This can be a user URI or just the "slug" name part.
 
 
-#### Patching a Deposit
+### Patching a Deposit
 
 <!--
 PATCH /deposits/{id}
@@ -619,7 +619,7 @@ PATCH /deposits/e56fb7yg
 ```
 
 
-#### Deleting a Deposit
+### Deleting a Deposit
 
 <!--
 DELETE /deposits/{id}
@@ -637,7 +637,7 @@ DELETE /deposits/e56fb7yg
 * A Deposit is not a preserved resource like a Container, Binary or ArchivalGroup. That is, it's not in Fedora. Therefore the discussion about tombstones and purging above does not apply.
 
 
-#### Export: creating a deposit from an existing ArchivalGroup
+### Export: creating a deposit from an existing ArchivalGroup
 
 <!--
 POST /deposits/export
@@ -665,7 +665,7 @@ If `versionExported` is omitted (which will usually be the case) the latest vers
 The POST returns a new Deposit object as a JSON body, which includes the S3 location in the `files` property. While the Deposit object is returned immediately, it's not complete until its `status` property is "new" - you can check by polling the Deposit resource at intervals. Only after this happens are the files available in S3 (at the location given by `files`). You might see files arriving in S3 while this happens, but you can't do any work with the Deposit until it is at the "new" status.
 
 
-#### Locking a Deposit
+### Locking a Deposit
 
 <!--
 POST /deposits/{id}/lock
@@ -694,7 +694,7 @@ POST /deposits/e56fb7yg/lock?force=true
 That will acquire a lock for the caller, whether or not the Deposit is already locked.
 
 
-#### Unlocking a Deposit
+### Unlocking a Deposit
 
 <!--
 DELETE /deposits/{id}/lock
@@ -710,16 +710,195 @@ DELETE /deposits/e56fb7yg/lock
 If there is no existing lock, the operation is a no-op rather than an error.
 
 
-#### Modifying the METS file
+## Working with Deposit files and folders
+
+The files and folders in a Deposit are not quite the same as Containers and Binaries. They will _become_ Containers and Binaries when imported into an Archival Group, and will have been Containers and Binaries before being exported into a Deposit. But they have different data requirements, especially when tool output metadata is present.
+
+Inside a Deposit, the files and folders are represented by a different pair of resource types:
+
+
+### WorkingDirectory
+
+| Property              | Description                       | 
+| --------------------- | --------------------------------- |
+| `type`                | "WorkingDirectory"                |
+| `localPath`           | The path of the directory relative to the root of the Deposit. Examples are "objects", "objects/images", or "data/objects" in a BagIt template layout. Never has a leading slash. |
+| `name`                | The name of the directory, which may be different from the last path element. This is typically used to store the original name of a directory. |
+| `modified`            | Timestamp indicating the last modified date of the directory |
+| `metsExtensions`      | A set of additional metadata for the directory that relate to specific METS concepts. See **MetsExtensions** below. |
+| `metadata`            | A list of *Metadata* resources for the directory. These metadata reflect information the Preservation API can see in tool outputs in the metadata/ folder, and/or BagIt manifest data the Preservation API can see in the root of the Deposit when it has the BagIt template layout. They are used to add to METS, or reflect what's in METS. See *File and Directory Metadata* below. |
+| `accessRestrictions`  | A list of strings that represent access conditions on this directory. They might be derived from METS, or might be waiting to be applied to METS. They can be overridden by child access restrictions. |
+| `rightsStatement`     | A single URI from a controlled vocabulary of rights statements, that applies to the contents of this directory until overridden in child files and directories.  |
+| `files`               | A list of **WorkingFile** resources contained in this directory. See next section. |
+| `directories`         | A list of **WorkingDirectory** resources contained in this directory. |
+
+
+### WorkingFile
+
+| Property              | Description                       | 
+| --------------------- | --------------------------------- |
+| `type`                | "WorkingFile"                |
+| `contentType`         | The internet type (aka mime type) of the file. |
+| `digest`              | The SHA256 checksum of the file. |
+| `size`                | The size in bytes of the file. |
+| `localPath`           | The path of the file relative to the root of the Deposit. Examples are "objects/images/image_001.tiff", "mets.xml", or "data/mets.xml" in a BagIt template layout. Never has a leading slash. |
+| `name`                | The name of the file, which may be different from the last path element. This is typically used to store the original name of a file. |
+| `modified`            | Timestamp indicating the last modified date of the file |
+| `metsExtensions`      | A set of additional metadata for the file that relate to specific METS concepts. See **MetsExtensions** below. |
+| `metadata`            | A list of **Metadata** resources for the file. These metadata reflect information the Preservation API can see in tool outputs in the metadata/ folder, and/or BagIt manifest data the Preservation API can see in the root of the Deposit when it has the BagIt template layout. They are used to add to METS, or reflect what's in METS. See *File and Directory Metadata* below. |
+| `accessRestrictions`  | A list of strings that represent access conditions on this specific file. They might be derived from METS, or might be waiting to be applied to METS. |
+| `rightsStatement`     | A single URI from a controlled vocabulary of rights statements, that applies to this file.  |
+
+
+### MetsExtensions
+
+A resource that is the value of the `metsExtensions` property of **WorkingDirectory** or **WorkingFile**. This is never supplied by the caller, it is always generated by the API to reflect the relationship between the working file structure and the METS file.
+
+| Property              | Description                       | 
+| --------------------- | --------------------------------- |
+| `physDivId`           | The XML ID attribute of the mets:div for the file or directory in the METS structMap (type physical)  |
+| `admId`               | The XML ID attribute of the administrative metadata element for the file or directory. |              
+| (more to follow)      | (...)                             |
+
+
+### Metadata
+
+There are several different types of metadata resource that can be listed under the `metadata` property of **WorkingFile** or **WorkingDirectory**.
+
+The following two fields are common to all types of Metadata:
+
+| Property              | Description                       | 
+| --------------------- | --------------------------------- |
+| `source`              | The tool or process that generated the metadata, e.g., "Siegfried" or "BagIt". |
+| `timestamp`           | A timestamp indicating when the metadata was generated. |
+
+Different types of metadata have additional properties as appropriate:
+
+#### Digest Metadata
+
+Typically derived from tool outputs that only provide the checksum. A `source` value might be `BagIt`.
+
+| Property              | Description                       | 
+| --------------------- | --------------------------------- |
+| `type`                | "DigestMetadata"                  |
+| `digest`              | The SHA256 checksum of the file.  |
+
+
+#### File Format Metadata
+
+Metadata generated by a tool such as Siegfried that provides PRONOM-based file format identification. A `source` might also be "Brunnhilde" if run by that tool.
+
+| Property              | Description                       | 
+| --------------------- | --------------------------------- |
+| `type`                | "FileFormatMetadata"              |
+| `digest`              | The SHA256 checksum of the file.  |
+| `size`                | The size in bytes of the file.    |
+| `pronomKey`           | The PRONOM key, e.g., "fmt/353"   |
+| `formatName`          | The friendly name of the format, e.g., "Tagged Image File Format"  |
+| `contentType`         | The internet type (mime type), e.g., "image/tiff"  |
+| `originalName`        | The relative of the file at the time the tool analysed it. |
+| `storageLocation`     | The fully qualified location of the file at the time the tool analysed it. |
+
+
+#### EXIF Metadata
+
+| Property              | Description                       | 
+| --------------------- | --------------------------------- |
+| `type`                | "ExifMetadata"                    |
+| (tbc)                 | ...                               |
+
+
+#### Virus Scan Metadata
+
+| Property              | Description                       | 
+| --------------------- | --------------------------------- |
+| `type`                | "VirusScanMetadata"               |
+| (tbc)                 | ...                               |
+
+
+> [!WARNING]
+> Some further work is needed to rationalise the use of access conditions and rights statements
+
+
+An example of a WorkingFile with two types of metadata:
+
+```json
+{
+  "type": "WorkingFile",
+  "metadata": [
+    {
+      "type": "DigestMetadata",
+      "source": "BagIt",
+      "timestamp": "2025-07-30T15:46:31.7401058Z",
+      "digest": "0298a9c0bf853aaaca9e95dc4c0d0d769b66347102dea65ba6ede6fce1548162"
+    },
+    {
+      "type": "FileFormatMetadata",
+      "source": "Brunnhilde",
+      "timestamp": "2025-07-30T15:46:31.7401058Z",
+      "digest": "0298a9c0bf853aaaca9e95dc4c0d0d769b66347102dea65ba6ede6fce1548162",
+      "size": 7686654,
+      "pronomKey": "fmt/1507",
+      "formatName": "Exchangeable Image File Format (Compressed)",
+      "originalName": null,
+      "storageLocation": null,
+      "contentType": "image/jpeg"
+    }
+  ],
+  "localPath": "data/objects/nyc/DSCF1156.JPG",
+  "name": null,
+  "modified": "2025-05-05T13:35:00Z",
+  "accessRestrictions": [],
+  "rightsStatement": null,
+  "contentType": "image/jpeg",
+  "digest": "0298a9c0bf853aaaca9e95dc4c0d0d769b66347102dea65ba6ede6fce1548162",
+  "size": 7686654
+}
+```
+
+### Viewing what's in the Deposit
+
+<!--
+GET /deposits/{id}/filesystem
+⎔ Preservation.API.Features.Deposits.DepositsController::GetFileSystem([FromRoute] string id, [FromQuery] bool refresh = false)
+-->
+
+The types **WorkingDirectory**, **WorkingFile** and the additional metadata types are not constructed by API callers, they are only _returned by the API when it reports on the contents of a deposit:
+
+```
+// return the cached view of the file system of the Deposit
+GET /deposits/e56fb7yg/filesystem
+
+// force a refresh of the Deposit file system
+GET /deposits/e56fb7yg/filesystem?refresh=true
+```
+
+This returns a **WorkingDirectory** resource, with recursive child WorkingDirectory and WorkingFile resources (each with their own `metadata` properties), describing the complete contents of the Deposit workspace.
+
+The `metadata` is derived from any **tool outputs** the Preservation API finds in the Deposit, as described later.
+
+Typical uses for this filesystem view might be:
+
+* Generating a user interface for navigating the Deposit
+* Comparing what's in the Deposit with what's in the METS file
+
+> [!TIP]
+> If you are working in .NET, the WorkspaceManager class offers more functionality for working with the contents of the METS file and the contents of the workspace directly.
+
+
+### Modifying the METS file
+
+A typical workflow might involve:
+
+* Creating a new Deposit with the RootLevel or BagIt templates, which also gives you a METS file.
+* performing some analysis on the files using *_tools_* in an environment such as BitCurator and then uploading them to the S3 location of the Deposit, OR
+* uploading the files to the S3 location of the Deposit and then asking the 
 
 Working with tool outputs
 
 Adding to METS
 etc
 
-#### Viewing the storage
-
-This is used by UIs
 
 
 <!-- 
@@ -737,7 +916,7 @@ Below this point is still RFC documentation
 
 
 
-### ImportJob
+## ImportJob
 
 An ImportJob is like a diff - a statement, in JSON form, of what changes you want carried out. Containers to add, Containers to delete, Binaries to add, Binaries to delete, Binaries to update (patch).
 
@@ -811,7 +990,7 @@ Before you can ask for an Import Job, the `ArchivalGroup` field of the Deposit m
 
 > ❓In the storage API prototype there are separate path properties for location within the object. Here, we use the fully qualified URI for everything, in the '@id` property: `https://preservation-api.library.leeds.ac.uk/<path/in/repository>/<path/within/object>`. This is harder to manage, callers will have to construct more, but it avoids any repetition and is always explicit. Is it usable though?
 
-#### Generate Import Job
+### Generate Import Job
 
 Requesting an Import Job to be created from the files in S3 makes no changes to any state, and is retrieved with a GET:
 
@@ -842,7 +1021,7 @@ The Import Job is generated from multiple sources:
 You can of course generate this JSON manually. As mentioned it's not required that the `id`  values of your Containers and Binaries in the intended ArchivalGroup match the source S3 file structure; this will always be the case if you requested an Import Job from the API but may not convenient for a single file update deep within the structure.
 
 
-#### Execute import job
+### Execute import job
 
 Whether generated for you or manually created, you need to POST a JSON payload to `<deposit-uri>/importJobs`.
 
@@ -867,7 +1046,7 @@ In all cases, the resource returned from submitting an ImportJob is an `ImportJo
 
 > ❓ Do we need a better name than ImportJob?  
 
-### ImportJobResult
+## ImportJobResult
 
 > ❓ Some validation can happen on immediate receipt of the POST - e.g., JSON is well formed, can be parsed into expected objects, has expected deposits, etc. But some probably has to wait until the job is actually picked up - even checking digests, checking for file presence in both S3 and Storage API. We won't begin any fedora transaction until processing actually starts, which means that in theory the job may have been valid when submitted but is no longer (two people are having a go...) I think we don't want excessive locking, we are optimistic but fail quickly on any problem. Maybe this is why you have to provide the `sourceVersion`.
 
@@ -919,15 +1098,14 @@ NB the shared property `created` is a timestamp indicating when the API received
 
 
 
-### Exports
+## Exports
 
 
 
-### StorageMap
+## StorageMap
 
 
-### Versions
-
+## Versions
 
 
 
@@ -976,7 +1154,7 @@ METS-carried information:
 
 > ❓ We will formally define how we expect to see the following in METS - but they are based on Wellcome METS produced by Goobi (except the Archivematica LABEL example). For now just XML snippets.
 
-#### Fixity information in Pronom
+### Fixity information in Pronom
 
 ```xml
 <mets:amdSec ID="AMD">
@@ -990,14 +1168,14 @@ METS-carried information:
               <premis:messageDigest>5ac97693da5cd77233515b280048631b59319df6</premis:messageDigest>
 ```
 
-#### Original filename
+### Original filename
 
 > Goobi METS doesn't record this - use the name in S3; Archivematica METS records it as `LABEL` attribute on divs in physical structMap, we will do the same when we run our normalisation pipeline
 
 TBC - Archivematica-esque example with struct divs of type File and Directory, with LABEL attributes.
 
 
-#### File format identification
+### File format identification
 
 ```xml
 <mets:amdSec ID="AMD">
@@ -1017,7 +1195,7 @@ TBC - Archivematica-esque example with struct divs of type File and Directory, w
             </premis:format>
 ```
 
-#### Content Type if possible
+### Content Type if possible
 
 Goobi does it like this:
 
