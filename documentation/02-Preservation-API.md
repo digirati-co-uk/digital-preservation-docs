@@ -322,27 +322,6 @@ You can also do this in two steps - DELETE without purge (leaving a tombstone), 
 
 ## Deposit
 
-<!-- 
-⎔ Preservation.API.Features.Deposits.DepositsController::
-
-// need to check the .NET Controller Attributes are correct
-
-xGET    /deposits                  => ListDeposits([FromQuery] DepositQuery? query)
-xGET    /deposits/{id}             => GetDeposit([FromRoute] string id)
-xGET    /deposits/{id}/mets        => GetDepositMets([FromRoute] string id)
-POST   /deposits/{id}/mets        => AddItemsToMets([FromRoute] string id, [FromBody] List<string> localPaths)
-POST   /deposits/{id}/mets/delete => DeleteItemsToMets([FromRoute] string id, [FromBody] DeleteSelection deleteSelection)
-xGET    /deposits/{id}/filesystem  => GetFileSystem([FromRoute] string id, [FromQuery] bool refresh = false)
-GET    /deposits/{id}/combined ☠ => GetCombinedDirectory([FromRoute] string id, [FromQuery] bool refresh = false)
-xPATCH  /deposits/{id}             => PatchDeposit([FromRoute] string id, [FromBody] Deposit deposit)
-xDELETE /deposits/{id}             => DeleteDeposit([FromRoute] string id)
-xPOST   /deposits                  => CreateDeposit([FromBody] Deposit deposit)
-POST   /deposits/from-identifier  => CreateDepositFromIdentifier([FromBody] SchemaAndValue schemaAndValue)
-xPOST   /deposits/export           => ExportArchivalGroup([FromBody] Deposit deposit)
-xPOST   /deposits/{id}/lock        => CreateLock([FromRoute] string id, [FromQuery] bool force = false)
-xDELETE /deposits/{id}/lock        => DeleteLock([FromRoute] string id)
--->
-
 A working set of files in S3, which:
 
 * will become an ArchivalGroup that doesn't yet exist
@@ -382,7 +361,7 @@ Request
 
 ```
 POST /deposits HTTP/1.1
-Host: preservation.dlip.leeds.ac.uk
+Host: preservation-api.library.leeds.ac.uk
 // (other headers omitted)
 {
   "type": "Deposit",
@@ -406,7 +385,7 @@ The deposit at the provided `Location` will look like this:
 
 ```
 GET /deposits/e56fb7yg HTTP/1.1
-Host: preservation.dlip.leeds.ac.uk
+Host: preservation-api.library.leeds.ac.uk
 (other headers omitted)
 ```
 
@@ -508,6 +487,46 @@ For more information see the section *Processing tool outputs* below.
 > (Need more explanation about processing tool outputs - needs its own section)
 
 
+### Special Deposit Creation from identifier
+
+<!--
+POST /deposits/from-identifier                  
+⎔ Preservation.API.Features.Deposits.DepositsController::CreateDepositFromIdentifier([FromBody] SchemaAndValue schemaAndValue)
+-->
+
+The Preservation API has a specific integration with the Leeds identity service, allowing a Deposit to be created for an Archival Group from just an identifier. Instead of POSTing a deposit body to /deposits, you POST a `SchemaAndValue` to /deposits/from-identifier:
+
+
+| Property              | Description                       | 
+| --------------------- | --------------------------------- |
+| `schema`              | Any schema identifier supported by Leeds Identity Service |
+| `value`               | A URI, or for certain schemas, just a single string identifier |
+| `template`            | Same as the Deposit `template` property |    
+
+Request
+
+```
+POST /deposits/from-identifier HTTP/1.1
+Host: preservation-api.library.leeds.ac.uk
+
+{
+   "schema": "id",
+   "value": "t2sjhy5d",
+   "template": "None"
+}
+```
+
+Response
+
+```
+HTTP/1.1 201 Created
+Location: https://preservation-api.library.leeds.ac.uk/deposits/e56fb7yg
+// (other headers omitted)
+```
+
+The resulting Deposit will have its `archivalGroup` and `archivalGroupName` properties already populated. This is typically used when all the files, including METS, sill be supplied externally and the Preservation API won't manage the METS file.
+
+  
 ### Working on a Deposit
 
 You can do whatever you like in the S3 space provided by a deposit. Upload new files to S3, rearrange the files, etc.
@@ -650,7 +669,7 @@ To do this you POST a non-empty Deposit body to `/deposits/export`:
 
 ```
 POST /deposits/export HTTP/1.1
-Host: preservation.dlip.leeds.ac.uk
+Host: preservation-api.library.leeds.ac.uk
 (other headers omitted)
 
 {
@@ -888,43 +907,135 @@ Typical uses for this filesystem view might be:
 
 ### Modifying the METS file
 
-A typical workflow might involve:
+A typical workflow for a set of files you want to preserve as an Archival Group files you might involve:
 
-* Creating a new Deposit with the RootLevel or BagIt templates, which also gives you a METS file.
-* performing some analysis on the files using *_tools_* in an environment such as BitCurator and then uploading them to the S3 location of the Deposit, OR
-* uploading the files to the S3 location of the Deposit and then asking the 
+* Creating a new Deposit with the RootLevel or BagIt templates, which gives you an `objects/` directory, a `metadata/` directory, and a METS file - all unpopulated.
+* Arranging the files under an `objects/` directory in an _external environment_ such as BitCurator, then performing some analysis on the files using **tools**, saving the tool outputs into known locations under a `metadata/` folder, and then uploading the files and their metadata as a package to the S3 location of the Deposit (see [RFC 006 for details](../rfcs/006-pipelines-and-outputs.md#workflow)), OR
+* Uploading the files to the S3 location of the Deposit and then asking the Preservation API to run a pre-configured set of tools over them (see pipelines below).
 
-Working with tool outputs
+You then end up with, in the Deposit:
 
-Adding to METS
-etc
+* A set of files under the `objects/` folder - i.e., the files you want to preserve as a logical unit, as an Archival Group
+* A set ot tool outputs under the `metadata/` folder, that provide further information about those files, such as format identification, EXIF data, virus reports
+* (and if BagIt layout, with `objects/` and `metadata/` under `data/`, a set of BagIt files in the root including the BagIt manifest)
 
+If you requested a view of the Deposit on the /deposit/{id}/filesystem endpoint, you'd see not just the file and folder layout but also the detailed metadata for each file (`WorkingFile`) collated from the various tool outputs. All this metadata is information that should be stored as part of the preserved digital object, in METS form.
 
+However, the METS file is still the original, unpopulated one - nothing has happened to 
 
-<!-- 
-#################################################################################
-#################################################################################
-#################################################################################
+There are two reasons for this.
 
-Below this point is still RFC documentation
+* In the first workflow scenario, where the analysis is performed externally, there has been no interaction with the Preservation API at all in the construction of a fully populated Deposit with objects/ files and metadata/.
+* Even in the second scenario, where the Preservation API ran the tools, you might not want all the files to be part of the eventual preserved object.
 
-#################################################################################
-#################################################################################
-#################################################################################
+For these reasons the synchronisation of the Deposit contents with the METS file is a separate operation:
+
+<!--
+POST /deposits/{id}/mets
+⎔ Preservation.API.Features.Deposits.DepositsController::AddItemsToMets([FromRoute] string id, [FromBody] List<string> localPaths)
 -->
 
+```
+POST /deposits/e56fb7yg/mets
+If-Match: "bfc13a64729c4290ef5b2c2730249c88ca92d82d"
+
+[
+  "metadata/brunnhilde/siegfried.csv",
+  "metadata/brunnhilde/logs/viruscheck-log.txt",
+  "objects/image_001.tif",
+  "objects/image_002.tif",
+  "objects/docs/Fedora-Usage-Principles.doc",
+  "objects/docs/tuesday/notes.txt"
+]
+```
+
+Note that the caller must supply an [If-Match](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/If-Match) HTTP Header whose value is the METS file ETag. The METS file ETag can be obtained from the Deposit object's `metsETag` property; it is also returned as the `ETag` HTTP response header from the direct view of the METS file at `/deposits/{id}/mets`.
+
+The body is a JSON list of strings, where the strings are the relative paths of the files and/or folders to be added. Adding a folder on its own does not add its contents; all intended files must be listed.
+
+On receiving this payload the Preservation API adds (or updates) the entries for the files in the METS file, including all relevant metadata.
+
+> [!TIP]
+> For .NET implementations, the [WorkspaceManager](04-Workspace-Manager.md) class can perform these actions for you - building a list of files and directories currently not in METS but to be added, and then adding them directly. This functionality is used by the Preservation API.
+
+#### Removing items from METS and the Deposit
+
+The deletion of files from the Deposit and/or the METS is a little more complicated. You can delete files from the Deposit workspace location independently of the API, but API helps with simultaneous deletions from the Deposit and/or from METS. The scenarios are:
+
+* deleting a file that is in the Deposit workspace but has not been added to METS
+* deleting a file from METS that is not currently in the Deposit workspace (this happens on updates where the full contents were not exported)
+* deleting a file from both the METS and the Deposit workspace
+
+Rather than POST a list of paths as strings, you POST a `DeleteSelection` resource. 
+
+> [!WARNING]
+> `deleteFromDepositFiles` and `deleteFromMets` are not independent operations - if `deleteFromDepositFiles` is false, nothing will happen. The Preservation API will always try to delete from the Deposit. Is that the desired behaviour?
+
+| Property                  | Description                       | 
+| ------------------------- | --------------------------------- |
+| `deleteFromDepositFiles`  | boolean. The items will be removed from the Deposit workspace. |
+| `deleteFromMets`          | boolean. The items will **also** be removed from METS. This has no effect if `deleteFromDepositFiles` is false.  |
+| `items`                   | List of minimal items:   |
+
+Each entry in `items` requires just two fields:
+
+| Property                  | Description                       | 
+| ------------------------- | --------------------------------- |
+| `path`                    | The relative path of the file or directory  |
+| `isDir`                   | boolean - required - you need to confirm that the path is a directory (when it is) |
+
+
+A typical delete operation might then be (note POST not DELETE, and `.../mets/delete` not `.../mets`):
+
+<!--
+POST /deposits/{id}/mets/delete
+⎔ Preservation.API.Features.Deposits.DepositsController::DeleteItemsToMets([FromRoute] string id, [FromBody] DeleteSelection deleteSelection)
+-->
+
+```
+POST /deposits/e56fb7yg/mets/delete
+If-Match: "bfc13a64729c4290ef5b2c2730249c88ca92d82d"
+
+{
+  "deleteFromMets": true,
+  "deleteFromDepositFiles": true,
+  "items": [
+    {
+      "path": "objects/unwanted-folder",
+      "isDir": true
+    },
+    {
+      "path": "objects/unwanted-folder/unwanted-file.txt",
+      "isDir": false
+    },
+    {
+      "path": "objects/files/unwanted-1.txt",
+      "isDir": false
+    },
+    {
+      "path": "objects/files/unwanted-2.txt",
+      "isDir": false
+    }
+  ]
+}
+```
+
+While you do need to supply child file paths (you can't supply just a folder path where there are child items), the Preservation API will take care of the order of delete operations, deleting the child items first. Delete operations that cannot be supported result in a HTTP 400 Bad Request.
 
 
 
 ## ImportJob
 
-An ImportJob is like a diff - a statement, in JSON form, of what changes you want carried out. Containers to add, Containers to delete, Binaries to add, Binaries to delete, Binaries to update (patch).
+An ImportJob is a statement, in JSON form, of what changes you want carried out. Containers to add, Containers to delete, Binaries to add, Binaries to delete, Binaries to update (patch).
 
-If you are using the Deposit as an assembly area for files, you can ask the Preservation API to build an ImportJob for you, from the content of the Deposit in S3. You can also ask it to build and execute the ImportJob in a single operation.
+If you are using the Deposit as an assembly area for files, you can ask the Preservation API to build an ImportJob for you, from the content of the Deposit in S3. You can also ask it to build and execute the ImportJob in a single operation. This is a "diff" import job - the Preservation API compares what's in the Deposit with what's in the current Archival Group (if there is one) and prepares the changes required to bring the new Archival Group about.
 
-This isn't always desirable - you might create a Deposit for the purposes of making an edit to a single file (e.g., a METS file), and the content of the Deposit might be just that one file you want to change - and not necessarily sitting in the Deposit at the correct relative path. In this scenario, if you asked the platform to generate an ImportJob, it would see the mostly empty S3 working space and produce an ImportJob with many Containers to delete and many Binaries to delete. It would have been better to construct the ImportJob manually and specify just the one Binary to patch - giving both the `id`  property of the Binary - its repository address - and the `location` property - the S3 URI.
+An automated diff isn't always desirable - you might create a Deposit for the purposes of making an edit to a single file (e.g., a METS file), and the content of the Deposit might be just that one file you want to change - and not necessarily sitting in the Deposit at the correct relative path. In this scenario, if you asked the platform to generate a diff ImportJob, it would see the mostly empty S3 working space and produce an ImportJob with many Containers to delete and many Binaries to delete. It would have been better to construct the ImportJob manually and specify just the one Binary to patch - giving both the `id`  property of the Binary - its repository address - and the `location` property - the S3 URI.
 
-An Import Job is a means of synchronising a deposit with the repository, whether the deposit represents the new state in its entirety, or is partial. Even if the only operations you want to perform in an Import Job are deletions, you still need a Deposit to give the ImportJob context - to launch it from - and for auditing.
+It is a little more nuanced than this. The Deposit doesn't have to contain all the files in order for the correct diff to be constructed, if they are mentioned in the METS file. 
+
+> [!IMPORTANT]
+> An Import Job is a means of synchronising a deposit with the repository, whether the deposit represents the new state in its entirety, or is partial. Even if the only operations you want to perform in an Import Job are deletions, you still need a Deposit to give the ImportJob context - to launch it from - and for auditing.
 
 Before you can ask for an Import Job, the `ArchivalGroup` field of the Deposit must have been set - otherwise the API has nothing to compare it with. This applies to a new Deposit where no ArchivalGroup yet exists - you're effectively comparing your S3 files with an empty object.
 
@@ -996,7 +1107,7 @@ Requesting an Import Job to be created from the files in S3 makes no changes to 
 
 ```
 GET /deposits/e56fb7yg/importJobs/diff HTTP/1.1
-Host: preservation.dlip.leeds.ac.uk
+Host: preservation-api.library.leeds.ac.uk
 ```
 
 ```jsonc
@@ -1027,7 +1138,7 @@ Whether generated for you or manually created, you need to POST a JSON payload t
 
 ```
 POST /deposits/e56fb7yg/importJobs HTTP/1.1
-Host: preservation.dlip.leeds.ac.uk
+Host: preservation-api.library.leeds.ac.uk
 
 (the Import Job JSON body, as above)
 ```
