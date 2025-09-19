@@ -203,6 +203,27 @@ Until now we haven't produced any additional sections, but it makes sense to rep
 > [!IMPORTANT]
 > We use a very "loose" (i.e., forgiving, flexible) parser to read METS, to accommodate different flavours of METS from different software. This is `MetsParser`. When we **write** METS - which we only do for our own METS files (we never edit an externally-produced METS) we use a much more rigid mechanism, a class library generated from the METS Schema. This class library is the [DigitalPreservation.XmlGen](https://github.com/uol-dlip/digital-preservation/tree/main/src/DigitalPreservation/DigitalPreservation.XmlGen) project in the .NET solution. The **exact** tools and commands used to produce the classes are in the [_tools](https://github.com/uol-dlip/digital-preservation/tree/main/_tools) folder.
 
+The next task in the RFC os to describe the end result - what we want in the METS file.
+
+Then we can join the two together in the middle.
+
+ 1. We need to read tool outputs in the Deposit under /metadata and turn them into a `VirusScanMetadata` class for each file.
+ 2. We need to read virus scan records in the METS file and turn them into a `VirusScanMetadata` class for each file.
+ 3. We also need to turn `VirusScanMetadata` instances into virus scan records in the METS file when we create or update DLIP METS.
+
+```
+filesystem / S3                                                                        METS
+
+metadata/                  1.            CombinedFile                2.                                  
+    tool_output                          /          \                              mets.xml 
+           => MetadataReader       FileInDeposit    FileInMets           MetsParser <=   
+                      =>  (WorkingFile::Metadata)   (WorkingFile::Metadata)  <=
+                                    ||
+                                     ----------------------------------  => MetsManager
+                                                       3.                       => mets.xml                                         
+
+```
+
 
 ### Comparison with Wellcome (temporary section)
 
@@ -294,7 +315,132 @@ Here's what the digiprov section looks like for one of the "system" files:
 </mets:digiprovMD>
 ```
 
+### DLIP virus output
 
+Adapting the above Archivematica example, let us assume we want to produce this:
+
+
+```xml
+
+<mets:mets>
+  
+  ...
+
+  <mets:amdSec ID="ADM_objects/pxl_20250825_142937791_v17.png">
+
+    <mets:techMD ID="TECH_objects/pxl_20250825_142937791_v17.png">...</mets:techMD>
+
+    <mets:digiprovMD ID="digiprovMD_ClamAV">
+        <mets:mdWrap MDTYPE="PREMIS:EVENT">
+            <mets:xmlData>
+                <premis:event xmlns:premis="http://www.loc.gov/premis/v3" xsi:schemaLocation="http://www.loc.gov/premis/v3 http://www.loc.gov/standards/premis/v3/premis.xsd" version="3.0">
+                    <premis:eventType>virus check</premis:eventType>
+                    <premis:eventDateTime>2024-03-15T14:34:48.224113+00:00</premis:eventDateTime>
+                    <premis:eventDetailInformation>
+                        <premis:eventDetail>program="ClamAV (clamd)"; version="ClamAV 1.2.2"; virusDefinitions="27182/Sun Feb 11 09:33:24 2024"</premis:eventDetail>
+                    </premis:eventDetailInformation>
+                    <premis:eventOutcomeInformation>
+                        <premis:eventOutcome>Pass</premis:eventOutcome>
+                        <premis:eventOutcomeDetail>
+                            <premis:eventOutcomeDetailNote></premis:eventOutcomeDetailNote>
+                        </premis:eventOutcomeDetail>
+                    </premis:eventOutcomeInformation>
+                </premis:event>
+            </mets:xmlData>
+        </mets:mdWrap>
+    </mets:digiprovMD>
+
+  </mets:amdSec>
+  
+   ... 
+
+</mets:mets>
+```
+
+Or in the event of failure:
+
+```xml
+    
+    ... 
+
+    <premis:eventOutcomeInformation>
+        <premis:eventOutcome>Fail</premis:eventOutcome>
+        <premis:eventOutcomeDetail>
+            <premis:eventOutcomeDetailNote>/home/brian/Test/data/objects/virus_test_file.txt: Eicar-Signature FOUND</premis:eventOutcomeDetailNote>
+        </premis:eventOutcomeDetail>
+    </premis:eventOutcomeInformation>
+```
+
+Working back from this in the METS, we need to be able to PARSE this and turn it into VirusScanMetadata.
+This is done in MetsParser as it loops through file elements:
+
+https://github.com/uol-dlip/digital-preservation/blob/cb21241db9f3f36b310d9e31808dc960c6b9b68c/src/DigitalPreservation/Storage.Repository.Common/Mets/MetsParser.cs#L483
+
+I think we'd add a new variable in this loop
+
+```c#
+VirusScanMetadata? clamAvMetadata = null; // add this
+FileFormatMetadata? premisMetadata = null; // (already there)
+```
+
+We'd search for the mets:digiProvMD element and parse it as we do the Premis elements.
+
+And then on line 576 (currently), something like:
+
+```c#
+var file = new WorkingFile
+{
+    ContentType = mimeType ?? ContentTypes.NotIdentified,
+    LocalPath = flocat,
+    Digest = digest,
+    Size = size,
+    Name = label ?? parts[^1],
+    Metadata = [
+        // delete this
+        // new VirusScanMetadata
+        // {
+        //    Source = MetsManager.Mets, 
+        //    HasVirus = false
+        //},
+        new StorageMetadata 
+        {
+            Source = MetsManager.Mets, 
+            OriginalName = originalName, 
+            StorageLocation = storageLocation 
+        }
+    ],
+    MetsExtensions = new MetsExtensions
+    {
+        AdmId = admId,
+        PhysDivId = div.Attribute("ID")?.Value,
+        AccessCondition = "Open"
+    }
+};
+if (premisMetadata != null)
+{
+    file.Metadata.Add(premisMetadata);
+}
+// add this:
+if (clamAvMetadata != null)
+{
+    file.Metadata.Add(clamAvMetadata);
+}
+mets.Files.Add(file);
+```
+
+
+## Writing AV to METS
+
+The last part is the writing, in `MetsManager`, specifically the `EditMets(..)` method.
+
+This needs a discussion and a walkthrough because currently the AMD SEC that is created or edited here is exactly equivalent to the `FileFormatMetadata` that comes in. (see `PremisManager` for how the child Premis XML block is created or edited).
+
+But the mets:digiProv element that we may or may not need to add or edit is a child element of this. 
+So although they come from separate tools and come in as separate, independent `IMetadata` instances, when we write the METS the ClamAV output will get edited *_within_* the premis metadata section.
+
+So this code (which is complex, but well tested) may need some reorganisation, including the potential scenario where there is no Siegfried output but there IS ClamAV output - i.e., there is no incoming `FileFormatMetadata` in the `List<IMetadata> Metadata` property but there is a `VirusScanMetadata`. This is unlikely but would be hard to adapt into the current code.
+
+It's important that this code remains well-tested, it's a critical part of the whole system.
 
 
 
