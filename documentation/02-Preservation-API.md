@@ -187,15 +187,6 @@ A preserved ArchivalGroup - e.g., the files that comprise a digitised book, or a
 }
 ```
 
-<!--
-/repository/{*path} 
-⎔ Preservation.API.Features.Repository.RepositoryController::
-GET    => Browse([FromRoute] string? path = null, [FromQuery] string? view = null, [FromQuery] string? version = null)
-HEAD   => HeadResource([FromRoute] string path)
-PUT    => CreateContainer([FromRoute] string? path = null, [FromBody] Container? container = null)
-DELETE => DeleteContainer([FromRoute] string path, [FromQuery] bool purge)
--->
-
 ## Browsing the repository
 
 <!--
@@ -642,7 +633,7 @@ PATCH /deposits/e56fb7yg
 
 <!--
 DELETE /deposits/{id}
-⎔ Preservation.API.Features.Deposits.DepositsController::PDeleteDeposit([FromRoute] string id)
+⎔ Preservation.API.Features.Deposits.DepositsController::DeleteDeposit([FromRoute] string id)
 -->
 
 A Deposit can be deleted at any time, for example, to start again on a Deposit, or to abandon one.
@@ -974,7 +965,7 @@ Rather than POST a list of paths as strings, you POST a `DeleteSelection` resour
 | Property                  | Description                       | 
 | ------------------------- | --------------------------------- |
 | `deleteFromDepositFiles`  | boolean. The items will be removed from the Deposit workspace. |
-| `deleteFromMets`          | boolean. The items will **also** be removed from METS. This has no effect if `deleteFromDepositFiles` is false.  |
+| `deleteFromMets`          | boolean. The items will **also** be removed from METS, if present. This has no effect if `deleteFromDepositFiles` is false.  |
 | `items`                   | List of minimal items:   |
 
 Each entry in `items` requires just two fields:
@@ -1037,7 +1028,7 @@ It is a little more nuanced than this. The Deposit doesn't have to contain all t
 > [!IMPORTANT]
 > An Import Job is a means of synchronising a deposit with the repository, whether the deposit represents the new state in its entirety, or is partial. Even if the only operations you want to perform in an Import Job are deletions, you still need a Deposit to give the ImportJob context - to launch it from - and for auditing.
 
-Before you can ask for an Import Job, the `ArchivalGroup` field of the Deposit must have been set - otherwise the API has nothing to compare it with. This applies to a new Deposit where no ArchivalGroup yet exists - you're effectively comparing your S3 files with an empty object.
+Before you can ask for an Import Job, the `ArchivalGroup` field of the Deposit must have been set - otherwise the API has nothing to compare it with. This applies to a new Deposit where no ArchivalGroup yet exists - you're effectively comparing your S3 files with an empty object, but the API needs to know where you want to put the new object.
 
 ```jsonc
 {
@@ -1374,3 +1365,38 @@ Sequence diagram 3 for API clients who don't have S3 access, need way of putting
 
 > ❓the Preservation API does not need to expose all the OCFL details. Should the Preservation API expose the `origin` property? Or is the DLCS-syncing code also a direct consumer of the Storage API? If we hide `origin` then the only S3 paths in responses are for import and export operations which is cleaner. I think we should not expose underlying storage information in the Preservation API.
 
+
+## Summary of HTTP API
+
+<!--
+/repository/{*path} 
+⎔ Preservation.API.Features.Repository.RepositoryController::
+GET    => Browse([FromRoute] string? path = null, [FromQuery] string? view = null, [FromQuery] string? version = null)
+HEAD   => HeadResource([FromRoute] string path)
+PUT    => CreateContainer([FromRoute] string? path = null, [FromBody] Container? container = null)
+DELETE => DeleteContainer([FromRoute] string path, [FromQuery] bool purge)
+-->
+
+<!--
+⎔ Preservation.API.Features.Deposits.DepositsController::
+POST   /deposits                  => CreateDeposit([FromBody] Deposit deposit)
+POST   /deposits/from-identifier  => CreateDepositFromIdentifier([FromBody] SchemaAndValue schemaAndValue)
+GET    /deposits/{id}             => GetDeposit([FromRoute] string id)
+GET    /deposits/{id}/mets        => GetDepositMets([FromRoute] string id) 
+GET    /deposits                  => ListDeposits([FromQuery] DepositQuery? query)
+PATCH  /deposits/{id}             => PatchDeposit([FromRoute] string id, [FromBody] Deposit deposit)
+DELETE /deposits/{id}             => DeleteDeposit([FromRoute] string id)
+POST   /deposits/export           => ExportArchivalGroup([FromBody] Deposit deposit)
+POST   /deposits/{id}/lock        => CreateLock([FromRoute] string id, [FromQuery] bool force = false)
+DELETE /deposits/{id}/lock        => DeleteLock([FromRoute] string id)
+GET    /deposits/{id}/filesystem  => GetFileSystem([FromRoute] string id, [FromQuery] bool refresh = false)
+POST   /deposits/{id}/mets        => AddItemsToMets([FromRoute] string id, [FromBody] List<string> localPaths)
+POST   /deposits/{id}/mets/delete => DeleteItemsToMets([FromRoute] string id, [FromBody] DeleteSelection deleteSelection)
+
+TODO:   
+POST   /deposits/{id}/pipeline    => RunPipeline([FromRoute] string id, [FromQuery] string? runUser)
+POST   /deposits/pipeline-status  => LogPipelineRunStatus([FromBody] PipelineDeposit pipelineDeposit)
+
+Omitted:
+GET    /deposits/{id}/combined    => GetCombinedDirectory([FromRoute] string id, [FromQuery] bool refresh = false)
+-->
