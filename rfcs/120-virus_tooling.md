@@ -95,9 +95,20 @@ And similarly, information from the METS is used to **decorate** the [metadata](
 
 The class that does the work here is [MetsParser](https://github.com/uol-dlip/digital-preservation/blob/cb21241db9f3f36b310d9e31808dc960c6b9b68c/src/DigitalPreservation/Storage.Repository.Common/Mets/MetsParser.cs).
 
+In WorkspaceManager we end up with a tree of CombinedDirectory/CombinedFile that will have one or other or both of DirectoryInDeposit/FileInDeposit and DirectoryInMets/FileInMets populated (and never neither - it's the union of the two trees, there can't be any node that isn't populated from either side).
+
+> [!NOTE]  
+>  - MetadataReader decorates FileInDeposit from the tool output in the Deposit under `metadata/`
+>  - MetsParser decorates FileInMets from the structMap, amdSec and other relevant elements in the METS file.
+>  - We need to write information we learn from the Deposit metadata into the METS file.
+
 ### Reading viruscheck-log.txt
 
-The first task is to add the per-file information from the viruslog file to each WorkingFile as an `IMetadata` instance.
+> We need to write information we learn from the Deposit metadata into the METS file.
+
+We already do this for the Siegfried output (via Brunnhilde).
+
+The first new task is to add the per-file information from the viruslog file to each WorkingFile as an `IMetadata` instance.
 
 There is already [some stub code](https://github.com/uol-dlip/digital-preservation/blob/2a4cecd3e741ba7466a36ba129f335473df69509/src/DigitalPreservation/DigitalPreservation.Workspace/MetadataReader.cs#L70-L74) for this:
 
@@ -109,7 +120,7 @@ private List<string> infectedFiles = [];
 private async Task FindMetadata()
 {
 
-    // ..... lots of other code omitted
+    // ..... lots of other code omitted - but the following code already exists as a stub
     
     var brunnhildeAVResult = await storage.GetStream(brunnhildeRoot.AppendEscapedSlug("logs").AppendEscapedSlug("viruscheck-log.txt"));
     if (brunnhildeAVResult is { Success: true, Value: not null })
@@ -129,7 +140,8 @@ private async Task<List<string>> ReadInfectedFilePaths(Stream stream)
 }
 ```
 
-This needs to be replaced - I think `infectedFiles` isn't just a list of string file paths but instead a list of objects that can carry that "Eicar-Signature FOUND" message as well as the path.
+> [!CAUTION]
+> This needs to be replaced - I think `infectedFiles` isn't just a list of string file paths but instead a list of objects that can carry that "Eicar-Signature FOUND" message as well as the path.
 
 Then, we will have a method `AddVirusScanMetadata` that does for this virus data what [AddFileFormatMetadata](https://github.com/uol-dlip/digital-preservation/blob/2a4cecd3e741ba7466a36ba129f335473df69509/src/DigitalPreservation/DigitalPreservation.Workspace/MetadataReader.cs#L147) does for the Siegfried output:
 
@@ -203,7 +215,11 @@ Until now we haven't produced any additional sections, but it makes sense to rep
 > [!IMPORTANT]
 > We use a very "loose" (i.e., forgiving, flexible) parser to read METS, to accommodate different flavours of METS from different software. This is `MetsParser`. When we **write** METS - which we only do for our own METS files (we never edit an externally-produced METS) we use a much more rigid mechanism, a class library generated from the METS Schema. This class library is the [DigitalPreservation.XmlGen](https://github.com/uol-dlip/digital-preservation/tree/main/src/DigitalPreservation/DigitalPreservation.XmlGen) project in the .NET solution. The **exact** tools and commands used to produce the classes are in the [_tools](https://github.com/uol-dlip/digital-preservation/tree/main/_tools) folder.
 
-The next task in the RFC os to describe the end result - what we want in the METS file.
+
+> [!CAUTION]
+> Never manipulate the METS XML directly _*when writing METS*_.
+
+The next task in the RFC is to describe the end result - what we want in the METS file.
 
 Then we can join the two together in the middle.
 
@@ -211,25 +227,18 @@ Then we can join the two together in the middle.
  2. We need to read virus scan records in the METS file and turn them into a `VirusScanMetadata` class for each file.
  3. We also need to turn `VirusScanMetadata` instances into virus scan records in the METS file when we create or update DLIP METS.
 
-```
-filesystem / S3                                                                        METS
 
-metadata/                  1.            CombinedFile                2.                                  
-    tool_output                          /          \                              mets.xml 
-           => MetadataReader       FileInDeposit    FileInMets           MetsParser <=   
-                      =>  (WorkingFile::Metadata)   (WorkingFile::Metadata)  <=
-                                    ||
-                                     ----------------------------------  => MetsManager
-                                                       3.                       => mets.xml                                         
-
-```
+![Reading Deposit and METS and writing to METS](120-files/METS_Management.png)
 
 
 ### Comparison with Wellcome (temporary section)
 
-This METS file has only one actual piece of content under objects/ - a PowerPoint file.
+> [!TIP]
+> This section explores what Wellcome have in their Archivematica-produced METS.
 
 [mets_am.xml](120-files/mets_am.xml)
+
+This METS file has only one actual piece of content under objects/ - a PowerPoint file.
 
 The METS refers to three other files as part of the preservation workflow, as expected, and also as expected each of them get a corresponding administrative metadata section. So in all we have 4 files each with their corresponding mets:amdSec:
 
@@ -241,11 +250,11 @@ objects/metadata/transfers/ARTCOOB15-4947c763-5f7b-468b-9647-b22e8ac8a950/metada
 ```
 So far so good.
 
-The 4 referred amdSec elements each contain one mets:techMD, one mets:rightsMD and six mets:digiprovMD metadata sections:
+The 4 referred `mets:amdSec` elements each contain one `mets:techMD`, one `mets:rightsMD` and six `mets:digiprovMD` metadata sections:
 
 ![METS sections in AM](120-files/am_sections.png)
 
-The mets:techMD sections contain the PREMIS file format information, and also, in `<premis:objectCharacteristicsExtension>` all the tool outputs that Archivematica ran over each file - ExifTool, Tika, ffident and so on. So these sections are really big.
+The `mets:techMD` sections contain the PREMIS file format information, and also, in `<premis:objectCharacteristicsExtension>` all the tool outputs that Archivematica ran over each file - ExifTool, Tika, ffident and so on. So these sections are really big.
 
 Still so far so good.
 
@@ -267,13 +276,7 @@ For the PowerPoint the six digiprov events are
 - identify repository as wellcome
 - identify user ("Admin" always it seems)
 
-So here's my question - the three "system" files get virus checked, but the powerpoint (the actual external file) does not?
-
-There's no ClamAV output for the PowerPoint file.
-
-I would expect it to be the other way round.
-
-Does virus checking of the actual archive files happen before they even get to Archivematica?
+The three "system" files get virus checked, but the PowerPoint (the actual external file) does not (?). There's no ClamAV output for the PowerPoint file. I would expect it to be the other way round. Does virus checking of the actual archive files happen before they even get to Archivematica?
 
 Here's what the digiprov section looks like for one of the "system" files:
 
@@ -314,6 +317,8 @@ Here's what the digiprov section looks like for one of the "system" files:
     </mets:mdWrap>
 </mets:digiprovMD>
 ```
+
+There are still some unanswered question about what Wellcome are doing here, but this RFC proposes that we adopt the above XML for recording ClamAV events *and* findings.
 
 ### DLIP virus output
 
@@ -357,7 +362,7 @@ Adapting the above Archivematica example, let us assume we want to produce this:
 </mets:mets>
 ```
 
-Or in the event of failure:
+Or in the event of failure (just the relevant bit shown):
 
 ```xml
     
@@ -371,7 +376,8 @@ Or in the event of failure:
     </premis:eventOutcomeInformation>
 ```
 
-Working back from this in the METS, we need to be able to PARSE this and turn it into VirusScanMetadata.
+When this is already in METS, we need to be able to PARSE this and turn it into VirusScanMetadata.
+
 This is done in MetsParser as it loops through file elements:
 
 https://github.com/uol-dlip/digital-preservation/blob/cb21241db9f3f36b310d9e31808dc960c6b9b68c/src/DigitalPreservation/Storage.Repository.Common/Mets/MetsParser.cs#L483
@@ -430,6 +436,8 @@ mets.Files.Add(file);
 
 
 ## Writing AV to METS
+
+How do we put the above into METS in the first place?
 
 The last part is the writing, in `MetsManager`, specifically the `EditMets(..)` method.
 
