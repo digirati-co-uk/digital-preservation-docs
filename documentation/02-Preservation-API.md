@@ -530,8 +530,6 @@ You can also supply them in an Import Job as described below.
 
 Most of the work done on a deposit is in S3, placing files. You can also modify the Deposit, providing (or updating) the `ArchivalGroup`, `submissionText` and `status` fields (the API can also set the status field itself). To perform an Import Job on a deposit, it must have had its `ArchivalGroup` property set, but _when_ in the workflow this happens is up to you.
 
-> TODO New APIs for processing metadata, adding to METS etc.
-
 
 ### Fetch an individual Deposit
 
@@ -945,6 +943,8 @@ Note that the caller must supply an [If-Match](https://developer.mozilla.org/en-
 The body is a JSON list of strings, where the strings are the relative paths of the files and/or folders to be added. Adding a folder on its own does not add its contents; all intended files must be listed.
 
 On receiving this payload the Preservation API adds (or updates) the entries for the files in the METS file, including all relevant metadata.
+
+
 
 > [!TIP]
 > For .NET implementations, the [WorkspaceManager](04-Workspace-Manager.md) class can perform these actions for you - building a list of files and directories currently not in METS but to be added, and then adding them directly. This functionality is used by the Preservation API.
@@ -1394,9 +1394,56 @@ POST   /deposits/{id}/mets        => AddItemsToMets([FromRoute] string id, [From
 POST   /deposits/{id}/mets/delete => DeleteItemsToMets([FromRoute] string id, [FromBody] DeleteSelection deleteSelection)
 
 TODO:   
-POST   /deposits/{id}/pipeline    => RunPipeline([FromRoute] string id, [FromQuery] string? runUser)
-POST   /deposits/pipeline-status  => LogPipelineRunStatus([FromBody] PipelineDeposit pipelineDeposit)
+POST   /deposits/{id}/pipeline   => RunPipeline([FromRoute] string id, [FromQuery] string? runUser)
+POST   /deposits/pipeline-status => LogPipelineRunStatus([FromBody] PipelineDeposit pipelineDeposit)
 
 Omitted:
-GET    /deposits/{id}/combined    => GetCombinedDirectory([FromRoute] string id, [FromQuery] bool refresh = false)
+GET    /deposits/{id}/combined => GetCombinedDirectory([FromRoute] string id, [FromQuery] bool refresh = false)
+-->
+
+
+<!--
+⎔ Preservation.API.Features.Activity.ActivityController::
+GET    /archivalgroups/collection   => GetArchivalGroupsCollection()
+GET    /archivalgroups/pages/{page} => GetArchivalGroupsPage()
+POST   /archivalgroups/collection   => PushEventToStream([FromBody] Activity? activity)
+-->
+
+
+<!--
+⎔ Preservation.API.Features.Agents.AgentsController::
+GET    /agents => ListAgents()
+-->
+
+
+<!--
+⎔ Preservation.API.Features.ImportJobs.ImportJobsController::
+GET    /deposits/{depositId}/importjobs/diff                  => GetDiffImportJob([FromRoute] string depositId)
+POST   /deposits/{depositId}/importjobs                       => ExecuteImportJob([FromRoute] string depositId, [FromBody] ImportJob importJob)
+GET    /deposits/{depositId}/importjobs/results               => GetImportJobResult([FromRoute] string depositId)
+GET    /deposits/{depositId}/importjobs/results/{importJobId} => GetImportJobResult([FromRoute] string depositId)
+-->
+
+
+<!--
+⎔ Preservation.API.Features.Ocfl.OcflController::
+GET    /ocfl/storagemap/{*path} => GetStorageMap([FromRoute] string path, [FromQuery] string? version = null)
+-->
+
+
+<!--
+⎔ Preservation.API.Features.PipelineRunJobs.PipelineRunJobsController::
+GET    /deposits/{depositId}/pipelinerunjobs/results => GetPipelineJobResults([FromRoute] string depositId)
+-->
+
+
+<!--
+⎔ Preservation.API.Features.Search.SearchController::
+GET    /search => Search(string text, int pageNumber = 0, int pageSize = 20, SearchType type = SearchType.All, int otherPage = 0)
+-->
+
+
+<!--
+⎔ Preservation.API.Features.Validation.ValidationController::
+GET    /validation/archivalgroup/{*archivalGroupPath} => TestArchivalGroupPath(string archivalGroupPath)
 -->
