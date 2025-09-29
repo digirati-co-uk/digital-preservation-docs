@@ -451,4 +451,53 @@ So this code (which is complex, but well tested) may need some reorganisation, i
 It's important that this code remains well-tested, it's a critical part of the whole system.
 
 
+## Mismatches
+
+Any discrepancy between tool output virus reports in `metadata/` and the `premis:Event` XML elements for virus events should be flagged in [CombinedFile::GenerateMismatches()](https://github.com/uol-dlip/digital-preservation/blob/20ae8523dc06e14cfb2a04eefb18d7b65a018316/src/DigitalPreservation/DigitalPreservation.Common.Model/Transit/CombinedFile.cs#L51), which at the moment only looks at file format metadata.
+
+The same `FileMismatch` class can be used to record Virus mismatches, it is not specific to FileFormatMetadata.
+
+If there is a mismatch the UI should display it (this _should_ happen automatically if the above is done.)
+
+
+## Display of virus information in the UI
+
+There should be a `GetViruses()` method on CombinedDirectory, which calls a recursive method in a similar style to `GetMisMatches()` and `GetSizeTotals()` and stores the result list in a backing field so it only runs once on demand. This can return a `List<CombinedFile>` of those files infected (references to the existing files) which will include their `VirusScanMetadata`.
+
+If there are one or more viruses in any file in an entire Deposit (a non empty List returned from a call to `GetViruses()` on the Depoisit Root `CombinedDirectory`), this should generate an additional alert banner on the Deposit page, listing the file(s) infected and the virus detail.
+
+As the detection of a virus is an extremely rare event (we hope), the UI should not waste space with empty virus info placeholders.
+
+This column should not be rendered unless `GetViruses()` returned a non-empty list:
+
+![alt text](120-files/deposit-virus-column.png)
+
+If rendered, the column should appear and the infected row should have the text of the virus report, e.g., "Eicar-Signature FOUND". The entire row should also be highllighted with the Bootstrap alert colour.
+
+This Razor template is the view ...\DigitalPreservation.UI\Pages\Deposits\_RenderCombinedDirectoryAsTableRows.cshtml which is rendered recursively.
+
+As we are calling `GetViruses()` on CombinedDirectory, it will yield a virus for files only in METS as well as those in the Deposit. This means that a later version export of the Deposit, _even when you don't export to S3_, will still show the banner - it's always there.
+
+In the Preserved UI we don't show the tree all at once, so we can leave the UI as-is and just fill in the Virus row on the individual file page:
+
+![alt text](120-files/browse-file.png)
+
+This view is in ...\DigitalPreservation.UI\Pages\Shared\_BinaryAndWorkingFile.cshtml
+
+However, we should still report the presence of a virus on the Archival Group home page. There is no `CombinedDirectory` in this view, because it's not a Deposit, but the Model does have the METS-side of that tree:
+
+
+```
+    MetsWorkingDirectory = metsWrapper.PhysicalStructure;
+```
+
+(in [Browse.cshtml.cs](
+https://github.com/uol-dlip/digital-preservation/blob/20ae8523dc06e14cfb2a04eefb18d7b65a018316/src/DigitalPreservation/DigitalPreservation.UI/Pages/Browse.cshtml.cs#L188))
+
+Additional code in `Browse.cshtml.cs` can walk this tree to find any WorkingFile with positive VirusScanMetadata.
+
+If there is one or more, a similar banner should appear on the Browse view of the Archival Group.
+
+
+
 
