@@ -900,7 +900,7 @@ A typical workflow for a set of files you want to preserve as an Archival Group 
 
 * Creating a new Deposit with the RootLevel or BagIt templates, which gives you an `objects/` directory, a `metadata/` directory, and a METS file - all unpopulated.
 * Arranging the files under an `objects/` directory in an _external environment_ such as BitCurator, then performing some analysis on the files using **tools**, saving the tool outputs into known locations under a `metadata/` folder, and then uploading the files and their metadata as a package to the S3 location of the Deposit (see [RFC 006 for details](../rfcs/006-pipelines-and-outputs.md#workflow)), OR
-* Uploading the files to the S3 location of the Deposit and then asking the Preservation API to run a pre-configured set of tools over them (see pipelines below).
+* Uploading the files to the S3 location of the Deposit and then asking the Preservation API to run a pre-configured set of tools over them (see **pipelines** below).
 
 You then end up with, in the Deposit:
 
@@ -1012,6 +1012,40 @@ If-Match: "bfc13a64729c4290ef5b2c2730249c88ca92d82d"
 ```
 
 While you do need to supply child file paths (you can't supply just a folder path where there are child items), the Preservation API will take care of the order of delete operations, deleting the child items first. Delete operations that cannot be supported result in a HTTP 400 Bad Request.
+
+
+## Pipelines and tools
+
+The platform looks for tool output at the following locations in the Deposit:
+
+|--------------------------|---------------------------------------------------|----------------------|
+| Tool                     | Path                                              | Metadata produced    |
+|--------------------------|---------------------------------------------------|----------------------|
+| BagIt                    | /manifest-sha256.txt                              | `DigestMetadata`     |
+| -                        |                                                   | -                    |
+| Siegfried                | /metadata/siegfried/siegfried.yaml                | `FileFormatMetadata` |
+| -                        | /metadata/siegfried/siegfried.yml                 | -                    |
+| -                        | /metadata/siegfried/siegfried.csv                 | -                    |
+| -                        | /data/metadata/siegfried/siegfried.yaml           | -                    |
+| -                        | /data/metadata/siegfried/siegfried.yml            | -                    |
+| -                        | /data/metadata/siegfried/siegfried.csv            | -                    |
+| Brunnhilde               | /metadata/brunnhilde/report.html                  | `ToolOutput`         |
+| -                        | /data/metadata/brunnhilde/report.html             | -                    |
+| Siegfried via Brunnhilde | /metadata/brunnhilde/siegfried/siegfried.csv      | `FileFormatMetadata` |
+| -                        | /data/metadata/brunnhilde/siegfried/siegfried.csv | -                    |
+| ClamAV via Brunnhilde    | /metadata/brunnhilde/logs/viruscheck-log.txt      | `VirusScanMetadata`  |
+| -                        | /data/metadata/brunnhilde/logs/viruscheck-log.txt | -                    |
+|--------------------------|---------------------------------------------------|----------------------|
+
+(More to follow)
+
+None of these are mandatory, but the platform will check all of them when reading the Deposit file layout, and add the derived metadata objects to the `WorkingFile` `metadata` property for each file.
+
+For some workflows, these metadata files are produced outside the scope of the platform - typically in a BitCurator environment. See [Pipelines and Outputs - Workflow](../rfcs/006-pipelines-and-outputs.md#workflow) for a detailed example.
+
+You can also get the platform run some of these tools by running a pipeline:
+
+
 
 
 
@@ -1309,13 +1343,6 @@ Goobi does it like this:
 
 Archivematica only in tool output. But we'll try to deduce that.
 
-## Pipelines
-
-### Run pipeline
-
-(Goobi will not do this)
-
-METS options
 
 ## Associating identifiers from other systems
 
