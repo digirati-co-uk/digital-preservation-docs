@@ -20,6 +20,29 @@ However, there are concepts that are common to both, where the Preservation API 
 
 This documentation deals with the Preservation API working on content in Amazon AWS S3, rather than on local file systems or other cloud storage providers. However, it can work with these other sources; examples are limited to S3 for brevity. The Preservation API assumes that its callers have access to one or more AWS S3 working bucket(s), that they can place content into, or in the case of exports, fetch content from.
 
+## Summary of activity
+
+The intention is to create an Archival Group - a preserved digital object (set of folders and files). This can be done through a combination of API calls and assembling files in an AWS S3 bucket or filesystem share. There is limited facility for _uploading_ binaries to the API - it's possible, but not the recommended approach. It's assumed that applications will manage their own working files, and then tell the API about them.
+
+The API provides a hierarchical JSON view over the repository structure of preserved objects. You can navigate this structure by following links into child Containers and Binaries provided by the API. The unit of Preservation is the Archival Group - a special type of Container that is a unit of versioning (and also an OCFL object in the underlying repository storage).
+
+* Create a Deposit - which gives you a working area in S3. The files in here are not yet preserved.
+  * The Deposit may be templated, where you start off with `objects/` and `metadata/` directories and a METS file that the platform will manage.
+  * Or it may be empty, for you to supply your own METS file, which you manage.
+* Add files and folders to the objects/ folder (and your own METS file to the root if you are managing the Deposit)
+* If managed, call the API to incorporate the added files and folders to the METS file
+* Optionally run tools on the files, either via the API or independently (e.g., in BitCurator) that produce outputs that get saved under `metadata/`
+  * If managed, call the API to incorporate the tool outputs into the METS file
+* When the Deposit is ready, create an Import Job (a JSON document that tells the API what Containers and Binaries to create)
+  * You can get the API to generate a "diff" import job for you by comparing the Deposit with what's already there (which initially is nothing, so the Import Job will import the entire Deposit)
+  * You can create an Import Job manually, e.g., if you only want to change one file.
+* Execute the Import Job by posting it to the API
+* Monitor the running job by polling the API and checking its status
+* When the status is Complete, the Deposit contents have become a preserved Archival Group and may be navigated to in the hierarchical repository API structure.
+* An Archival Group may later be exported to a new Deposit, either to access the files or to perform further work
+* It isn't necessary to export all the files; for example to add 1 file to an Archival Group that already has 1000 files in it, you can create a Deposit for that Archival Group, put the single file in it (or likely that file plus an updated METS file), and run an Import Job that adds the new Binary and patches the METS binary.
+* Running further Deposits into an existing Archival Group increments the version number of the Archival Group - v1, v2, v3 etc.
+
 
 ## Authentication
 
@@ -944,6 +967,8 @@ The body is a JSON list of strings, where the strings are the relative paths of 
 
 On receiving this payload the Preservation API adds (or updates) the entries for the files in the METS file, including all relevant metadata.
 
+This operation can be called multiple times for the same file; if the file information is already present it will be updated. A typical scenario for calling it more than once is initially adding the files to the METS, and then running tools to produce more metadata (e.g., file format identification, see below), and then updating the files in the METS with the new metadata.
+
 
 
 > [!TIP]
@@ -1014,7 +1039,7 @@ If-Match: "bfc13a64729c4290ef5b2c2730249c88ca92d82d"
 While you do need to supply child file paths (you can't supply just a folder path where there are child items), the Preservation API will take care of the order of delete operations, deleting the child items first. Delete operations that cannot be supported result in a HTTP 400 Bad Request.
 
 
-## Pipelines and tools
+## Tool outputs and pipelines
 
 The platform looks for tool output at the following locations in the Deposit:
 
@@ -1037,13 +1062,102 @@ The platform looks for tool output at the following locations in the Deposit:
 | -                        | /data/metadata/brunnhilde/logs/viruscheck-log.txt | -                    |
 |--------------------------|---------------------------------------------------|----------------------|
 
-(More to follow)
+(More tools to follow)
+
+For a deposit whose METS file is not managed by the platform, files under metadata/ are ignored and not processed (they will still be _preserved_).
+
+For a deposit with a METS file created and managed by the platform, the tool output information is added to METS whenever a file is added to METS (see **Modifying the METS file** above). The information in METS is updated by submitting the same file.
 
 None of these are mandatory, but the platform will check all of them when reading the Deposit file layout, and add the derived metadata objects to the `WorkingFile` `metadata` property for each file.
 
 For some workflows, these metadata files are produced outside the scope of the platform - typically in a BitCurator environment. See [Pipelines and Outputs - Workflow](../rfcs/006-pipelines-and-outputs.md#workflow) for a detailed example.
 
 You can also get the platform run some of these tools by running a pipeline:
+
+<!--
+POST /deposits/{id}/pipeline
+⎔ Preservation.API.Features.Deposits.DepositsController::RunPipeline([FromRoute] string id)
+-->
+
+```
+POST /deposits/e56fb7yg/pipeline
+```
+
+Returns: (no body), HTTP 204
+
+You can then obtain all the pipeline jobs (past and present) for the Deposit:
+
+<!--
+GET /deposits/{depositId}/pipelinerunjobs 
+⎔ Preservation.API.Features.PipelineRunJobs.PipelineRunJobsController::GetPipelineJobResults([FromRoute] string depositId)
+-->
+
+```
+GET /deposits/e56fb7yg/pipelinerunjobs 
+```
+
+returns an array of `ProcessPipelineResult`:
+
+```json
+[
+  {
+    "id": "https://preservation-api.library.leeds.ac.uk/deposits/e56fb7yg/pipelinerunjobs/phuv9tvurdus",
+    "type": "ProcessPipelineResult",
+    "jobId": "phuv9tvurdus",
+    "created": "2025-10-01T16:10:00.955951Z",
+    "createdBy": "https://preservation-api.library.leeds.ac.uk/agents/test00005@leeds.ac.uk",
+    "lastModified": "2025-10-01T16:10:00.963196Z",
+    "lastModifiedBy": "https://preservation-api.library.leeds.ac.uk/agents/test00005@leeds.ac.uk",
+    "archivalGroupName": "Local pipeline test",
+    "runUser": "test00005@leeds.ac.uk",
+    "status": "completedWithErrors",
+    "dateFinished": "2025-10-01T16:10:18.074483Z",
+    "dateBegun": "2025-10-01T16:10:07.745419Z",
+    "errors": [
+      {
+        "message": "Could not find object folder for deposit gavrebuhb4g7",
+        "id": null
+      }
+    ]
+  },
+  {
+    "id": "https://preservation-api.library.leeds.ac.uk/deposits/e56fb7yg/pipelinerunjobs/hkbgyzjh9sep",
+    "type": "ProcessPipelineResult",
+    "jobId": "hkbgyzjh9sep",
+    "created": "2025-10-01T16:31:49.311322Z",
+    "createdBy": "https://preservation-api.library.leeds.ac.uk/agents/test00005@leeds.ac.uk",
+    "lastModified": "2025-10-01T16:31:49.315738Z",
+    "lastModifiedBy": "https://preservation-api.library.leeds.ac.uk/agents/test00005@leeds.ac.uk",
+    "archivalGroupName": "Local pipeline test",
+    "runUser": "test00005@leeds.ac.uk",
+    "status": "completed",
+    "dateFinished": "2025-10-01T16:32:42.237115Z",
+    "dateBegun": "2025-10-01T16:31:56.224404Z",
+    "errors": null
+  }
+]
+```
+
+An call to the value of the `id` property just returns the individual pipeline job result:
+
+```
+GET /deposits/e56fb7yg/pipelinerunjobs/hkbgyzjh9sep
+```
+
+### ProcessPipelineResult
+
+| Property            | Description                       | 
+| --------------------| --------------------------------- |
+| `id`                | URI of the result from the API.  |
+| `type`              | "ProcessPipelineResult"        
+|                     | _in addition to the standard set above_ |               |
+| `jobId`             | Short identifier for the job |
+| `archivalGroupName` | Provided for convenience, if the deposit's archival group name is set. |
+| `runUser`           | Short identifier for who ran the pipeline |
+| `status`            | One of "waiting", "processing", "metadataCreated", "completed", "completedWithErrors". The "metadataCreated" status exists after the tools have run but before the tool outputs have been uploaded back to the Deposit. |
+| `dateBegun`         | When the job moved from "waiting" to "processing" |
+| `dateFinished`      | When the job moved to "completed" or "completedWithErrors" |
+| `errors`            | list of any errors encountered. |
 
 
 
@@ -1421,7 +1535,7 @@ POST   /deposits/{id}/mets        => AddItemsToMets([FromRoute] string id, [From
 POST   /deposits/{id}/mets/delete => DeleteItemsToMets([FromRoute] string id, [FromBody] DeleteSelection deleteSelection)
 
 TODO:   
-POST   /deposits/{id}/pipeline   => RunPipeline([FromRoute] string id, [FromQuery] string? runUser)
+POST   /deposits/{id}/pipeline   => RunPipeline([FromRoute] string id)
 POST   /deposits/pipeline-status => LogPipelineRunStatus([FromBody] PipelineDeposit pipelineDeposit)
 
 Omitted:
