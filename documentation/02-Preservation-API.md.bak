@@ -1353,8 +1353,6 @@ This resource is returned quickly, before the ImportJob actually runs. The Impor
 | `containersDeleted`   | Populated once the job has finished successfully. |
 | `binariesDeleted`     | Populated once the job has finished successfully. |
 | `binariesPatched`     | Populated once the job has finished successfully. |
-| `containersRenamed`   | Populated once the job has finished successfully. |
-| `binariesRenamed`     | Populated once the job has finished successfully. |
 
 NB the shared property `created` is a timestamp indicating when the API received the initial POST of the job.
 
@@ -1392,8 +1390,6 @@ GET /deposits/{depositId}/importjobs/results/{importJobId}
 GET /deposits/{depositId}/importjobs/results/{importJobId}
 ⎔ Preservation.API.Features.ImportJobs.ImportJobsController::GetImportJobResult([FromRoute] string depositId, [FromRoute] string importJobId)
 -->
-
-
 ## Exports
 
 
