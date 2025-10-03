@@ -495,10 +495,8 @@ And when the `template` property is "BagIt", the Deposit will be created like th
 
 This form is ideal for upload an unpacked BagIt bag into - and the Preservation API will read any BagIt manifest file in the root of this structure and use checksums from it. The Preservation API will also read the outputs of various tools if they are placed in specific subfolders under `metadata/`.
 
-For more information see the section *Processing tool outputs* below.
+For more information see the section [Tool outputs and pipelines](#tool-outputs-and-pipelines) below.
 
-> [!WARNING]
-> (Need more explanation about processing tool outputs - needs its own section)
 
 
 ### Special Deposit Creation from identifier
@@ -666,34 +664,6 @@ DELETE /deposits/e56fb7yg
 * Deleting a Deposit has no effects on an ArchivalGroup already created from it.
 * Inactive deposits are _automatically_ deleted from S3 working space after a specific time (TBC - e.g., 1 year)
 * A Deposit is not a preserved resource like a Container, Binary or ArchivalGroup. That is, it's not in Fedora. Therefore the discussion about tombstones and purging above does not apply.
-
-
-### Export: creating a deposit from an existing ArchivalGroup
-
-<!--
-POST /deposits/export
-⎔ Preservation.API.Features.Deposits.DepositsController::ExportArchivalGroup([FromBody] Deposit deposit)
--->
-
-This is when you want access to the files of an ArchivalGroup in S3, usually because you want to make an update but could be for any purpose. You may be an API client that has access to the working S3 space but not to the underlying Fedora repository (almost certainly!). While you can request an individual HTTP response for any Binary via the `content` property, sometimes you want the whole object to work on.
-
-To do this you POST a non-empty Deposit body to `/deposits/export`:
-
-```
-POST /deposits/export HTTP/1.1
-Host: preservation-api.library.leeds.ac.uk
-(other headers omitted)
-
-{
-  "type": "Deposit",
-  "archivalGroup": "https://preservation-api.library.leeds.ac.uk/repository/example-objects/ArchivalGroup2",
-  "versionExported": "v2"
-}
-```
-
-If `versionExported` is omitted (which will usually be the case) the latest version is exported to create a new Deposit. 
-
-The POST returns a new Deposit object as a JSON body, which includes the S3 location in the `files` property. While the Deposit object is returned immediately, it's not complete until its `status` property is "new" - you can check by polling the Deposit resource at intervals. Only after this happens are the files available in S3 (at the location given by `files`). You might see files arriving in S3 while this happens, but you can't do any work with the Deposit until it is at the "new" status.
 
 
 ### Locking a Deposit
@@ -1396,6 +1366,39 @@ GET /deposits/{depositId}/importjobs/results/{importJobId}
 
 ## Exports
 
+While API consumers are expected to have access to Deposit locations, it is assumed that direct access to the repository storage is not available. To access the files in a repository ArchivalGroup, you must export it to a new Deposit first. This may be purely for access in which case there is no further API interaction. But it may be to make changes to an existing ArchivalGroup, via a subsequent new Import Job from that Deposit.
+
+### Export: creating a deposit from an existing ArchivalGroup
+
+<!--
+POST /deposits/export
+⎔ Preservation.API.Features.Deposits.DepositsController::ExportArchivalGroup([FromBody] Deposit deposit)
+-->
+
+This is when you want access to the files of an ArchivalGroup in S3, usually because you want to make an update but could be for any purpose. You may be an API client that has access to the working S3 space but not to the underlying Fedora repository (almost certainly!). While you can request an individual HTTP response for any Binary via the `content` property, sometimes you want the whole object to work on.
+
+To do this you POST a non-empty Deposit body to `/deposits/export`:
+
+```
+POST /deposits/export HTTP/1.1
+Host: preservation-api.library.leeds.ac.uk
+(other headers omitted)
+
+{
+  "type": "Deposit",
+  "archivalGroup": "https://preservation-api.library.leeds.ac.uk/repository/example-objects/ArchivalGroup2",
+  "versionExported": "v2"
+}
+```
+
+If `versionExported` is omitted (which will usually be the case) the latest version is exported to create a new Deposit. 
+
+The POST returns a new Deposit object as a JSON body, which includes the S3 location in the `files` property. While the Deposit object is returned immediately, it's not complete until its `status` property is "new" - you can check by polling the Deposit resource at intervals. Only after this happens are the files available in S3 (at the location given by `files`). You might see files arriving in S3 while this happens, but you can't do any work with the Deposit until it is at the "new" status.
+
+
+### Creating an _empty_ Deposit for an existing Archival Group
+
+This is exactly the same process as [Creating a new Deposit](#creating-a-new-deposit) above. When the URI value of `archivalGroup` is an existing Archival Group, a Deposit for that Archival Group will be created 
 
 
 ## StorageMap
