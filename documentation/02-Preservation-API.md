@@ -1500,6 +1500,31 @@ The value of `object` in this stream will always be an ArchivalGroup; future str
 
 ## Agents
 
+The identity of API callers (and UI users) is preserved in the `createdBy`, `lastModifiedBy` and similar properties of resources such as Deposits and Archival Groups. There is one API endpoint (at present) that simply returns a list of all known agents, as URIs.
+
+<!--
+GET/agents 
+⎔ Preservation.API.Features.Agents.AgentsController::ListAgents()
+-->
+
+```
+GET /agents
+```
+
+```jsonc
+[
+  "https://preservation-api.library.leeds.ac.uk/agents/tom",
+  "https://preservation-api.library.leeds.ac.uk/agents/user0001@example.org",
+  "https://preservation-api.library.leeds.ac.uk/agents/api-user-7",
+  // ...
+]
+```
+
+
+> [!NOTE]
+> Further API resources for Agents will follow in a subsequent version. The Agent URI is not yet dereferenceable.
+
+
 ## StorageMap
 
 
