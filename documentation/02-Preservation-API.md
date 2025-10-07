@@ -1527,10 +1527,123 @@ GET /agents
 
 ## StorageMap
 
+While the Archival Group hierarchy of Containers and Binaries shows you how the files are layed out with respect to the digital object root in the API URI space, the Storage Map shows the underlying OCFL storage structure. It is included as the `storageMap` property of the Archival Group, and is also available separately on the /ocfl/... API path:
 
-## Versions
+<!--
+GET /ocfl/storagemap/{*path}
+⎔ Preservation.API.Features.Ocfl.OcflController::GetStorageMap([FromRoute] string path, [FromQuery] string? version = null)
+-->
+
+The optional `version` parameter can either take the Memento timestamp form used by the underlying Fedora API, or the OCFL version label. If no version is supplied, the latest version is returned.
+
+```
+GET /ocfl/storagemap/kickoff/fedora-camp/tuesday-1?version=20250909110722
+GET /ocfl/storagemap/kickoff/fedora-camp/tuesday-1?version=v1
+GET /ocfl/storagemap/kickoff/fedora-camp/tuesday-1
+```
+
+```json
+{
+  "version": {
+    "mementoTimestamp": "20250909110944",
+    "mementoDateTime": "2025-09-09T11:09:44.900134Z",
+    "ocflVersion": "v2"
+  },
+  "storageType": "S3",
+  "root": "dlip-pres-dev-fedora",
+  "objectPath": "initial/aed/7d3/4c4/aed7d34c481858e223749aa0b16897e39dfa0ff1626cad3db7d4bff67e950444",
+  "files": {
+    "mets.xml": {
+      "hash": "0369e6d262c152815747fd43decdd042a30242b70847340109cbcaf9a133a10f",
+      "fullPath": "v2/content/mets.xml"
+    },
+    "objects/an-empty-folder/Teto in tree.png": {
+      "hash": "11a88fedd9e77ecbcbdd0f7180e9f2b1ff4b358a7fbe71658c23ff854aefc06f",
+      "fullPath": "v1/content/objects/an-empty-folder/Teto%20in%20tree.png"
+    },
+    "objects/a-new-folder/orca-near-ynys-enlli.png": {
+      "hash": "4e5e93d49ec2fad44bf895d5f0284e1b2cf5500b9454a3c724ff54106e3e6288",
+      "fullPath": "v2/content/objects/a-new-folder/orca-near-ynys-enlli.png"
+    },
+    "objects/an-empty-folder/teto.png": {
+      "hash": "52d9d1cffa3448ce62090c2d6c2099afe6c5bb4f77b999f017216db25dfe951e",
+      "fullPath": "v1/content/objects/an-empty-folder/teto.png"
+    },
+    "objects/teto-and-jiji.png": {
+      "hash": "8e90b164302b40c2f9cfd31d20ef9b7dea2b3c428fe6210eba53a61a801a10e0",
+      "fullPath": "v1/content/objects/teto-and-jiji.png"
+    },
+    "objects/an-empty-folder/all fours.png": {
+      "hash": "d9d7c7ee61562c34c2ae50afe42dab54a2125ffeffffd2bd3d15722e2904880d",
+      "fullPath": "v1/content/objects/an-empty-folder/all%20fours.png"
+    },
+    "objects/houmous.png": {
+      "hash": "fdd35998f0ab5f6cd42d66efc7bad48014ffb58a2ea9aa5914192de98d8492c5",
+      "fullPath": "v1/content/objects/houmous.png"
+    }
+  },
+  "hashes": {
+    "0369e6d262c152815747fd43decdd042a30242b70847340109cbcaf9a133a10f": "v2/content/mets.xml",
+    "11a88fedd9e77ecbcbdd0f7180e9f2b1ff4b358a7fbe71658c23ff854aefc06f": "v1/content/objects/an-empty-folder/Teto%20in%20tree.png",
+    "4e5e93d49ec2fad44bf895d5f0284e1b2cf5500b9454a3c724ff54106e3e6288": "v2/content/objects/a-new-folder/orca-near-ynys-enlli.png",
+    "52d9d1cffa3448ce62090c2d6c2099afe6c5bb4f77b999f017216db25dfe951e": "v1/content/objects/an-empty-folder/teto.png",
+    "8e90b164302b40c2f9cfd31d20ef9b7dea2b3c428fe6210eba53a61a801a10e0": "v1/content/objects/teto-and-jiji.png",
+    "d9d7c7ee61562c34c2ae50afe42dab54a2125ffeffffd2bd3d15722e2904880d": "v1/content/objects/an-empty-folder/all%20fours.png",
+    "fdd35998f0ab5f6cd42d66efc7bad48014ffb58a2ea9aa5914192de98d8492c5": "v1/content/objects/houmous.png"
+  },
+  "headVersion": {
+    "mementoTimestamp": "20250909110944",
+    "mementoDateTime": "2025-09-09T11:09:44.900134Z",
+    "ocflVersion": "v2"
+  },
+  "allVersions": [
+    {
+      "mementoTimestamp": "20250909110722",
+      "mementoDateTime": "2025-09-09T11:07:22.035664Z",
+      "ocflVersion": "v1"
+    },
+    {
+      "mementoTimestamp": "20250909110944",
+      "mementoDateTime": "2025-09-09T11:09:44.900134Z",
+      "ocflVersion": "v2"
+    }
+  ],
+  "archivalGroup": "https://fedora-dev.dlip.digirati.io/fcrepo/rest/kickoff/fedora-camp/tuesday-1"
+}
+```
+
+The Storage Map reflects the underlying storage implementation, rather than the Preservation API translation of it.
 
 
+| Property         | Description                       | 
+| ---------------- | ----------------------------------|
+| `version`        | The version of the returned storage map; a version object defined below.                                   |
+| `headVersion`    | The current latest version, which may not be this version.                                  |
+| `allVersions`    | A list of all the version in the OCFL object. `version` and `headVersion` will be in this list.|
+| `storageType`    | The implementation of the storage - either "S3" or "file".                          |
+| `root`           | If the storage type is AWS S3, the value is a bucket name. If the storage type is file, this will be a file path under which this _and other_ objects live.                                    |
+| `objectPath`     | The relative path within the `root` to this particular object.                                   |
+| `files`          | A dictionary where the keys are logical file paths - the relative paths of the Binaries - and the values are objects with a `hash` (SHA 256 and `fullPath` property, where `fullPath` gives the relative path under the objectPath to a particular Binary). Thus `root` + `objectPath` + `fullPath` for a particular Binary is the same as the Binary's `origin` property.                          |
+| `hashes`         | Equivalent to the [manifest](https://ocfl.io/1.1/spec/#manifest) block in an OCFL Inventory. It is a map of SHA256 hashes to content paths under `objectPath`; a way of navigating via _content addressing_ from a unique hash to the path in storage to the file with that hash.|
+| `archivalGroup`  | The source of the Archival Group in the underlying repository (Fedora) - you are unlikely to have access to this.|
+
+### Version object
+
+> [!NOTE]
+> The presence of [Memento](https://datatracker.ietf.org/doc/html/rfc7089) values in this API is a reflection of the underlying Linked Data Platform API of Fedora. These properties are very likely to be removed in a future version and only the OCFL form ("v1", "v2", etc.) used.
+
+| Property           | Description                       | 
+| -------------------| ----------------------------------|
+| `mementoTimestamp` | A string representing a date in the format `yyyyMMddHHmmss` that corresponds to a Memento timestamp. |
+| `mementoDateTime`  | ISO 6801 DateTime string containing the actual time the `mementoTimestamp` value was produced from. |
+| `ocflVersion`      | The name of the [version directory](https://ocfl.io/1.1/spec/#version-directories) in the OCFL object, and therefore the unique version label. |
+
+
+### Relation of the Storage Map to the OCFL object
+
+The Storage Map is derived from the OCFL Inventory for a specific version, and re-maps the logical state of the object at that version to allow a look-up by relative file path, which is typically where you would start from a METS reference or other record of the files. This then gives the path on disk, which is how the `origin` properties of Binaries are computed. The logical path is not necessarily the same as the content path relative to the OCFL object root, and several logical files may share the same content path if their contents are identical.
+
+For further details see the [OCFL Specification](https://ocfl.io/).
 
 
 
