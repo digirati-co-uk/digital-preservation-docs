@@ -24,25 +24,28 @@ This documentation deals with the Preservation API working on content in Amazon 
 
 The intention is to create an Archival Group - a preserved digital object (set of folders and files). This can be done through a combination of API calls and assembling files in an AWS S3 bucket or filesystem share. There is limited facility for _uploading_ binaries to the API - it's possible, but not the recommended approach. It's assumed that applications will manage their own working files, and then tell the API about them.
 
-The API provides a hierarchical JSON view over the repository structure of preserved objects. You can navigate this structure by following links into child Containers and Binaries provided by the API. The unit of Preservation is the Archival Group - a special type of Container that is a unit of versioning (and also an OCFL object in the underlying repository storage).
+The API provides a hierarchical JSON view over the repository structure of preserved objects. You can navigate this structure by following links into child Containers and Binaries provided by the API, starting at the root https://preservation-api.library.leeds.ac.uk/repository and following the `id` property of each child resource. 
+
+The unit of Preservation is the **Archival Group** - a special type of Container that is a unit of versioning (and also an OCFL object in the underlying repository storage).
 
 * Create a Deposit - which gives you a working area in S3. The files in here are not yet preserved.
   * The Deposit may be templated, where you start off with `objects/` and `metadata/` directories and a METS file that the platform will manage.
   * Or it may be empty, for you to supply your own METS file, which you manage.
-* Add files and folders to the objects/ folder (and your own METS file to the root if you are managing the Deposit)
-* If managed, call the API to incorporate the added files and folders to the METS file
-* Optionally run tools on the files, either via the API or independently (e.g., in BitCurator) that produce outputs that get saved under `metadata/`
-  * If managed, call the API to incorporate the tool outputs into the METS file
-* When the Deposit is ready, create an Import Job (a JSON document that tells the API what Containers and Binaries to create)
-  * You can get the API to generate a "diff" import job for you by comparing the Deposit with what's already there (which initially is nothing, so the Import Job will import the entire Deposit)
+* Add files and folders to the objects/ folder (and your own METS file to the root if you are managing the Deposit).
+* If managed, call the API to incorporate the added files and folders to the METS file.
+* Optionally run tools on the files, either via the API or independently (e.g., in BitCurator) that produce outputs that get saved under `metadata/`.
+  * If managed, call the API to incorporate the tool outputs into the METS file.
+* When the Deposit is ready, create an Import Job (a JSON document that tells the API what Containers and Binaries to create).
+  * You can get the API to generate a "diff" import job for you by comparing the Deposit with what's already there (which initially is nothing, so the Import Job will import the entire Deposit).
   * You can create an Import Job manually, e.g., if you only want to change one file.
-* Execute the Import Job by posting it to the API
-* Monitor the running job by polling the API and checking its status
-* When the status is Complete, the Deposit contents have become a preserved Archival Group and may be navigated to in the hierarchical repository API structure.
-* An Archival Group may later be exported to a new Deposit, either to access the files or to perform further work
-* It isn't necessary to export all the files; for example to add 1 file to an Archival Group that already has 1000 files in it, you can create a Deposit for that Archival Group, put the single file in it (or likely that file plus an updated METS file), and run an Import Job that adds the new Binary and patches the METS binary.
+* Execute the Import Job by posting it to the API.
+* Monitor the running Import Job by polling its `id` and checking the value of `status`.
+* When the status is "Complete", the Deposit contents have become a preserved Archival Group and may be navigated to in the hierarchical repository API structure.
+* An Archival Group may later be exported to a new Deposit, either to access the files or to perform further work.
+* It isn't necessary to export all the files; for example to add one file to an Archival Group that already has 1000 files in it, you can create a Deposit for that Archival Group, put the single file in it (or likely that file plus an updated METS file), and run an Import Job that adds the new Binary and patches the METS Binary.
 * Running further Deposits into an existing Archival Group increments the version number of the Archival Group - v1, v2, v3 etc.
 
+For API clients who manage their own METS, a [simplified Quickstart](06-Quickstart-preservation-workflow.md) is available.
 
 ## Authentication
 
@@ -1393,13 +1396,109 @@ Host: preservation-api.library.leeds.ac.uk
 
 If `versionExported` is omitted (which will usually be the case) the latest version is exported to create a new Deposit. 
 
-The POST returns a new Deposit object as a JSON body, which includes the S3 location in the `files` property. While the Deposit object is returned immediately, it's not complete until its `status` property is "new" - you can check by polling the Deposit resource at intervals. Only after this happens are the files available in S3 (at the location given by `files`). You might see files arriving in S3 while this happens, but you can't do any work with the Deposit until it is at the "new" status.
+The POST returns a new Deposit object as a JSON body, which includes the S3 location in the `files` property. While the Deposit object is returned immediately, it's not complete until its `status` property is "new" - you can check by polling the Deposit resource at intervals. Only after this happens are the files available in S3 (at the location given by `files`). You might see files arriving in S3 while this happens, but you can't do any work with the Deposit via the API until it is at the "new" status.
 
 
 ### Creating an _empty_ Deposit for an existing Archival Group
 
-This is exactly the same process as [Creating a new Deposit](#creating-a-new-deposit) above. When the URI value of `archivalGroup` is an existing Archival Group, a Deposit for that Archival Group will be created 
+This is exactly the same process as [Creating a new Deposit](#creating-a-new-deposit) above. When the URI value of `archivalGroup` is an existing Archival Group, a Deposit for that Archival Group will be created, but without exporting the Archival Group contents _except for_ the METS file in the root. The reason the METS file is exported is so that the Deposit is aware of the files and their metadata captured in METS, and therefore decide whether a file is being added or patched.
 
+A reason to create an empty deposit might be to patch a single file out of thousands; only the changed file needs to be put into the Deposit working space. Even if you then ask for a diff Import Job to be generated, it will be aware of all the existing files and their metadata from the METS, and know that you don't mean to delete all the non-exported files.
+
+## Activity Streams
+
+The Preservation API publishes an [Activity Stream](https://www.w3.org/TR/activitystreams-core/) which other applications can use to learn about new or changed Archival Groups. The particular implementation is modelled on the [IIIF Change Discovery API](https://iiif.io/api/discovery/1.0/), which readers of this documentation can also study. One use of an activity stream might be for a client application to listen for changed digital objects and publish new or updated IIIF Manifests for them. Consumers should use the [processing algorithm](https://iiif.io/api/discovery/1.0/#activity-streams-processing-algorithm) given in the IIIF Change Discovery specification.
+
+<!--
+GET /archivalgroups/collection
+⎔ Preservation.API.Features.Activity.ActivityController::GetArchivalGroupsCollection()
+-->
+
+```
+GET /activity/archivalgroups/collection
+```
+
+This is the entry point to the single (for now) Activity Stream. It returns an `OrderedCollection` object:
+
+```json
+{
+  "@context": "http://iiif.io/api/discovery/1/context.json",
+  "id": "https://preservation-api.library.leeds.ac.uk/activity/archivalgroups/collection",
+  "type": "OrderedCollection",
+  "totalItems": 3914,
+  "first": {
+    "id": "https://preservation-api.library.leeds.ac.uk/activity/archivalgroups/1",
+    "type": "OrderedCollectionPage"
+  },
+  "last": {
+    "id": "https://preservation-api.library.leeds.ac.uk/activity/archivalgroups/pages/40",
+    "type": "OrderedCollectionPage"
+  }
+}
+```
+
+A client wishing to read the stream backwards to the last time they read it (or to the start) would load the `last` page:
+
+<!--
+GET /archivalgroups/pages/{page}
+⎔ Preservation.API.Features.Activity.ActivityController::GetArchivalGroupsPage(int page)
+-->
+
+```
+GET /activity/archivalgroups/pages/40
+```
+
+```jsonc
+{
+  "@context": "http://iiif.io/api/discovery/1/context.json",
+  "id": "https://preservation-api.library.leeds.ac.uk/activity/archivalgroups/pages/40",
+  "type": "OrderedCollectionPage",
+  "startIndex": 3900,
+  "prev": {
+    "id": "https://preservation-api.library.leeds.ac.uk/activity/archivalgroups/pages/39",
+    "type": "OrderedCollectionPage"
+  },  
+  "orderedItems": [
+    {
+      "type": "Create",
+      "object": {
+        "id": "https://preservation-api.library.leeds.ac.uk/repository/cc/lqj7mqhg",
+        "type": "ArchivalGroup",
+        "seeAlso": {
+          "id": "https://storage-api-dev.library.leeds.ac.uk/import/results/m3cnbckjmtd9/cc/lqj7mqhg",
+          "type": "ImportJobResult"
+        }
+      },
+      "endTime": "2025-10-06T10:34:19Z"
+    }
+  ],
+  [
+    {
+      "type": "Update",
+      "object": {
+        "id": "https://preservation-api.library.leeds.ac.uk/repository/cc/abd321",
+        "type": "ArchivalGroup",
+        "seeAlso": {
+          "id": "https://storage-api-dev.library.leeds.ac.uk/import/results/ec29ybrcz8rg/cc/abd321",
+          "type": "ImportJobResult"
+        }
+      },
+      "endTime": "2025-10-06T13:29:02Z"
+    }
+  ],
+  // etc
+}
+```
+
+...and then work from the end of the `orderedItems` list backwards until they come to an `endTime` before the last time they read the stream; they will then have gathered all the **new** events.
+
+The value of `object` in this stream will always be an ArchivalGroup; future streams may describe events for other resource types, such as Deposits.
+
+> [!WARNING]
+> The `object` will be accompanied by an `ImportJobResult` via the `seeAlso` property, but this is [Storage API](03-Storage-API.md#import-job) import job. This resource will link to the Preservation API result in a future version.
+
+
+## Agents
 
 ## StorageMap
 
