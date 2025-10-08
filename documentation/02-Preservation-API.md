@@ -1647,10 +1647,67 @@ For further details see the [OCFL Specification](https://ocfl.io/).
 
 ## Search
 
-(still to do)
+<!--
+GET /ocfl/storagemap/{*path}
+⎔ Preservation.API.Features.Search::Search(string text, int pageNumber = 0, int pageSize = 20, SearchType type = SearchType.All, int otherPage = 0)
+-->
 
+The API offers a simple search facility for finding Deposits and Binaries within Archival Groups.
 
-# Examples
+```
+GET /search?text=search-term
+GET /search?text=search-term&page=2
+GET /search?text=search-term&page=2&pageSize=20
+```
 
-Write the 
+This separately searches two sources:
 
+* Deposits, where the search term matches any part of the Deposit `id` last path element, `archivalGroup`, `archivalGroupName` or `submissionText` fields.
+* Preserved resources, where the search term matches any part of the `id` excluding the root /repository/ path element. This would typically be used to search for a file name but could match on file extensions, for example.
+
+The returned Search object partitions the two result sets:
+
+```jsonc
+{
+  "fedoraSearch": {
+    "total": 18,
+    "count": 18,
+    "results": [
+      {
+        "fedoraId": "info:fedora/kickoff/pipeline2/local-pipeline-test/mets.xml",
+        "created": "2025-10-01T16:34:36.279",
+        "lastModified": "2025-10-01T16:34:36.279",
+        "contentSize": 15727,
+        "mimeType": "application/xml"
+      },
+      {
+        "fedoraId": "info:fedora/kickoff/pipeline2/local-pipeline-test/objects/cat-uv.png",
+        "created": "2025-10-01T16:34:35.768",
+        "lastModified": "2025-10-01T16:34:35.768",
+        "contentSize": 449518,
+        "mimeType": "image/png"
+      },
+      // more
+    ],
+    "pageSize": 20,
+    "page": 0
+  },
+  "text": "pipeline",
+  "depositSearch": {
+    "deposits": [
+      {
+        // deposit resource
+      },
+      {
+        // deposit resource
+      }
+    ],
+    "total": 5,
+    "page": 0,
+    "pageSize": 20
+  }
+}
+```
+
+> [!NOTE]
+> The properties of this object reflect that Fedora is the underlying repository storage.
