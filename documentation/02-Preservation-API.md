@@ -1470,9 +1470,7 @@ GET /activity/archivalgroups/pages/40
         }
       },
       "endTime": "2025-10-06T10:34:19Z"
-    }
-  ],
-  [
+    },
     {
       "type": "Update",
       "object": {
