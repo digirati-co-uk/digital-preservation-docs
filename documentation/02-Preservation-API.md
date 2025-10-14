@@ -183,7 +183,7 @@ For representing a file: any kind of file stored in the repository.
 
 ### 📦 ArchivalGroup
 
-A preserved ArchivalGroup - e.g., the files that comprise a digitised book, or a manuscript, or a born digital item. an ArchivalGroup might only have one file, or may contain hundreds of files and directories (e.g., digitised images and mets.xml). an ArchivalGroup is the unit of versioning - files within an ArchivalGroup cannot be separately versioned, only the ArchivalGroup as a whole.
+A preserved ArchivalGroup - e.g., the files that comprise a digitised book, or a manuscript, or a born digital item. An ArchivalGroup might only have one file, or may contain hundreds of files and directories (e.g., digitised images and mets.xml). An ArchivalGroup is the unit of versioning - files within an ArchivalGroup cannot be separately versioned, only the ArchivalGroup as a whole.
 
 ```jsonc
 {
