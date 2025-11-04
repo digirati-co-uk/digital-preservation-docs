@@ -906,7 +906,7 @@ You then end up with, in the Deposit:
 
 If you requested a view of the Deposit on the /deposit/{id}/filesystem endpoint, you'd see not just the file and folder layout but also the detailed metadata for each file (`WorkingFile`) collated from the various tool outputs. All this metadata is information that should be stored as part of the preserved digital object, in METS form.
 
-However, the METS file is still the original, unpopulated one - nothing has happened to 
+However, the METS file is still the original, unpopulated one - nothing has happened to push the metadata present in the tool output files into the XML of the METS as techMD and admID sections.
 
 There are two reasons for this.
 
