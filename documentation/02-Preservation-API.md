@@ -539,7 +539,7 @@ Location: https://preservation-api.library.leeds.ac.uk/deposits/e56fb7yg
 // (other headers omitted)
 ```
 
-The resulting Deposit will have its `archivalGroup` and `archivalGroupName` properties already populated. This is typically used when all the files, including METS, sill be supplied externally and the Preservation API won't manage the METS file.
+The resulting Deposit will have its `archivalGroup` and `archivalGroupName` properties already populated. This is typically used when all the files, including METS, will be supplied externally and the Preservation API won't manage the METS file.
 
   
 ### Working on a Deposit
