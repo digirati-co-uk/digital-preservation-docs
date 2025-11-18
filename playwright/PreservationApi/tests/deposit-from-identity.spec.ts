@@ -21,8 +21,8 @@ test.describe('Create a deposit for third party (eg EPrints) METS from identifie
         console.log("POST /deposits/from-identifier");
         const depositReq = await request.post('/deposits/from-identifier', {
             data: {
-                "schema": "id",   // you can also use "id" or "pid" with the pid value
-                "value": "t2sjhy5d"
+                "schema": "catirn",   // you can also use "id" or "pid" with the pid value
+                "value": "1000001"
             },
             headers: headers
         });
@@ -61,6 +61,7 @@ test.describe('Create a deposit for third party (eg EPrints) METS from identifie
             headers: headers
         });
         let importJobResult = await executeImportJobReq.json();
+        expect(executeImportJobReq.status()).toBe(201);
         await waitForStatus(importJobResult.id, /completed.*/, request, headers);
         console.log("... and poll it until it is either complete or completeWithErrors...");
         // log the final output of the importJobResult

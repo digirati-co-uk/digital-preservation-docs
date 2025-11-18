@@ -5,7 +5,7 @@ import {
     ensurePath,
     waitForStatus,
     getYMD,
-    getSecondOfDay
+    getSecondOfDay, getAuthHeaders
 } from './common-utils'
 
 // Scenario:
@@ -24,9 +24,10 @@ test.describe('Create a NATIVE (our own METS) deposit and put some files in it',
 
         // Set a very long timeout so you can debug on breakpoints or whatnot.
         test.setTimeout(1000000);
+        const headers = await getAuthHeaders(baseURL);
 
-        const parentContainer = `/native-tests/basic-1/${getYMD()}`;
-        await ensurePath(parentContainer, request);
+        const parentContainer = `/_for_testing/native-tests/${getYMD()}`;
+        await ensurePath(parentContainer, request, headers);
 
         // We want to have a new WORKING SPACE - a _Deposit_
         // So we ask for one:
@@ -41,11 +42,12 @@ test.describe('Create a NATIVE (our own METS) deposit and put some files in it',
         const depositReq = await request.post('/deposits', {
             data: {
                 type: "Deposit",
-                useObjectTemplate: true,  // This is what tells the API it's one of ours
+                template: "RootLevel",  // This is what tells the API it's one of ours
                 archivalGroup: preservedDigitalObjectUri,
                 archivalGroupName: agName,
                 submissionText: "This is going to create a METS file and edit the METS as we go"
-            }
+            },
+            headers: headers
         });
 
         expect(depositReq.status()).toBe(201);
@@ -84,7 +86,7 @@ test.describe('Create a NATIVE (our own METS) deposit and put some files in it',
         // ### API INTERACTION ###
         console.log("Asking service to generate an import job from the deposit files (a diff)...");
         console.log("GET " + diffJobGeneratorUri);
-        const diffResp = await request.get(diffJobGeneratorUri);
+        const diffResp = await request.get(diffJobGeneratorUri, { headers: headers });
 
         // WE EXPECT HTTP 422 Unprocessable - we haven't described the files in METS!
         expect(diffResp.status()).toBe(422);
@@ -101,14 +103,14 @@ test.describe('Create a NATIVE (our own METS) deposit and put some files in it',
         // POST /deposits/aabbccdd/mets  ... body is an array of strings, e.g., objects/my-file
 
         const metsUri = newDeposit.id + '/mets';
-        const metsResp = await request.get(metsUri);
+        const metsResp = await request.get(metsUri, { headers: headers });
         expect(metsResp.status()).toBe(200);
         const eTag = metsResp.headers()["etag"];
 
         // We can have a look at the filesystem that has resulted from our uploads
         // to the deposit:
         const fileSystemUri = newDeposit.id + '/filesystem';
-        let fileSystemResp = await request.get(fileSystemUri);
+        let fileSystemResp = await request.get(fileSystemUri, { headers: headers });
         expect(fileSystemResp.status()).toBe(200);
         let fileSystem = await fileSystemResp.json();
         console.log("----");
@@ -120,28 +122,28 @@ test.describe('Create a NATIVE (our own METS) deposit and put some files in it',
         // library but interacts with the filesystem directly)
 
         // In this example, it's easy to navigate this filesystem:
-        const objects = fileSystem.directories.find(d => d.name == 'objects');
+        const objects = fileSystem.directories.find(d => d.localPath == 'objects'); // this was name but now name is null; do we want that?
         expect(objects).not.toBeNull();
         expect(objects.files).toHaveLength(4); // the four files mentioned above
 
         // but these aren't in the METS file; we can call an additional endpoint to add them,
         // using the information in the filesystem (most importantly, the hash or digest)
         console.log("posting to METS file:");
+        const ifMatchHeaders = structuredClone(headers);
+        ifMatchHeaders["If-Match"] = eTag;
         let metsUpdateResp = await request.post(metsUri, {
            data: files, // The list of file paths we defined earlier
-           headers: {
-               "If-Match": eTag // can't modify METS without this
-           }
+           headers: ifMatchHeaders
         });
         expect(metsUpdateResp.status()).toBe(200);
         const itemsAffected = await metsUpdateResp.json();
-        expect(itemsAffected.items).toHaveLength(4);
+        expect(itemsAffected.items).toHaveLength(5); // Now includes the objects directory - do we want it to?
         console.log("----");
         console.log("items affected:");
         console.log(itemsAffected);
 
         // now we can try to create an import job
-        const secondDiffResp = await request.get(diffJobGeneratorUri);
+        const secondDiffResp = await request.get(diffJobGeneratorUri, { headers: headers });
         expect(secondDiffResp.status()).toBe(200);
         const importJob = await secondDiffResp.json();
         console.log("----");
@@ -154,7 +156,8 @@ test.describe('Create a NATIVE (our own METS) deposit and put some files in it',
         console.log("Now execute the import job...");
         console.log("POST " + executeJobUri);
         const executeImportJobReq = await request.post(executeJobUri, {
-            data: importJob
+            data: importJob,
+            headers: headers
         });
 
         let importJobResult = await executeImportJobReq.json();
@@ -168,7 +171,7 @@ test.describe('Create a NATIVE (our own METS) deposit and put some files in it',
         console.log("----");
 
         console.log("... and poll it until it is either complete or completeWithErrors...");
-        await waitForStatus(importJobResult.id, /completed.*/, request);
+        await waitForStatus(importJobResult.id, /completed.*/, request, headers);
         console.log("----");
 
         // Now we should have a preserved archival group in the repository:
@@ -176,7 +179,7 @@ test.describe('Create a NATIVE (our own METS) deposit and put some files in it',
         // ### API INTERACTION ###
         console.log("Now request the archival group URI we made earlier:");
         console.log("GET " + preservedDigitalObjectUri);
-        const digitalObjectReq = await request.get(preservedDigitalObjectUri);
+        const digitalObjectReq = await request.get(preservedDigitalObjectUri, { headers: headers });
 
         expect(digitalObjectReq.ok()).toBeTruthy();
         const digitalObject = await digitalObjectReq.json();

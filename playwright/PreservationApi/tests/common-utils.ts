@@ -89,23 +89,23 @@ export function getYMD(){
     return date.toISOString().split('T')[0]
 }
 
-export async function ensurePath(path: string, request: APIRequestContext) {
+export async function ensurePath(path: string, request: APIRequestContext, headers) {
     const parts = path.split('/');
     let buildPath = "/repository";
     for (const part of parts) {
         if(part){
             buildPath += '/' + part;
-            const resourceResp = await request.get(buildPath);
+            const resourceResp = await request.get(buildPath, { headers: headers });
             if(resourceResp.status() == 404){
                 // This is always a container, you can't create other kinds of resource outside of a deposit
-                const containerResp = await request.put(buildPath);
+                const containerResp = await request.put(buildPath, { headers: headers });
             }
             // ignore other status codes for now
         }
     }
 }
 
-export async function waitForStatus(uri: string, status: any, request: APIRequestContext, headers=null){
+export async function waitForStatus(uri: string, status: any, request: APIRequestContext, headers){
       await expect.poll(async () => {
         console.log(`polling object: ${uri}`);
         const resp = await request.get(uri, { headers: headers });

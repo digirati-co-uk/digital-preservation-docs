@@ -5,7 +5,7 @@ import {
     ensurePath,
     waitForStatus,
     getYMD,
-    getSecondOfDay
+    getSecondOfDay, getAuthHeaders
 } from './common-utils'
 
 
@@ -17,9 +17,10 @@ test.describe('Create a NATIVE (our own METS) deposit in BagIt layout, and put f
 
         // Set a very long timeout so you can debug on breakpoints or whatnot.
         test.setTimeout(1000000);
+        const headers = await getAuthHeaders(baseURL);
 
-        const parentContainer = `/native-tests/bagged/${getYMD()}`;
-        await ensurePath(parentContainer, request);
+        const parentContainer = `/_for_testing/bagged/${getYMD()}`;
+        await ensurePath(parentContainer, request, headers);
 
         // We want to have a new WORKING SPACE - a _Deposit_
         // So we ask for one:
@@ -34,11 +35,12 @@ test.describe('Create a NATIVE (our own METS) deposit in BagIt layout, and put f
         const depositReq = await request.post('/deposits', {
             data: {
                 type: "Deposit",
-                templateType: "BagIt", // the layout
+                template: "BagIt", // the layout
                 archivalGroup: preservedDigitalObjectUri,
                 archivalGroupName: agName,
                 submissionText: "This should create a data directory, with objects/, metadata/ and mets.xml within it."
-            }
+            },
+            headers: headers
         });
 
         expect(depositReq.status()).toBe(201);
@@ -50,10 +52,7 @@ test.describe('Create a NATIVE (our own METS) deposit in BagIt layout, and put f
 
         expect(newDeposit.files).toMatch(/s3:\/\/.*/);
 
-        // Unlike the create-deposit.spec example, we ARE going to set the checksum, because we have no
-        // other way of providing it. Later we will be able to get checksums from BagIt.
         const sourceDir = 'samples/bc-example-1/';
-
         // on Windows, if you are in the bc-example-1 folder, this will give you the output below:
         // (gci -Recurse *.*|Resolve-Path -Relative) -replace "\.\\","" -replace "\\","/" | Foreach-Object { '"' + $_  + '",'}
         // BEWARE this is a bit naive, what about quotes as part of filenames?
@@ -104,14 +103,14 @@ test.describe('Create a NATIVE (our own METS) deposit in BagIt layout, and put f
         // POST /deposits/aabbccdd/mets  ... body is an array of strings, e.g., objects/my-file
 
         const metsUri = newDeposit.id + '/mets';
-        const metsResp = await request.get(metsUri);
+        const metsResp = await request.get(metsUri, { headers: headers });
         expect(metsResp.status()).toBe(200);
         const eTag = metsResp.headers()["etag"];
 
         // We can have a look at the filesystem that has resulted from our uploads
         // to the deposit:
         const fileSystemUri = newDeposit.id + '/filesystem?refresh=true';
-        let fileSystemResp = await request.get(fileSystemUri);
+        let fileSystemResp = await request.get(fileSystemUri, { headers: headers });
         expect(fileSystemResp.status()).toBe(200);
         let fileSystem = await fileSystemResp.json();
         console.log("----");
@@ -146,22 +145,23 @@ test.describe('Create a NATIVE (our own METS) deposit in BagIt layout, and put f
 
         // I think it should populate the WorkingDirectory / file system with sha256 and content types too
         // ??? see what happens
+
+        const ifMatchHeaders = structuredClone(headers);
+        ifMatchHeaders["If-Match"] = eTag;
         let metsUpdateResp = await request.post(metsUri, {
             data: files, // The list of file paths we defined earlier
-            headers: {
-                "If-Match": eTag // can't modify METS without this
-            }
+            headers: ifMatchHeaders
         });
         expect(metsUpdateResp.status()).toBe(200);
         const itemsAffected = await metsUpdateResp.json();
-        expect(itemsAffected.items).toHaveLength(23); // the number of things we added to METS - what about containers!
+        expect(itemsAffected.items).toHaveLength(31); // the number of things we added to METS - what about containers!
         console.log("----");
         console.log("items affected:");
         console.log(itemsAffected);
 
         // now we can try to create an import job
         const diffJobGeneratorUri = newDeposit.id + '/importjobs/diff';
-        const secondDiffResp = await request.get(diffJobGeneratorUri);
+        const secondDiffResp = await request.get(diffJobGeneratorUri, { headers: headers });
         expect(secondDiffResp.status()).toBe(200);
         const importJob = await secondDiffResp.json();
         console.log("----");
@@ -174,7 +174,8 @@ test.describe('Create a NATIVE (our own METS) deposit in BagIt layout, and put f
         console.log("Now execute the import job...");
         console.log("POST " + executeJobUri);
         const executeImportJobReq = await request.post(executeJobUri, {
-            data: importJob
+            data: importJob,
+            headers: headers
         });
 
         let importJobResult = await executeImportJobReq.json();
@@ -188,7 +189,7 @@ test.describe('Create a NATIVE (our own METS) deposit in BagIt layout, and put f
         console.log("----");
 
         console.log("... and poll it until it is either complete or completeWithErrors...");
-        await waitForStatus(importJobResult.id, /completed.*/, request);
+        await waitForStatus(importJobResult.id, /completed.*/, request, headers);
         console.log("----");
 
         // Now we should have a preserved archival group in the repository:
@@ -196,7 +197,7 @@ test.describe('Create a NATIVE (our own METS) deposit in BagIt layout, and put f
         // ### API INTERACTION ###
         console.log("Now request the archival group URI we made earlier:");
         console.log("GET " + preservedDigitalObjectUri);
-        const digitalObjectReq = await request.get(preservedDigitalObjectUri);
+        const digitalObjectReq = await request.get(preservedDigitalObjectUri, { headers: headers });
 
         expect(digitalObjectReq.ok()).toBeTruthy();
         const digitalObject = await digitalObjectReq.json();

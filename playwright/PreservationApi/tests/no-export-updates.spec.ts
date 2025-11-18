@@ -1,6 +1,6 @@
 import {expect, test} from '@playwright/test';
 import { createArchivalGroup } from './quick-prep.spec'
-import {getS3Client, getShortTimestamp, uploadFile, waitForStatus} from "./common-utils";
+import {getAuthHeaders, getS3Client, getShortTimestamp, uploadFile, waitForStatus} from "./common-utils";
 
 test.describe('Update an Archival Group without exporting anything first', () => {
 
@@ -9,10 +9,11 @@ test.describe('Update an Archival Group without exporting anything first', () =>
 
         // Set a very long timeout so you can debug on breakpoints or whatnot.
         test.setTimeout(1000000);
+        const headers = await getAuthHeaders(baseURL);
 
         // Background prep
         console.log("Starting condition is a Preserved Digital Object in the repository - we'll make one for this test");
-        const archivalGroupUri = await createArchivalGroup(request, baseURL);
+        const archivalGroupUri = await createArchivalGroup(request, baseURL, headers);
         console.log("Created " + archivalGroupUri);
 
         console.log("Create a new Deposit - NOT an export:");
@@ -21,7 +22,8 @@ test.describe('Update an Archival Group without exporting anything first', () =>
             data: {
                 archivalGroup: archivalGroupUri,
                 submissionText: "Creating a new deposit to demonstrate updates without exporting"
-            }
+            },
+            headers: headers
         })
         const newDeposit = await newDepositResp.json();
         console.log("New Deposit created:");
@@ -68,7 +70,8 @@ test.describe('Update an Archival Group without exporting anything first', () =>
         console.log("POST " + executeJobUri);
         console.log("If this fails, check that the sha256 of your local 10315.METS.xml matches the digest above - may be line-ending issue from GitHub");
         const executeImportJobReq = await request.post(executeJobUri, {
-            data: importJob
+            data: importJob,
+            headers: headers
         });
         let importJobResult = await executeImportJobReq.json();
         console.log(importJobResult);
@@ -80,13 +83,13 @@ test.describe('Update an Archival Group without exporting anything first', () =>
         console.log("----");
 
         console.log("... and poll it until it is either complete or completeWithErrors...");
-        await waitForStatus(importJobResult.id, /completed.*/, request);
+        await waitForStatus(importJobResult.id, /completed.*/, request, headers);
         console.log("----");
 
         // ### API INTERACTION ###
         console.log("Now request the archival group URI we made earlier:");
         console.log("GET " + archivalGroupUri);
-        const archivalGroupReq = await request.get(archivalGroupUri);
+        const archivalGroupReq = await request.get(archivalGroupUri, { headers: headers });
 
         expect(archivalGroupReq.ok()).toBeTruthy();
         const archivalGroup = await archivalGroupReq.json();
@@ -119,7 +122,8 @@ test.describe('Update an Archival Group without exporting anything first', () =>
             data: {
                 archivalGroup: archivalGroupUri,
                 submissionText: "Creating another deposit to add further files"
-            }
+            },
+            headers: headers
         })
         const anotherDeposit = await anotherDepositResp.json();
         console.log("We are going to add the same extra image as in the exporting example.")
@@ -173,7 +177,8 @@ test.describe('Update an Archival Group without exporting anything first', () =>
         const executeJobUri2 = anotherDeposit.id + '/importjobs';
         console.log("POST " + executeJobUri2);
         const executeImportJobReq2 = await request.post(executeJobUri2, {
-            data: importJob2
+            data: importJob2,
+            headers: headers
         });
         let importJobResult2 = await executeImportJobReq2.json();
         console.log(importJobResult2);
@@ -185,12 +190,12 @@ test.describe('Update an Archival Group without exporting anything first', () =>
         console.log("----");
 
         console.log("... and poll it until it is either complete or completeWithErrors...");
-        await waitForStatus(importJobResult2.id, /completed.*/, request);
+        await waitForStatus(importJobResult2.id, /completed.*/, request, headers);
         console.log("----");
 
         console.log("Now request the digital object yet again:");
         console.log("GET " + archivalGroupUri);
-        const archivalGroupReq3 = await request.get(archivalGroupUri);
+        const archivalGroupReq3 = await request.get(archivalGroupUri, { headers: headers });
 
         expect(archivalGroupReq3.ok()).toBeTruthy();
         const archivalGroupV3 = await archivalGroupReq3.json();

@@ -5,7 +5,7 @@ import {
     ensurePath,
     waitForStatus,
     getYMD,
-    getSecondOfDay
+    getSecondOfDay, getAuthHeaders
 } from './common-utils'
 
 // Scenario:
@@ -22,6 +22,7 @@ test.describe('Create a deposit and put some files in it', () => {
 
     test('create-deposit', async ({request, baseURL}) => {
 
+        const headers = await getAuthHeaders(baseURL);
         // Set a very long timeout so you can debug on breakpoints or whatnot.
         test.setTimeout(1000000);
 
@@ -30,8 +31,8 @@ test.describe('Create a deposit and put some files in it', () => {
         // parent location - but that location needs to exist! Goobi isn't the only user of the repository.
         // And also, Goobi can create child structure.
         // This will be a no-op except the very first time, commenting out for now
-        const parentContainer = `/goobi-tests/basic-1/${getYMD()}`;
-        await ensurePath(parentContainer, request);
+        const parentContainer = `/_for_testing/basic-create-deposit/${getYMD()}`;
+        await ensurePath(parentContainer, request, headers);
 
         // We want to have a new WORKING SPACE - a _Deposit_
         // So we ask for one:
@@ -40,7 +41,8 @@ test.describe('Create a deposit and put some files in it', () => {
         console.log("Create a new Deposit:");
         console.log("POST /deposits");
         const depositReq = await request.post('/deposits', {
-            data: {}
+            data: {},
+            headers: headers
         }); // expect fail need data {}
 
         expect(depositReq.status()).toBe(201);
@@ -118,7 +120,8 @@ test.describe('Create a deposit and put some files in it', () => {
             data: {
                 archivalGroup: preservedDigitalObjectUri,
                 submissionText: "You can write what you like here"
-            }
+            },
+            headers: headers
         });
         console.log("----");
 
@@ -138,7 +141,7 @@ test.describe('Create a deposit and put some files in it', () => {
         // ### API INTERACTION ###
         console.log("Asking service to generate an import job from the deposit files (a diff)...");
         console.log("GET " + diffJobGeneratorUri);
-        const diffReq = await request.get(diffJobGeneratorUri);
+        const diffReq = await request.get(diffJobGeneratorUri, { headers: headers });
 
         const diffImportJob = await diffReq.json();
         console.log(diffImportJob);
@@ -158,7 +161,8 @@ test.describe('Create a deposit and put some files in it', () => {
         console.log("Now execute the import job...");
         console.log("POST " + executeJobUri);
         const executeImportJobReq = await request.post(executeJobUri, {
-            data: diffImportJob
+            data: diffImportJob,
+            headers: headers
         });
 
         let importJobResult = await executeImportJobReq.json();
@@ -180,7 +184,7 @@ test.describe('Create a deposit and put some files in it', () => {
         // either "completed" or "completedWithErrors",
 
         console.log("... and poll it until it is either complete or completeWithErrors...");
-        await waitForStatus(importJobResult.id, /completed.*/, request);
+        await waitForStatus(importJobResult.id, /completed.*/, request, headers);
         console.log("----");
 
         // Now we should have a preserved digital object in the repository:
@@ -188,7 +192,7 @@ test.describe('Create a deposit and put some files in it', () => {
         // ### API INTERACTION ###
         console.log("Now request the digital object URI we made earlier:");
         console.log("GET " + preservedDigitalObjectUri);
-        const digitalObjectReq = await request.get(preservedDigitalObjectUri);
+        const digitalObjectReq = await request.get(preservedDigitalObjectUri, { headers: headers });
 
         expect(digitalObjectReq.ok()).toBeTruthy();
         const digitalObject = await digitalObjectReq.json();

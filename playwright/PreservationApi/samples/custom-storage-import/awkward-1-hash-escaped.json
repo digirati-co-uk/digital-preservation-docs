@@ -1,0 +1,56 @@
+{
+  "id": "https://example.com/import-job/___transient_id___",
+  "type": "ImportJob",
+  "created": "2025-05-03T17:00:09.068272Z",
+  "createdBy": "https://localhost:7000/agents/dlipdev",
+  "lastModified": "2025-05-03T17:00:09.068272Z",
+  "lastModifiedBy": "https://localhost:7000/agents/dlipdev",
+  "archivalGroup": "https://localhost:7000/repository/___replace_path___",
+  "archivalGroupName": "___replace_name___",
+  "isUpdate": false,
+  "source": "s3://dlip-pres-dev-deposits/deposits/qyazwnjh35z5/",
+  "SourceVersion": null,
+  "ContainersToAdd": [    
+    {
+      "id": "https://localhost:7000/repository/___replace_path___/objects",
+      "type": "Container",
+      "name": "objects",
+      "origin": "s3://dlip-pres-dev-deposits/deposits/qyazwnjh35z5/data/objects",
+      "containers": [],
+      "binaries": []
+    },
+    {
+      "id": "https://localhost:7000/repository/___replace_path___/objects/awkward",
+      "type": "Container",
+      "name": "awkward",
+      "origin": "s3://dlip-pres-dev-deposits/deposits/qyazwnjh35z5/data/objects/awkward",
+      "containers": [],
+      "binaries": []
+    }
+  ],
+  "BinariesToAdd": [
+    {
+      "id": "https://localhost:7000/repository/___replace_path___/objects/awkward/7%20ways%20to%20celebrate%20(percent-23)WomensHistoryMonth%20%F0%9F%92%9C%20And%20a%20sneak%20peek%20at%20SICK%20new%20art.htm",
+      "type": "Binary",
+      "name": "7 ways to celebrate #WomensHistoryMonth \uD83D\uDC9C And a sneak peek at SICK new art.htm",
+      "origin": "s3://dlip-pres-dev-deposits/deposits/qyazwnjh35z5/data/objects/awkward/7%20ways%20to%20celebrate%20%23WomensHistoryMonth%20%F0%9F%92%9C%20And%20a%20sneak%20peek%20at%20SICK%20new%20art.htm",
+      "contentType": "text/html",
+      "size": 615504,
+      "digest": "e4267807db7270096340540b93834d3c47d56c964d5b5b27fa9a398fde52165e"
+    },
+    {
+      "id": "https://localhost:7000/repository/___replace_path___/objects/awkward/%E6%85%B7%E7%8D%B9%E7%90%A0%E6%95%A3%E6%95%AC%E7%89%A2%E7%91%A1%E5%9C%A3%E6%B5%AF%E6%B9%A5%E4%A1%B3%E7%8D%A9%E6%BD%B4%E7%A5%B2%E6%BD%8D%E7%91%AE%E3%BC%BF%E4%84%A0%E6%91%AE%E6%84%A0%E7%8C%A0%E6%95%AE%E6%AD%A1%E7%80%A0%E6%95%A5%E7%91%A1%E5%8C%A0%E4%8D%89%E6%95%AE%E2%81%B7%E7%89%A1%EF%BF%BD.msg",
+      "type": "Binary",
+      "name": "\u6177\u7379\u7420\u6563\u656C\u7262\u7461\u5723\u6D6F\u6E65\u4873\u7369\u6F74\u7972\u6F4D\u746E\u3F3F\u4120\u646E\u6120\u7320\u656E\u6B61\u7020\u6565\u7461\u5320\u4349\u656E\u2077\u7261\uFFFD.msg",
+      "origin": "s3://dlip-pres-dev-deposits/deposits/qyazwnjh35z5/data/objects/awkward/%E6%85%B7%E7%8D%B9%E7%90%A0%E6%95%A3%E6%95%AC%E7%89%A2%E7%91%A1%E5%9C%A3%E6%B5%AF%E6%B9%A5%E4%A1%B3%E7%8D%A9%E6%BD%B4%E7%A5%B2%E6%BD%8D%E7%91%AE%E3%BC%BF%E4%84%A0%E6%91%AE%E6%84%A0%E7%8C%A0%E6%95%AE%E6%AD%A1%E7%80%A0%E6%95%A5%E7%91%A1%E5%8C%A0%E4%8D%89%E6%95%AE%E2%81%B7%E7%89%A1%EF%BF%BD.msg",
+      "contentType": "binary/octet-stream",
+      "size": 165888,
+      "digest": "5c96ddc2f012cdededdad116a913bf7e57ba8b9684c8a1b9b429b77f7d13629a"
+    }
+  ],
+  "ContainersToDelete": [],
+  "BinariesToDelete": [],
+  "BinariesToPatch": [],
+  "ContainersToRename": [],
+  "BinariesToRename": []
+}
