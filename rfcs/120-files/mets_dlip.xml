@@ -1,0 +1,298 @@
+﻿
+<mets:mets xmlns:mods="http://www.loc.gov/mods/v3" xmlns:premis="http://www.loc.gov/premis/v3" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:mets="http://www.loc.gov/METS/">
+    <mets:metsHdr CREATEDATE="2025-09-12T09:20:42.503665+00:00">
+        <mets:agent ROLE="CREATOR" TYPE="OTHER" OTHERTYPE="SOFTWARE">
+            <mets:name>University of Leeds Digital Library Infrastructure Project</mets:name>
+        </mets:agent>
+    </mets:metsHdr>
+    <mets:dmdSec ID="DMD_PHYS_ROOT">
+        <mets:mdWrap MDTYPE="MODS">
+            <mets:xmlData>
+                <mods:mods>
+                    <mods:titleInfo>
+                        <mods:title>[Untitled]</mods:title>
+                    </mods:titleInfo>
+                </mods:mods>
+            </mets:xmlData>
+        </mets:mdWrap>
+    </mets:dmdSec>
+    <mets:amdSec ID="ADM_objects">
+        <mets:techMD ID="TECH_objects">
+            <mets:mdWrap MDTYPE="PREMIS:OBJECT">
+                <mets:xmlData>
+                    <premis:object xsi:type="premis:file">
+                        <premis:objectCharacteristics />
+                        <premis:originalName>objects</premis:originalName>
+                    </premis:object>
+                </mets:xmlData>
+            </mets:mdWrap>
+        </mets:techMD>
+    </mets:amdSec>
+    <mets:amdSec ID="ADM_metadata">
+        <mets:techMD ID="TECH_metadata">
+            <mets:mdWrap MDTYPE="PREMIS:OBJECT">
+                <mets:xmlData>
+                    <premis:object xsi:type="premis:file">
+                        <premis:objectCharacteristics />
+                        <premis:originalName>metadata</premis:originalName>
+                    </premis:object>
+                </mets:xmlData>
+            </mets:mdWrap>
+        </mets:techMD>
+    </mets:amdSec>
+    <mets:amdSec ID="ADM_objects/pxl_20250825_142937791_v17.jpg">
+        <mets:techMD ID="TECH_objects/pxl_20250825_142937791_v17.jpg">
+            <mets:mdWrap MDTYPE="PREMIS:OBJECT">
+                <mets:xmlData>
+                    <premis:object xsi:type="premis:file">
+                        <premis:objectCharacteristics>
+                            <premis:fixity>
+                                <premis:messageDigestAlgorithm xsi:type="premis:messageDigestAlgorithm">SHA256</premis:messageDigestAlgorithm>
+                                <premis:messageDigest>5163c5c7682045bdbae8588474203f21621bd1a45bef88ed5a0010d4ec72fb26</premis:messageDigest>
+                            </premis:fixity>
+                            <premis:size>414627</premis:size>
+                            <premis:format>
+                                <premis:formatDesignation>
+                                    <premis:formatName xsi:type="premis:formatName">JPEG File Interchange Format</premis:formatName>
+                                </premis:formatDesignation>
+                                <premis:formatRegistry>
+                                    <premis:formatRegistryName xsi:type="premis:formatRegistryName">PRONOM</premis:formatRegistryName>
+                                    <premis:formatRegistryKey xsi:type="premis:formatRegistryKey">fmt/43</premis:formatRegistryKey>
+                                </premis:formatRegistry>
+                            </premis:format>
+                        </premis:objectCharacteristics>
+                        <premis:originalName>objects/pxl_20250825_142937791_v17.jpg</premis:originalName>
+                    </premis:object>
+                </mets:xmlData>
+            </mets:mdWrap>
+        </mets:techMD>
+    </mets:amdSec>
+    <mets:amdSec ID="ADM_metadata/brunnhilde">
+        <mets:techMD ID="TECH_metadata/brunnhilde">
+            <mets:mdWrap MDTYPE="PREMIS:OBJECT">
+                <mets:xmlData>
+                    <premis:object xsi:type="premis:file">
+                        <premis:objectCharacteristics />
+                        <premis:originalName>metadata/brunnhilde</premis:originalName>
+                    </premis:object>
+                </mets:xmlData>
+            </mets:mdWrap>
+        </mets:techMD>
+    </mets:amdSec>
+    <mets:amdSec ID="ADM_metadata/brunnhilde/csv_reports">
+        <mets:techMD ID="TECH_metadata/brunnhilde/csv_reports">
+            <mets:mdWrap MDTYPE="PREMIS:OBJECT">
+                <mets:xmlData>
+                    <premis:object xsi:type="premis:file">
+                        <premis:objectCharacteristics />
+                        <premis:originalName>metadata/brunnhilde/csv_reports</premis:originalName>
+                    </premis:object>
+                </mets:xmlData>
+            </mets:mdWrap>
+        </mets:techMD>
+    </mets:amdSec>
+    <mets:amdSec ID="ADM_metadata/brunnhilde/logs">
+        <mets:techMD ID="TECH_metadata/brunnhilde/logs">
+            <mets:mdWrap MDTYPE="PREMIS:OBJECT">
+                <mets:xmlData>
+                    <premis:object xsi:type="premis:file">
+                        <premis:objectCharacteristics />
+                        <premis:originalName>metadata/brunnhilde/logs</premis:originalName>
+                    </premis:object>
+                </mets:xmlData>
+            </mets:mdWrap>
+        </mets:techMD>
+    </mets:amdSec>
+    <mets:amdSec ID="ADM_metadata/brunnhilde/report.html">
+        <mets:techMD ID="TECH_metadata/brunnhilde/report.html">
+            <mets:mdWrap MDTYPE="PREMIS:OBJECT">
+                <mets:xmlData>
+                    <premis:object xsi:type="premis:file">
+                        <premis:objectCharacteristics>
+                            <premis:fixity>
+                                <premis:messageDigestAlgorithm xsi:type="premis:messageDigestAlgorithm">SHA256</premis:messageDigestAlgorithm>
+                                <premis:messageDigest>2a980565133dddb4463e0ef6512c54a67092068c6c7eaad580c612b9ea61a170</premis:messageDigest>
+                            </premis:fixity>
+                            <premis:size>5198</premis:size>
+                        </premis:objectCharacteristics>
+                        <premis:originalName>metadata/brunnhilde/report.html</premis:originalName>
+                    </premis:object>
+                </mets:xmlData>
+            </mets:mdWrap>
+        </mets:techMD>
+    </mets:amdSec>
+    <mets:amdSec ID="ADM_metadata/brunnhilde/siegfried.csv">
+        <mets:techMD ID="TECH_metadata/brunnhilde/siegfried.csv">
+            <mets:mdWrap MDTYPE="PREMIS:OBJECT">
+                <mets:xmlData>
+                    <premis:object xsi:type="premis:file">
+                        <premis:objectCharacteristics>
+                            <premis:fixity>
+                                <premis:messageDigestAlgorithm xsi:type="premis:messageDigestAlgorithm">SHA256</premis:messageDigestAlgorithm>
+                                <premis:messageDigest>247649976dd0a3ce23623d80f59f5fe7c951265d087d62df398a3d3b0a30d583</premis:messageDigest>
+                            </premis:fixity>
+                            <premis:size>397</premis:size>
+                        </premis:objectCharacteristics>
+                        <premis:originalName>metadata/brunnhilde/siegfried.csv</premis:originalName>
+                    </premis:object>
+                </mets:xmlData>
+            </mets:mdWrap>
+        </mets:techMD>
+    </mets:amdSec>
+    <mets:amdSec ID="ADM_metadata/brunnhilde/csv_reports/formats.csv">
+        <mets:techMD ID="TECH_metadata/brunnhilde/csv_reports/formats.csv">
+            <mets:mdWrap MDTYPE="PREMIS:OBJECT">
+                <mets:xmlData>
+                    <premis:object xsi:type="premis:file">
+                        <premis:objectCharacteristics>
+                            <premis:fixity>
+                                <premis:messageDigestAlgorithm xsi:type="premis:messageDigestAlgorithm">SHA256</premis:messageDigestAlgorithm>
+                                <premis:messageDigest>45b4ed075849663bfebc15cff659eefd5d436302d469eb39d9ec515a9567ccbd</premis:messageDigest>
+                            </premis:fixity>
+                            <premis:size>56</premis:size>
+                        </premis:objectCharacteristics>
+                        <premis:originalName>metadata/brunnhilde/csv_reports/formats.csv</premis:originalName>
+                    </premis:object>
+                </mets:xmlData>
+            </mets:mdWrap>
+        </mets:techMD>
+    </mets:amdSec>
+    <mets:amdSec ID="ADM_metadata/brunnhilde/csv_reports/formatversions.csv">
+        <mets:techMD ID="TECH_metadata/brunnhilde/csv_reports/formatversions.csv">
+            <mets:mdWrap MDTYPE="PREMIS:OBJECT">
+                <mets:xmlData>
+                    <premis:object xsi:type="premis:file">
+                        <premis:objectCharacteristics>
+                            <premis:fixity>
+                                <premis:messageDigestAlgorithm xsi:type="premis:messageDigestAlgorithm">SHA256</premis:messageDigestAlgorithm>
+                                <premis:messageDigest>8dc48b824a89b28ad68d5e8bed95f042aead066400c16e36d0e92b60a4a57fff</premis:messageDigest>
+                            </premis:fixity>
+                            <premis:size>69</premis:size>
+                        </premis:objectCharacteristics>
+                        <premis:originalName>metadata/brunnhilde/csv_reports/formatversions.csv</premis:originalName>
+                    </premis:object>
+                </mets:xmlData>
+            </mets:mdWrap>
+        </mets:techMD>
+    </mets:amdSec>
+    <mets:amdSec ID="ADM_metadata/brunnhilde/csv_reports/mimetypes.csv">
+        <mets:techMD ID="TECH_metadata/brunnhilde/csv_reports/mimetypes.csv">
+            <mets:mdWrap MDTYPE="PREMIS:OBJECT">
+                <mets:xmlData>
+                    <premis:object xsi:type="premis:file">
+                        <premis:objectCharacteristics>
+                            <premis:fixity>
+                                <premis:messageDigestAlgorithm xsi:type="premis:messageDigestAlgorithm">SHA256</premis:messageDigestAlgorithm>
+                                <premis:messageDigest>7134ef450426b6ae5051f78269cc70d50fd5250c04c2ba3fe4b66a36eff43cfc</premis:messageDigest>
+                            </premis:fixity>
+                            <premis:size>31</premis:size>
+                        </premis:objectCharacteristics>
+                        <premis:originalName>metadata/brunnhilde/csv_reports/mimetypes.csv</premis:originalName>
+                    </premis:object>
+                </mets:xmlData>
+            </mets:mdWrap>
+        </mets:techMD>
+    </mets:amdSec>
+    <mets:amdSec ID="ADM_metadata/brunnhilde/csv_reports/years.csv">
+        <mets:techMD ID="TECH_metadata/brunnhilde/csv_reports/years.csv">
+            <mets:mdWrap MDTYPE="PREMIS:OBJECT">
+                <mets:xmlData>
+                    <premis:object xsi:type="premis:file">
+                        <premis:objectCharacteristics>
+                            <premis:fixity>
+                                <premis:messageDigestAlgorithm xsi:type="premis:messageDigestAlgorithm">SHA256</premis:messageDigestAlgorithm>
+                                <premis:messageDigest>566ad4d9c370e66b64f259a2353d0779f7576a2634cba3dc9fbae15d4ef85a3e</premis:messageDigest>
+                            </premis:fixity>
+                            <premis:size>34</premis:size>
+                        </premis:objectCharacteristics>
+                        <premis:originalName>metadata/brunnhilde/csv_reports/years.csv</premis:originalName>
+                    </premis:object>
+                </mets:xmlData>
+            </mets:mdWrap>
+        </mets:techMD>
+    </mets:amdSec>
+    <mets:amdSec ID="ADM_metadata/brunnhilde/logs/viruscheck-log.txt">
+        <mets:techMD ID="TECH_metadata/brunnhilde/logs/viruscheck-log.txt">
+            <mets:mdWrap MDTYPE="PREMIS:OBJECT">
+                <mets:xmlData>
+                    <premis:object xsi:type="premis:file">
+                        <premis:objectCharacteristics>
+                            <premis:fixity>
+                                <premis:messageDigestAlgorithm xsi:type="premis:messageDigestAlgorithm">SHA256</premis:messageDigestAlgorithm>
+                                <premis:messageDigest>7e2149963bdd71a334b3f103ebe337645530075f50019d854cb677bb6fc2396b</premis:messageDigest>
+                            </premis:fixity>
+                            <premis:size>329</premis:size>
+                        </premis:objectCharacteristics>
+                        <premis:originalName>metadata/brunnhilde/logs/viruscheck-log.txt</premis:originalName>
+                    </premis:object>
+                </mets:xmlData>
+            </mets:mdWrap>
+        </mets:techMD>
+    </mets:amdSec>
+    <mets:fileSec>
+        <mets:fileGrp USE="OBJECTS">
+            <mets:file ID="FILE_objects/pxl_20250825_142937791_v17.jpg" MIMETYPE="image/jpeg" ADMID="ADM_objects/pxl_20250825_142937791_v17.jpg">
+                <mets:FLocat LOCTYPE="URL" xlink:type="simple" xlink:href="objects/pxl_20250825_142937791_v17.jpg" />
+            </mets:file>
+            <mets:file ID="FILE_metadata/brunnhilde/report.html" MIMETYPE="text/html" ADMID="ADM_metadata/brunnhilde/report.html">
+                <mets:FLocat LOCTYPE="URL" xlink:type="simple" xlink:href="metadata/brunnhilde/report.html" />
+            </mets:file>
+            <mets:file ID="FILE_metadata/brunnhilde/siegfried.csv" MIMETYPE="text/csv" ADMID="ADM_metadata/brunnhilde/siegfried.csv">
+                <mets:FLocat LOCTYPE="URL" xlink:type="simple" xlink:href="metadata/brunnhilde/siegfried.csv" />
+            </mets:file>
+            <mets:file ID="FILE_metadata/brunnhilde/csv_reports/formats.csv" MIMETYPE="text/csv" ADMID="ADM_metadata/brunnhilde/csv_reports/formats.csv">
+                <mets:FLocat LOCTYPE="URL" xlink:type="simple" xlink:href="metadata/brunnhilde/csv_reports/formats.csv" />
+            </mets:file>
+            <mets:file ID="FILE_metadata/brunnhilde/csv_reports/formatversions.csv" MIMETYPE="text/csv" ADMID="ADM_metadata/brunnhilde/csv_reports/formatversions.csv">
+                <mets:FLocat LOCTYPE="URL" xlink:type="simple" xlink:href="metadata/brunnhilde/csv_reports/formatversions.csv" />
+            </mets:file>
+            <mets:file ID="FILE_metadata/brunnhilde/csv_reports/mimetypes.csv" MIMETYPE="text/csv" ADMID="ADM_metadata/brunnhilde/csv_reports/mimetypes.csv">
+                <mets:FLocat LOCTYPE="URL" xlink:type="simple" xlink:href="metadata/brunnhilde/csv_reports/mimetypes.csv" />
+            </mets:file>
+            <mets:file ID="FILE_metadata/brunnhilde/csv_reports/years.csv" MIMETYPE="text/csv" ADMID="ADM_metadata/brunnhilde/csv_reports/years.csv">
+                <mets:FLocat LOCTYPE="URL" xlink:type="simple" xlink:href="metadata/brunnhilde/csv_reports/years.csv" />
+            </mets:file>
+            <mets:file ID="FILE_metadata/brunnhilde/logs/viruscheck-log.txt" MIMETYPE="text/plain" ADMID="ADM_metadata/brunnhilde/logs/viruscheck-log.txt">
+                <mets:FLocat LOCTYPE="URL" xlink:type="simple" xlink:href="metadata/brunnhilde/logs/viruscheck-log.txt" />
+            </mets:file>
+        </mets:fileGrp>
+    </mets:fileSec>
+    <mets:structMap TYPE="PHYSICAL">
+        <mets:div ID="PHYS_ROOT" LABEL="__ROOT" DMDID="DMD_PHYS_ROOT" TYPE="Directory">
+            <mets:div ID="PHYS_metadata" LABEL="metadata" DMDID="DMD_metadata" ADMID="ADM_metadata" TYPE="Directory">
+                <mets:div ID="PHYS_metadata/brunnhilde" LABEL="brunnhilde" ADMID="ADM_metadata/brunnhilde" TYPE="Directory">
+                    <mets:div ID="PHYS_metadata/brunnhilde/csv_reports" LABEL="csv_reports" ADMID="ADM_metadata/brunnhilde/csv_reports" TYPE="Directory">
+                        <mets:div ID="PHYS_metadata/brunnhilde/csv_reports/formats.csv" LABEL="formats.csv" TYPE="Item">
+                            <mets:fptr FILEID="FILE_metadata/brunnhilde/csv_reports/formats.csv" />
+                        </mets:div>
+                        <mets:div ID="PHYS_metadata/brunnhilde/csv_reports/formatversions.csv" LABEL="formatVersions.csv" TYPE="Item">
+                            <mets:fptr FILEID="FILE_metadata/brunnhilde/csv_reports/formatversions.csv" />
+                        </mets:div>
+                        <mets:div ID="PHYS_metadata/brunnhilde/csv_reports/mimetypes.csv" LABEL="mimetypes.csv" TYPE="Item">
+                            <mets:fptr FILEID="FILE_metadata/brunnhilde/csv_reports/mimetypes.csv" />
+                        </mets:div>
+                        <mets:div ID="PHYS_metadata/brunnhilde/csv_reports/years.csv" LABEL="years.csv" TYPE="Item">
+                            <mets:fptr FILEID="FILE_metadata/brunnhilde/csv_reports/years.csv" />
+                        </mets:div>
+                    </mets:div>
+                    <mets:div ID="PHYS_metadata/brunnhilde/logs" LABEL="logs" ADMID="ADM_metadata/brunnhilde/logs" TYPE="Directory">
+                        <mets:div ID="PHYS_metadata/brunnhilde/logs/viruscheck-log.txt" LABEL="viruscheck-log.txt" TYPE="Item">
+                            <mets:fptr FILEID="FILE_metadata/brunnhilde/logs/viruscheck-log.txt" />
+                        </mets:div>
+                    </mets:div>
+                    <mets:div ID="PHYS_metadata/brunnhilde/report.html" LABEL="report.html" TYPE="Item">
+                        <mets:fptr FILEID="FILE_metadata/brunnhilde/report.html" />
+                    </mets:div>
+                    <mets:div ID="PHYS_metadata/brunnhilde/siegfried.csv" LABEL="siegfried.csv" TYPE="Item">
+                        <mets:fptr FILEID="FILE_metadata/brunnhilde/siegfried.csv" />
+                    </mets:div>
+                </mets:div>
+            </mets:div>
+            <mets:div ID="PHYS_objects" LABEL="objects" DMDID="DMD_objects" ADMID="ADM_objects" TYPE="Directory">
+                <mets:div ID="PHYS_objects/pxl_20250825_142937791_v17.jpg" LABEL="PXL_20250825_142937791_v17.jpg" TYPE="Item">
+                    <mets:fptr FILEID="FILE_objects/pxl_20250825_142937791_v17.jpg" />
+                </mets:div>
+            </mets:div>
+        </mets:div>
+    </mets:structMap>
+</mets:mets>
