@@ -48,7 +48,7 @@ S3 only sets the content type metadata if we don't supply one in the form upload
 
 Either way this gets stored in the S3 object metadata:
 
-![S3 object metadata](s3-object-metadata.png)
+![S3 object metadata](images/s3-object-metadata.png)
 
 If we put the object directly in S3 and then regenerate the filesystem, then obviously S3 sets this metadata field, unless we set it ourselves manually.
 
@@ -75,6 +75,12 @@ We then ADD the WorkingFile to METS, and the ContentType appears as the MIMETYPE
  - The second file was determined on the browser as video/mp4 and this makes its way all the way through to the METS.
  - The third file demonstrates that we can supply an alternative ContentType value on the PutObjectRequest to S3 and it will persist into METS.
  - The fourth file is something which neither the browser or MimeTypes could determine a content type for, and S3 applied application/octet-stream, which persists into METS.
+
+# Further information from tools
+
+If we now run Siegfried over these files, we acquire
+
+
 
 In S3, 
 
