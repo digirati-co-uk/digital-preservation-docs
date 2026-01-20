@@ -20,7 +20,7 @@ If no value is supplied in the form submission, we use the [MimeTypes](https://g
         depositFileContentType = foundMimeType;
 ```
 
-We then call `WorkspaceManager.UploadSingleSmallFile(...)`, supplying the detemined content type (which might still be null).
+We then call `WorkspaceManager.UploadSingleSmallFile(...)`, supplying the determined content type (which might still be null).
 
 This will cause `UploadFileToDepositHandler` to run, which makes an S3 `PutObjectRequest`:
 
@@ -78,14 +78,42 @@ We then ADD the WorkingFile to METS, and the ContentType appears as the MIMETYPE
 
 # Further information from tools
 
-If we now run Siegfried over these files, we acquire
+If we now [run Siegfried](images/siegfried.csv) over these files, we acquire some more content type information.
+But Siegfried doesn't give the same results for some file types:
+
+| file                               | S3/Browser/MimeTypes       | Siegfried CT    | Siegfried PRONOM                            |
+|------------------------------------|----------------------------|-----------------|---------------------------------------------|
+| boo.bar                            | application/octet-stream   | null            | fmt/683 - Vector Markup Language            |
+| brian_news-alert-test-cpr-3171.msg | application/vnd.ms-outlook | null            | x-fmt/430 - Microsoft Outlook Email Message |
+| chrome_bookmarks_11_11_2020.html   | text/html                  | null            | fmt/1132 - Netscape Bookmark File Format    |
+| digirati-logo-white-green.svg      | image/svg+xml              | null            | (none)                                      |
+| foo.bar                            | application/octet-stream   | null            | fmt/683 - Vector Markup Language            |
+| pm1.mp4 (custom S3 write)          | application/mp4            | application/mp4 | fmt/199 - MPEG-4 Media File                 |
+| pm2.mp4 (standard upload)          | video/mp4                  | application/mp4 | fmt/199 - MPEG-4 Media File                 |
+| Silver-Dagger.m4a                  | audio/x-m4a                | application/mp4 | fmt/199 - MPEG-4 Media File                 |
+| Silver-Dagger.mp4                  | video/mp4                  | application/mp4 | fmt/199 - MPEG-4 Media File                 |
+| ZoomOutlookPluginSetup.msi         | application/octet-stream   | null            | fmt/111 - OLE2 Compound Document Format     |
+
+(The two MP4s and the two Silver-Dagger.* are the same binary content)
+
+We have tended to assume that Siegfried is a better source, because it actually examines the file. The S3/Browser/MimeTypes mechanisms are just looking up the file extension in a big list. However, there are two scenarios we need to address:
+
+ - S3/Browser/MimeTypes gives one answer, Siegfried gives another (pm2.mp4)
+ - Siegfried doesn't report a content type at all
+
+In the first case, which one do we store in the METS?
+
+In the latter case Siegfried still _identifies_ the file correctly (most of the time) but doesn't assign a content type. Should we just use the content type we got from S3/Browser/MimeTypes? If so, should we record the fact that Siegfried didn't identify the file? That information is present in the siegfried.csv file, but 
+
+What do we consider a mismatch between the file system (S3 metadata + metadata parsed from siegfried.csv) and the METS file? The METS file's MIMETYPE might agree with one of those.
+
+The MIMETYPE attribute in METS is used by iiif-builder when registering _assets_ with IIIF Cloud Services. In the case of pm1.mp4 and pm2.mp4, the content type obtained by S3/Browser/MimeTypes is *better* than the Siegfried one. While MP4 can be a container format for audio or video, these MP4s really are videos! And this is important when registering assets because the registered content type - image/\*, audio/\*, video/\* - is significant. It determines how the asset will be processed.
+
+Silver-Dagger.m4a and Silver-Dagger.mp4 are pure audio files - they are the same file, just with different file extensions. The extension-only approach produces a better result for .m4a - but the extension-only approach for Silver-Dagger.mp4 is actively harmful, this is not a video.
+
+(See https://en.wikipedia.org/wiki/MP4_file_format#Filename_extensions for more information - while MP4 audio is usually .m4a, it doesn't _have_ to be.)
+
+## Strategy for dealing with content type
 
 
-
-In S3, 
-
-| Source | Where |
-|-----------|-------|
-| input file element | in-browser |
-| MimeTypes | On file upload if not in form submission |
-| S3 determined | in GetObjectMetadataResponse => .Headers.ContentType |
+TBC
