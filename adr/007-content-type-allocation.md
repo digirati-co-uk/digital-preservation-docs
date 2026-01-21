@@ -116,9 +116,11 @@ Silver-Dagger.m4a and Silver-Dagger.mp4 are pure audio files - they are the same
 ## Strategy for dealing with content type differences
 
 - Get a "Best Content Type" from the Deposit WorkingFile - taking into account 0..n content types from `FileFormatMetadata` values as well as the ContentType initially determined on the file (and stored in S3 metadata and/or __metslike.json filesystem)
-- `ContentTypes.GetBestContentType(WorkingFile? fileInDeposit)` is an extension point for adding in more complex decisions later, perhaps by looking at the outputs of further tools such as EXIFTool or even FFProbe. I have added in some started logic here to favour video/mp4 over application/mp4 and similar patterns - but this needs more work.
+- `ContentTypes.GetBestContentType(WorkingFile? fileInDeposit)` is an extension point for adding in more complex decisions later, perhaps by looking at the outputs of further tools such as EXIFTool or even FFProbe. I have added in some started logic here to favour video/mp4 over application/mp4 and similar patterns - but this needs more work. It's now where we start removing generic content types if we have more than one.
 - When adding to or updating METS via patchPremis / premisFile logic, use this "best Content Type" if present
 - Mismatch between METS and Deposit is a mismatch between this BEST value and what's currently in the METS file.
+- Actually list all the content types when there is a mismatch when trying to create an import job
+
 
 Additional changes
 
