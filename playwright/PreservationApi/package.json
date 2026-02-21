@@ -12,8 +12,8 @@
     "@types/node": "^22.13.2"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.633.0",
-    "@aws-sdk/credential-providers": "^3.632.0",
+    "@aws-sdk/client-s3": "^3.995.0",
+    "@aws-sdk/credential-providers": "^3.995.0",
     "@azure/msal-node": "^3.4.1",
     "amazon-s3-url": "^1.0.3",
     "dotenv": "^16.4.7",
