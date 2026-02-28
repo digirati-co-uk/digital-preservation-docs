@@ -10,6 +10,6 @@
   "devDependencies": {
     "@playwright/test": "^1.50.1",
     "@types/node": "^22.13.2",
-    "fast-xml-parser": "^4.5.1"
+    "fast-xml-parser": "^5.3.8"
   }
 }
