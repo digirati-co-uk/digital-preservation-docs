@@ -1,5 +1,10 @@
 # The Preservation API's use of METS files
 
+> [!WARNING]
+> This page is superseded. The METS handling described here has grown considerably; see the current pages:
+> - [The METS files we write](./02b-METS-Written-by-the-Platform.md) — a specification of the platform's own METS output
+> - [What the METS parser can read](./02c-METS-Parsing.md) — the flavours of third-party METS we understand
+
 The Preservation API is aware of METS and will try to read METS files in Deposits and Archival Groups, and, where a Deposit is created from a template or has a METS file with a particular mets:Agent, will write to the METS file as you edit the Deposit, generate tool output data, and other operations.
 
 The aim is that the Preservation API can read METS from a variety of sources, not just the METS files it creates and manages. When a new profile of METS is used, that it can't extract the necessary information from, the maintainers of the API should extend it to understand that profile.
