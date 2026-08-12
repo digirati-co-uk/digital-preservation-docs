@@ -135,6 +135,13 @@ The parser resolves the most appropriate PREMIS metadata for each file by follow
 
 The `ADMID` may point at a `mets:techMD` directly, or at a `mets:amdSec` that contains one (Archivematica's style). Both are handled.
 
+`ADMID` and `DMDID` are schema-typed **IDREFS** — a whitespace-separated list of references — and the parser handles both realities that creates:
+
+- The **whole attribute value** is tried first. This is how METS the platform wrote before issue #188 keeps working: those IDs can themselves contain spaces (they embed file paths), so the reference attribute and the target's `ID` are the same raw string and match exactly.
+- If the whole value resolves nothing and contains whitespace (space, tab or newline — all legal IDREFS separators), each **individual token** is tried in order, first match winning. This is how a genuine multi-reference list (`ADMID="AMD_rights AMD_tech"`), common in Archivematica and Goobi METS, resolves.
+
+The techMD-then-amdSec fallback above applies to each candidate in turn. See [METS identifiers](./02d-METS-Identifiers.md) for the full story on why both forms exist.
+
 ## Reading the PREMIS object
 
 Within the resolved techMD the parser looks for a `premis:object` — and although the *wrapping* differs between producers (`MDTYPE="PREMIS:OBJECT"` in ours, `MDTYPE="OTHER" MIMETYPE="text/xml"` in Goobi's and EPrints'; EPrints omits `mets:xmlData` entirely), the PREMIS content is handled uniformly:
@@ -265,7 +272,9 @@ Examples of all three third-party PREMIS variants:
 
 ### Virus-scan events
 
-A `mets:digiprovMD` whose ID matches `digiprovMD_ClamAV_{admId}` (matched case-insensitively, by containment) yields virus-scan metadata from the `premis:event` within: outcome (`Pass`/`Fail` — outcome `fail` means a virus was found), the virus name from `eventOutcomeDetailNote`, the scanner/definitions from `eventDetail`, and the scan timestamp. See the [writer page](./02b-METS-Written-by-the-Platform.md#virus-scanning-digiprovmd--premis-event) for a full example.
+The virus-scan event is found **structurally**: within the same `mets:amdSec` as the file's resolved techMD, the `mets:digiprovMD` whose ID *starts with* `digiprovMD_ClamAV_` (case-insensitive) is the scan record. Only when nothing is found structurally does the parser fall back to looking the ID up by the naming convention (`digiprovMD_ClamAV_{resolved techMD/amdSec ID}`), and that fallback is an **exact** (case-insensitive) match — containment matching was removed because it cross-talked between files whose IDs are prefixes of one another (`ADM_a` is contained in `ADM_a2`).
+
+The `premis:event` within yields: outcome (`Pass`/`Fail` — outcome `fail` means a virus was found), the virus name from `eventOutcomeDetailNote`, the scanner/definitions from `eventDetail`, and the scan timestamp. See the [writer page](./02b-METS-Written-by-the-Platform.md#virus-scanning-digiprovmd--premis-event) for a full example.
 
 ### Exif blobs
 

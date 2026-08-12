@@ -101,10 +101,10 @@ All IDs are derived from the resource's path within the deposit, with a fixed pr
 
 The root div is always `PHYS_ROOT` with label `__ROOT`, and its descriptive metadata is `DMD_PHYS_ROOT`. Logical structMap divs have caller-supplied IDs (conventionally `LOG_0000`, `LOG_0001`, …) and their dmdSecs are `DMD_` + div ID (e.g. `DMD_LOG_0001`).
 
-This convention makes the METS *navigable by path*: to find everything about `objects/photo.tif` you look up `PHYS_objects/photo.tif`, `FILE_objects/photo.tif` and `ADM_objects/photo.tif` directly, without walking reference chains.
+This convention makes the METS *readable* by path: a human looking at the file can find everything about `objects/photo.tif` at a glance. The platform itself no longer relies on it — since issue #188 step 1 it navigates by a path cache built from `premis:originalName` (directories) and `FLocat/@xlink:href` (files), treating ID text as opaque. See [METS identifiers](./02d-METS-Identifiers.md).
 
 > [!NOTE]
-> These IDs contain `/`, and can contain spaces and other characters not valid in XML NCNames — they are not schema-valid `xsd:ID` values. This is a known issue (#188 in the digital-preservation repo); the planned fix mints NCName-safe IDs via `XmlConvert.EncodeLocalName` while keeping a path lookup cache. The shape described here (prefix + identifier) is stable; the exact encoding of the path part may change.
+> These IDs contain `/`, and can contain spaces and other characters not valid in XML NCNames — they are not schema-valid `xsd:ID` values. This is a known issue (#188 in the digital-preservation repo). Step 1 of the fix (ID-independent navigation) and its IDREFS companion have landed; the remaining step mints NCName-safe IDs via `XmlConvert.EncodeLocalName` for *newly written* entries, while every existing file keeps its current IDs and remains fully readable and editable. The shape described here (prefix + identifier) is stable; the exact encoding of the path part will change. Full story: [METS identifiers](./02d-METS-Identifiers.md).
 
 ## Physical structMap
 
