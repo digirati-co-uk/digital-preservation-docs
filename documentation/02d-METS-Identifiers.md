@@ -83,12 +83,17 @@ unchanged, indefinitely**. That promise shapes everything:
   contain `_x002F_`/`_x0020_` escapes; third-party METS (Goobi, Archivematica, EPrints)
   follows entirely different conventions (`AMD_0001`, `file-{uuid}`, …). All are just
   strings.
+- **Don't assume one ID per thing, either.** Some records accumulate: a file scanned twice
+  has two `digiprovMD` events, the second identified `digiprovMD_ClamAV_2_ADM_…` — the
+  occurrence number sits *between* the prefix and the identifier, precisely so a numbered ID
+  can never be confused with the plain ID of a differently-named file. Read the last one, and
+  see [what the platform writes](./02b-METS-Written-by-the-Platform.md#provenance-events-accumulate).
 
 ## Status
 
 As of August 2026: step 1, the IDREFS resolution work and step 2 are all implemented
-(digital-preservation PRs #211, #213 and #214); step 3 is deferred. This page describes
-behaviour as of #214.
+(digital-preservation PRs #211, #213 and #214), along with the follow-up fixes from the
+cumulative review (#218, #220). Step 3 is deferred. This page describes behaviour as of #220.
 
 One related gap is *not* fixed by any of the above, and is worth knowing if you validate our
 METS against the schema: the template writes `DMDID` onto the `objects`, `metadata` and

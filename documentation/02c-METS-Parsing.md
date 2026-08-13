@@ -138,7 +138,9 @@ The `ADMID` may point at a `mets:techMD` directly, or at a `mets:amdSec` that co
 `ADMID` and `DMDID` are schema-typed **IDREFS** — a whitespace-separated list of references — and the parser handles both realities that creates:
 
 - The **whole attribute value** is tried first. This is how METS the platform wrote before issue #188 keeps working: those IDs can themselves contain spaces (they embed file paths), so the reference attribute and the target's `ID` are the same raw string and match exactly.
-- If the whole value resolves nothing and contains whitespace (space, tab or newline — all legal IDREFS separators), each **individual token** is tried in order, first match winning. This is how a genuine multi-reference list (`ADMID="AMD_rights AMD_tech"`), common in Archivematica and Goobi METS, resolves.
+- If the whole value resolves nothing and contains whitespace (space, tab or newline — all legal IDREFS separators), each **individual token** is tried in order. This is how a genuine multi-reference list (`ADMID="AMD_rights AMD_tech"`), common in Archivematica and Goobi METS, resolves. Because such a list routinely names sections a given caller has no use for — rights, source, provenance — a token that resolves to something unusable for the job in hand is **skipped**, and resolution walks on to the next.
+
+The two tiers are deliberately asymmetric in that respect: the whole-value tier is an **identity** match, so if it resolves, that *is* the answer, usable or not. Walking on from it would mean resolving a *fragment* of a legacy ID against an unrelated section — reporting one file's rights, or one file's virus status, as another's. Callers therefore re-check what the identity tier hands back and report a precise diagnostic rather than quietly substituting a different section.
 
 The techMD-then-amdSec fallback above applies to each candidate in turn. See [METS identifiers](./02d-METS-Identifiers.md) for the full story on why both forms exist.
 
@@ -272,7 +274,11 @@ Examples of all three third-party PREMIS variants:
 
 ### Virus-scan events
 
-The virus-scan event is found **structurally**: within the same `mets:amdSec` as the file's resolved techMD, the `mets:digiprovMD` whose ID *starts with* `digiprovMD_ClamAV_` (case-insensitive) is the scan record. Only when nothing is found structurally does the parser fall back to looking the ID up by the naming convention (`digiprovMD_ClamAV_{resolved techMD/amdSec ID}`), and that fallback is an **exact** (case-insensitive) match — containment matching was removed because it cross-talked between files whose IDs are prefixes of one another (`ADM_a` is contained in `ADM_a2`).
+Scan events **accumulate** rather than being replaced (see the [writer page](./02b-METS-Written-by-the-Platform.md#provenance-events-accumulate)), so an amdSec may hold several ClamAV events plus provenance events from other sources. What the parser wants is the file's *current* status, which is the **latest** ClamAV event present — not the first, and not the only one.
+
+The event is found **structurally**: within the same `mets:amdSec` as the file's resolved techMD, the last `mets:digiprovMD` whose ID starts with `digiprovMD_ClamAV_` (case-insensitive) is the scan record. Provenance events the parser does not recognise are ignored, never treated as an error.
+
+Only when nothing is found structurally does it fall back to looking the ID up by naming convention. That path matters more than it looks: it runs whenever the structural route cannot, which includes an ADMID resolving to a techMD carrying no `premis:object` (a MIX or FITS-only section, for instance). The fallback **constructs** the candidate IDs from the file's own resolved identifier — the plain `digiprovMD_ClamAV_{admId}` and the numbered `digiprovMD_ClamAV_{n}_{admId}` forms — and takes the highest occurrence found, so a rescanned file is never reported with its first scan's result. Matching is exact (case-insensitive) per candidate; containment matching was removed because it cross-talked between files whose IDs are prefixes of one another (`ADM_a` is contained in `ADM_a2`).
 
 The `premis:event` within yields: outcome (`Pass`/`Fail` — outcome `fail` means a virus was found), the virus name from `eventOutcomeDetailNote`, the scanner/definitions from `eventDetail`, and the scan timestamp. See the [writer page](./02b-METS-Written-by-the-Platform.md#virus-scanning-digiprovmd--premis-event) for a full example.
 

@@ -97,7 +97,7 @@ All IDs are a fixed prefix per section, followed by the resource's path within t
 | `ADM_`  | `mets:amdSec` | `objects/photo.tif` | `ADM_objects_x002F_photo.tif` |
 | `TECH_` | `mets:techMD` inside the amdSec | `objects/photo.tif` | `TECH_objects_x002F_photo.tif` |
 | `DMD_`  | `mets:dmdSec` | `objects/photo.tif` | `DMD_objects_x002F_photo.tif` |
-| `digiprovMD_ClamAV_` | `mets:digiprovMD` holding a virus-scan event | — | `digiprovMD_ClamAV_` + the amdSec's ID |
+| `digiprovMD_ClamAV_` | `mets:digiprovMD` holding a virus-scan event | — | `digiprovMD_ClamAV_` + the amdSec's ID; second and later scans of the same file insert an occurrence number *between* the two parts (`digiprovMD_ClamAV_2_ADM_…`) |
 
 A top-level folder needs no encoding, so the built-in IDs read exactly as before: `PHYS_objects`, `ADM_metadata`, `TECH_objects`. The ad-hoc metadata folder does contain a `/`, so it is `PHYS_metadata_x002F_ad-hoc`.
 
@@ -296,7 +296,21 @@ Virus scan results are a PREMIS *event*, not part of the object. They live in a 
 
 - `eventDetail` records the scanner and virus-definition versions.
 - `eventOutcome` is `Pass` or `Fail`; on `Fail`, `eventOutcomeDetail/eventOutcomeDetailNote` names the virus found.
-- Re-scanning patches the existing event in place.
+
+#### Provenance events accumulate
+
+Digital provenance is a **history, not a current value**. Scanning a file again *appends* a new `digiprovMD` alongside whatever is already in the amdSec — earlier scans, and provenance events from other sources or other tools entirely. Nothing already present is read, reordered, rewritten or removed, and events the platform does not recognise are left strictly alone. The current virus status of a file is therefore the **most recent** ClamAV event, not the only one.
+
+Only an actual scan writes an event: an ordinary metadata update no longer rewrites the last one.
+
+Because each event needs its own `xs:ID`, the second and later scans of one file carry an occurrence number, inserted **between** the prefix and the identifier:
+
+```xml
+<mets:digiprovMD ID="digiprovMD_ClamAV_ADM_objects/photo.tif">   <!-- first scan -->
+<mets:digiprovMD ID="digiprovMD_ClamAV_2_ADM_objects/photo.tif"> <!-- rescan -->
+```
+
+That placement is deliberate and load-bearing. A *trailing* counter would be indistinguishable from part of a path: `…ClamAV_ADM_objects/a_2` is both the second scan of `objects/a` and the plain conventional ID for a file genuinely named `objects/a_2`, so one file's virus status could be reported as its neighbour's. A conventional ID always has the identifier's own prefix (`ADM_`, `TECH_`) straight after `digiprovMD_ClamAV_`, never a digit, so a numbered ID can never be mistaken for another file's.
 
 ## Descriptive metadata: dmdSec / MODS
 
