@@ -50,12 +50,19 @@ unchanged, indefinitely**. That promise shapes everything:
    writing and parsing stacks: the whole attribute value is tried first (which is exactly
    how a legacy space-containing ID matches), then each whitespace-separated token (which is
    how a genuine multi-reference list resolves).
-2. **Step 2 (pending): new IDs become schema-valid.** Newly written entries will encode the
-   path part with `XmlConvert.EncodeLocalName` — `/` becomes `_x002F_`, a space becomes
-   `_x0020_` — so `PHYS_objects/my file.pdf` is minted as
-   `PHYS_objects_x002F_my_x0020_file.pdf`. Existing entries keep the IDs they were born
-   with, so a document edited after step 2 can legitimately contain **both forms side by
-   side**. Because of step 1, nothing cares.
+2. **Step 2 (landed): new IDs are schema-valid.** Newly written entries encode the path part
+   with `XmlConvert.EncodeLocalName` — `/` becomes `_x002F_`, a space becomes `_x0020_` — so
+   `PHYS_objects/my file.pdf` is now minted as `PHYS_objects_x002F_my_x0020_file.pdf`. The
+   encoding is reversible, but nothing decodes it: the path is read from the metadata, never
+   from the ID. Existing entries keep the IDs they were born with, so a document edited after
+   step 2 can legitimately contain **both forms side by side**. Because of step 1, nothing
+   cares.
+
+   Two consequences worth knowing. A new ID is a *single* IDREFS token, so the split-in-half
+   problem below simply does not arise for anything written from now on. And when the platform
+   writes a reference *into* an older document — an `fptr`, an smLink — it looks up the target
+   element's real ID and copies it, rather than minting what the ID "should" be; otherwise it
+   would write references to IDs that document does not contain.
 3. **Step 3 (deferred): bulk migration.** Only if and when every legacy document is
    deliberately rewritten do the old forms disappear.
 
@@ -70,7 +77,8 @@ unchanged, indefinitely**. That promise shapes everything:
   reader does.)
 - **Copy IDs verbatim when writing references.** A reference must be the target element's
   actual `ID`, character for character — never reconstructed from a path or a naming
-  convention. This is also the rule the platform's own step 2 work follows internally.
+  convention. This is the rule the platform follows internally too — it is the single most
+  likely way to corrupt a mixed-era document.
 - **Don't assume uniqueness of shape.** Legacy IDs contain slashes and spaces; new ones
   contain `_x002F_`/`_x0020_` escapes; third-party METS (Goobi, Archivematica, EPrints)
   follows entirely different conventions (`AMD_0001`, `file-{uuid}`, …). All are just
@@ -78,6 +86,12 @@ unchanged, indefinitely**. That promise shapes everything:
 
 ## Status
 
-As of August 2026: step 1 and the IDREFS resolution work are implemented
-(digital-preservation PRs #211 and #213); step 2 is planned; step 3 is deferred. This page
-describes behaviour as of #213.
+As of August 2026: step 1, the IDREFS resolution work and step 2 are all implemented
+(digital-preservation PRs #211, #213 and #214); step 3 is deferred. This page describes
+behaviour as of #214.
+
+One related gap is *not* fixed by any of the above, and is worth knowing if you validate our
+METS against the schema: the template writes `DMDID` onto the `objects`, `metadata` and
+`metadata/ad-hoc` divs, while the `dmdSec` those point at is only created when descriptive
+metadata is first set. Until then the reference dangles. It is tracked with the wider
+conformance-checking work rather than with #188.

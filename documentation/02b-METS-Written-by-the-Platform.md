@@ -59,7 +59,7 @@ A brand-new managed METS file, before any files have been added:
     </mets:techMD>
   </mets:amdSec>
   <mets:amdSec ID="ADM_metadata"><!-- same shape, originalName = metadata --></mets:amdSec>
-  <mets:amdSec ID="ADM_metadata/ad-hoc"><!-- same shape, originalName = metadata/ad-hoc --></mets:amdSec>
+  <mets:amdSec ID="ADM_metadata_x002F_ad-hoc"><!-- same shape, originalName = metadata/ad-hoc --></mets:amdSec>
 
   <mets:fileSec>
     <mets:fileGrp USE="OBJECTS" />
@@ -68,8 +68,8 @@ A brand-new managed METS file, before any files have been added:
   <mets:structMap TYPE="PHYSICAL">
     <mets:div ID="PHYS_ROOT" LABEL="__ROOT" DMDID="DMD_PHYS_ROOT" TYPE="Directory">
       <mets:div ID="PHYS_metadata" LABEL="metadata" DMDID="DMD_metadata" ADMID="ADM_metadata" TYPE="Directory">
-        <mets:div ID="PHYS_metadata/ad-hoc" LABEL="ad-hoc" DMDID="DMD_metadata/ad-hoc"
-                  ADMID="ADM_metadata/ad-hoc" TYPE="Directory" />
+        <mets:div ID="PHYS_metadata_x002F_ad-hoc" LABEL="ad-hoc" DMDID="DMD_metadata_x002F_ad-hoc"
+                  ADMID="ADM_metadata_x002F_ad-hoc" TYPE="Directory" />
       </mets:div>
       <mets:div ID="PHYS_objects" LABEL="objects" DMDID="DMD_objects" ADMID="ADM_objects" TYPE="Directory" />
     </mets:div>
@@ -88,23 +88,28 @@ Things to notice, each expanded on below:
 
 ## ID conventions
 
-All IDs are derived from the resource's path within the deposit, with a fixed prefix per section:
+All IDs are a fixed prefix per section, followed by the resource's path within the deposit **encoded with `XmlConvert.EncodeLocalName`** so the result is a valid XML `NCName`: `/` becomes `_x002F_`, a space becomes `_x0020_`, and characters that are already legal are left alone.
 
-| Prefix | Used for | Example |
-|---|---|---|
-| `PHYS_` | `mets:div` in the physical structMap | `PHYS_objects/photo.tif` |
-| `FILE_` | `mets:file` in the fileSec | `FILE_objects/photo.tif` |
-| `ADM_`  | `mets:amdSec` | `ADM_objects/photo.tif` |
-| `TECH_` | `mets:techMD` inside the amdSec | `TECH_objects/photo.tif` |
-| `DMD_`  | `mets:dmdSec` | `DMD_objects/photo.tif` |
-| `digiprovMD_ClamAV_` | `mets:digiprovMD` holding a virus-scan event | `digiprovMD_ClamAV_ADM_objects/photo.tif` |
+| Prefix | Used for | Path | Minted ID |
+|---|---|---|---|
+| `PHYS_` | `mets:div` in the physical structMap | `objects/photo.tif` | `PHYS_objects_x002F_photo.tif` |
+| `FILE_` | `mets:file` in the fileSec | `objects/photo.tif` | `FILE_objects_x002F_photo.tif` |
+| `ADM_`  | `mets:amdSec` | `objects/photo.tif` | `ADM_objects_x002F_photo.tif` |
+| `TECH_` | `mets:techMD` inside the amdSec | `objects/photo.tif` | `TECH_objects_x002F_photo.tif` |
+| `DMD_`  | `mets:dmdSec` | `objects/photo.tif` | `DMD_objects_x002F_photo.tif` |
+| `digiprovMD_ClamAV_` | `mets:digiprovMD` holding a virus-scan event | — | `digiprovMD_ClamAV_` + the amdSec's ID |
 
-The root div is always `PHYS_ROOT` with label `__ROOT`, and its descriptive metadata is `DMD_PHYS_ROOT`. Logical structMap divs have caller-supplied IDs (conventionally `LOG_0000`, `LOG_0001`, …) and their dmdSecs are `DMD_` + div ID (e.g. `DMD_LOG_0001`).
+A top-level folder needs no encoding, so the built-in IDs read exactly as before: `PHYS_objects`, `ADM_metadata`, `TECH_objects`. The ad-hoc metadata folder does contain a `/`, so it is `PHYS_metadata_x002F_ad-hoc`.
 
-This convention makes the METS *readable* by path: a human looking at the file can find everything about `objects/photo.tif` at a glance. The platform itself no longer relies on it — since issue #188 step 1 it navigates by a path cache built from `premis:originalName` (directories) and `FLocat/@xlink:href` (files), treating ID text as opaque. See [METS identifiers](./02d-METS-Identifiers.md).
+The root div is always `PHYS_ROOT` with label `__ROOT`, and its descriptive metadata is `DMD_PHYS_ROOT`. Logical structMap divs have caller-supplied IDs (conventionally `LOG_0000`, `LOG_0001`, …) and their dmdSecs are `DMD_` + div ID (e.g. `DMD_LOG_0001`). Caller-supplied IDs are **validated, not encoded** — an ID that could not be an `NCName` is rejected with a `400`, because the caller round-trips these and silently rewriting one would break its own references.
+
+The convention still makes the METS broadly readable by path, but the platform does not rely on it: since #188 step 1 it navigates by a path cache built from `premis:originalName` (directories) and `FLocat/@xlink:href` (files), treating ID text as opaque. That is what makes it safe for one document to hold IDs in more than one form.
+
+> [!IMPORTANT]
+> **METS files written before this change carry the raw, unencoded form** (`PHYS_objects/my file.pdf` — not a valid `xsd:ID`, and, because of the space, not a single IDREFS token either). Those files remain fully readable and editable, indefinitely; their IDs are never rewritten in place, so a document edited today can legitimately contain both forms side by side. When the platform writes a *reference* into such a document it looks up the target element's real ID rather than minting one. Full story, including what this means if you consume our METS: [METS identifiers](./02d-METS-Identifiers.md).
 
 > [!NOTE]
-> These IDs contain `/`, and can contain spaces and other characters not valid in XML NCNames — they are not schema-valid `xsd:ID` values. This is a known issue (#188 in the digital-preservation repo). Step 1 of the fix (ID-independent navigation) and its IDREFS companion have landed; the remaining step mints NCName-safe IDs via `XmlConvert.EncodeLocalName` for *newly written* entries, while every existing file keeps its current IDs and remains fully readable and editable. The shape described here (prefix + identifier) is stable; the exact encoding of the path part will change. Full story: [METS identifiers](./02d-METS-Identifiers.md).
+> For readability, the file-level XML examples below write IDs in the unencoded form. Real documents carry the encoding shown in the table above.
 
 ## Physical structMap
 
