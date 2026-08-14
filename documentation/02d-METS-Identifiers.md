@@ -66,11 +66,41 @@ unchanged, indefinitely**. That promise shapes everything:
 3. **Step 3 (deferred): bulk migration.** Only if and when every legacy document is
    deliberately rewritten do the old forms disappear.
 
+## Opaque to code, legible to people
+
+An ID like `PHYS_objects_x002F_annual_x0020_report.pdf` still carries the file's path, and that is
+deliberate. Two audiences want different things from an identifier, and this scheme serves both:
+
+- **For a person** reading the METS — now, or in fifty years, with no access to this platform — an
+  ID that says which file it is beats an opaque `PHYS_7` or a GUID. Preservation metadata is meant
+  to be readable without the software that wrote it.
+- **For the platform** it also comes free of charge: a deposit-relative path is already unique
+  within a document, so deriving the ID from the path makes it unique without any allocation,
+  counter or registry. A GUID scheme would need the minting sites to coordinate; this one does not.
+
+**But no code may infer anything from the string value of an ID.** Not the path, not the file it
+belongs to, not its position. Paths are read from `FLocat/@xlink:href` and `premis:originalName`,
+which are the ground truth in every ID era and in third-party METS alike; references are followed
+by matching the raw string against `ID` attributes.
+
+Note what that means: because the ID genuinely does contain the path, **this is a discipline, not
+a property the format enforces**. Nothing stops a reader parsing it. The rule binds the platform's
+own code exactly as much as it binds anyone else's — and it is the reason the platform navigates
+by a path cache built from `originalName`/`FLocat`, rather than by reconstructing the ID it thinks
+a path ought to have.
+
+Two places in the platform still break the rule, both knowingly, and both scoped to legacy content:
+navigation falls back to the pre-#214 `PHYS_` + raw-path convention when a document's own path
+metadata will not resolve, and the virus-scan reader falls back to matching `digiprovMD` IDs by
+convention when a file's `ADMID` resolves to no usable technical metadata. Both exist only to serve
+documents written before step 2, and both are removed by step 3.
+
 ## The rules, if you consume or produce this METS
 
-- **Treat IDs as opaque.** Never parse a path *out of* an ID. The path lives in
-  `FLocat/@xlink:href` (files) and `premis:originalName` (directories) — those are the
-  ground truth, in both ID eras.
+- **Treat IDs as opaque.** Never parse a path *out of* an ID, however clearly it appears to
+  contain one — see [Opaque to code, legible to people](#opaque-to-code-legible-to-people). The
+  path lives in `FLocat/@xlink:href` (files) and `premis:originalName` (directories) — those are
+  the ground truth, in both ID eras.
 - **Resolve references by the raw string.** To follow an `ADMID`/`DMDID`/`FILEID`/smLink
   reference, match the attribute value against `ID` attributes exactly. If the whole value
   matches nothing and contains whitespace, try each token. (This is what the platform's own
