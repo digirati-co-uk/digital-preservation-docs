@@ -280,7 +280,7 @@ Virus scan results are a PREMIS *event*, not part of the object. They live in a 
     <mets:xmlData>
       <premis:event>
         <premis:eventType>virus check</premis:eventType>
-        <premis:eventDateTime>16 June 2026</premis:eventDateTime>
+        <premis:eventDateTime>2026-06-16T14:30:45Z</premis:eventDateTime>
         <premis:eventDetailInformation>
           <premis:eventDetail>ClamAV 1.4.3/27932/Fri Mar  6 07:24:27 2026</premis:eventDetail>
         </premis:eventDetailInformation>
@@ -294,6 +294,7 @@ Virus scan results are a PREMIS *event*, not part of the object. They live in a 
 </mets:digiprovMD>
 ```
 
+- `eventDateTime` is when the **scan ran** — an ISO 8601 UTC instant, taken from the ClamAV log the scan itself wrote. It is not the time the METS was written, and it does not change when the same scan output is read again. (Before August 2026 it was a locale-formatted date with no time, stamped at write time.)
 - `eventDetail` records the scanner and virus-definition versions.
 - `eventOutcome` is `Pass` or `Fail`; on `Fail`, `eventOutcomeDetail/eventOutcomeDetailNote` names the virus found.
 
@@ -302,6 +303,8 @@ Virus scan results are a PREMIS *event*, not part of the object. They live in a 
 Digital provenance is a **history, not a current value**. Scanning a file again *appends* a new `digiprovMD` alongside whatever is already in the amdSec — earlier scans, and provenance events from other sources or other tools entirely. Nothing already present is read, reordered, rewritten or removed, and events the platform does not recognise are left strictly alone. The current virus status of a file is therefore the **most recent** ClamAV event, not the only one.
 
 Only an actual scan writes an event: an ordinary metadata update no longer rewrites the last one.
+
+**One scan is one event, however often its output is read.** The same file can pass through the METS writer again while the previous run's ClamAV output is still sitting in the deposit, and a redelivered pipeline job does exactly that for every file in it. A scan already recorded — recognised by its `eventDateTime`, since two scans of one file cannot share an instant — is not recorded a second time. A genuine re-scan carries a later time and is appended as its own event, even when it found precisely what the last one found.
 
 Because each event needs its own `xs:ID`, the second and later scans of one file carry an occurrence number, inserted **between** the prefix and the identifier:
 
