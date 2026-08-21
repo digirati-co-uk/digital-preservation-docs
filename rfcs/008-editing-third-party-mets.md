@@ -265,6 +265,19 @@ exists** — one rule set with twin .NET and Python implementations, adversarial
 run against real production documents (the twelve-item sample above all judge as expected). For
 any given item it produces exactly the list in the worked example: the verdict, the assumptions
 it relied on, and the precise changes a first save would make to *that* document. So this paper
-does not have to be evaluated in the abstract: pick any items you like and we will show you their
-individual judgements before you decide. The editing capability itself ships after the current
-METS identifier migration has fully bedded in.
+does not have to be evaluated in the abstract — you can run the checker yourselves, against any
+METS files you choose:
+
+```
+python mets_editability.py judge path/to/mets.xml
+python mets_editability.py judge path/to/folder --json
+```
+
+The Python judge, with its README and the full contract it implements, is at
+[`src/mets-editability/`](https://github.com/digirati-co-uk/digital-preservation/blob/feat/223-editability-judge/src/mets-editability/README.md)
+(on the `feat/223-editability-judge` branch until PR #238 merges; the path is the same on
+`main` afterwards). It needs only Python and `lxml`, touches nothing — it reads a file and
+prints a judgement — and its verdicts are pinned by tests to agree with the .NET
+implementation the platform will use. Or send us item references and we will run it for you.
+The editing capability itself ships after the current METS identifier migration has fully
+bedded in.
