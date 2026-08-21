@@ -133,13 +133,23 @@ editable tiers also require, for every document:
 
 - every `fptr` and every `area` in **every** structMap — logical included — resolves through the
   fileSec;
+- every `fptr` in the judged *physical* structMap carries a `FILEID` of its own — the platform's
+  physical walk requires it; area-only pointers belong in logical structMaps, where the platform
+  itself writes them;
+- every file has exactly one `FLocat`, carrying an `xlink:href` — the platform's parser reads
+  the single location of each file and cannot load zero, several, or one without an href;
 - both ends of every `structLink/smLink` resolve, whether they point at files (the platform's
   own arcrole style) or at divs (Goobi's logical-to-physical style);
 - every logical structMap's root div has an ID — logical structure is edited *by address*
   (replaced, reordered and removed by root div ID), so an ID-less logical map is present but
   unchangeable, which is exactly what editable must not mean;
-- SHA256 fixity per file, in both tiers — every edit ends in an import job, and import jobs
-  require it.
+- SHA256 fixity per file **with an actual digest value**, in both tiers — every edit ends in an
+  import job, and import jobs require it; an algorithm label with an empty digest is a record of
+  having lost the checksum, not of having one.
+
+When a document holds more than one physical-candidate structMap, **only the judged one is
+judged**: an unchosen sibling map — preserved as parsed, never edited — can neither demote the
+verdict nor satisfy a tier on the judged map's behalf.
 
 A failure of any of these leaves the document navigable-read-only at best: its files can be
 listed, but its structure cannot be safely mutated.
