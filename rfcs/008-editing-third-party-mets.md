@@ -35,6 +35,12 @@ consequences, and the worked example below shows exactly what changes and what d
 | **EPrints-migrated items** | **Editable.** Read under declared assumptions; restructured to the platform shape on first save |
 | Archivematica | Read-only: browsable and preservable, never edited |
 | Goobi | Read-only, permanently |
+| Any other source | **Editable if it conforms** — the checker judges the document itself, not the name of the software that wrote it. A conforming document from a producer nobody has heard of is editable; a non-conforming one from a familiar producer is not |
+
+EPrints is the worked example throughout this paper because it is most of what production holds —
+but the rule being proposed is about *conformance, not provenance*. The named rows above are
+simply what the checker's verdicts come to for the document shapes each of those systems
+produces, plus the one principle a verdict cannot see (below).
 
 Goobi is read-only on principle, not because of a technical shortfall: Goobi actively re-edits its
 own METS. Two systems writing one document with different models will silently corrupt each
