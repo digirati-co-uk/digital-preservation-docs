@@ -14,7 +14,9 @@ wrote itself, and everything else — however well-formed — is read-only.
 
 We have measured the EPrints corpus against the platform's own machinery. The result: EPrints
 METS contains everything the platform needs, completely and unambiguously (a real 410-file item
-resolved every file with no ambiguity). What blocks editing is not missing information but unstated
+resolved every file with no ambiguity, and the same checks were then run against twelve recent
+production migrations — 2025–2026 ingests, from single-file items to a 355-file item — with every
+assumption holding in every document). What blocks editing is not missing information but unstated
 convention — the EPrints documents decline to say things METS allows them to leave unsaid, such as
 labelling their structure map "physical". The platform can safely *assume* those things on
 reading, without changing a byte of any preserved document.
@@ -68,7 +70,10 @@ The restructure adds and rearranges; it does not destroy. Specifically, in the s
   place. **The platform never edits an EPrints metadata section**: when an edit sets descriptive
   metadata on a part of the document whose existing section is EPrints', the platform writes its
   own new section alongside and links both from the same place — the original stays byte for
-  byte.
+  byte. One thing worth knowing while agreeing to this: the record identifiers EPrints wrote —
+  including the `id.library.leeds.ac.uk` identifiers — are currently *invisible* to the
+  platform's reader, because EPrints placed them in the wrong XML namespace. They are preserved
+  regardless, and teaching the platform to read them is on the same work list as editing.
 - **One declared repair**: EPrints omits a wrapper element (`mets:xmlData`) that the METS schema
   requires around each file's technical metadata. The first save adds the missing wrapper; the
   content inside it — the checksums and formats themselves — is preserved verbatim. This is a
@@ -249,7 +254,11 @@ Agreement, or challenge, on the three decisions above — in particular:
 3. Are the **guarantees in Decision 3** the right list? Is anything missing that your tooling
    depends on?
 
-Building the machinery that answers "is this document editable, and what would saving change?" —
-runnable in both .NET and Python — is already in progress and does not wait for this agreement;
-a working checker is easier to react to than a paper. The editing capability itself ships after
-the current METS identifier migration has fully bedded in.
+The machinery that answers "is this document editable, and what would saving change?" **already
+exists** — one rule set with twin .NET and Python implementations, adversarially reviewed, and
+run against real production documents (the twelve-item sample above all judge as expected). For
+any given item it produces exactly the list in the worked example: the verdict, the assumptions
+it relied on, and the precise changes a first save would make to *that* document. So this paper
+does not have to be evaluated in the abstract: pick any items you like and we will show you their
+individual judgements before you decide. The editing capability itself ships after the current
+METS identifier migration has fully bedded in.
