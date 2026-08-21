@@ -138,6 +138,11 @@ editable tiers also require, for every document:
   itself writes them;
 - every file has exactly one `FLocat`, carrying an `xlink:href` — the platform's parser reads
   the single location of each file and cannot load zero, several, or one without an href;
+- every href is already normalised — no empty or `.` segments — because the platform's path
+  cache does not normalise paths, so `objects//a.jpg` is a real entry the platform can never
+  reach;
+- every directory div in the platform tier carries a `LABEL` — adding into a LABEL-less parent
+  fails;
 - both ends of every `structLink/smLink` resolve, whether they point at files (the platform's
   own arcrole style) or at divs (Goobi's logical-to-physical style);
 - every logical structMap's root div has an ID — logical structure is edited *by address*
@@ -205,7 +210,14 @@ holds no `mods:mods` record (and mostly wrong-namespace elements). **The platfor
 foreign dmdSec.** An edit that sets metadata on such a div creates a *new* platform dmdSec and
 **appends** its ID to the div's `DMDID` — `DMDID` is IDREFS, so
 `DMDID="DMD_eprint_10315 DMD_PHYS_ROOT"` is legal METS; the original section stays byte for byte,
-and effective-metadata resolution reads both.
+and effective-metadata resolution reads both. (One prerequisite: the parser currently reads only
+the *first-resolving* dmdSec of several — identifier-audit finding M10 — so fixing that joins
+#236 and #237 as work the editing capability depends on.)
+
+The mirror-image rule: a **MODS-editable dmdSec referenced from more than one div** makes the
+document read-only, because editing metadata on one div would rewrite the shared section in
+place and silently change the other div's metadata (identifier-audit finding P5). Sharing a
+*foreign* dmdSec is fine — the platform never writes into those.
 
 **If your code re-reads one of these documents after a platform save**: you will find an explicitly
 typed physical structMap, an `objects` Directory div with PREMIS metadata, and a single OBJECTS
