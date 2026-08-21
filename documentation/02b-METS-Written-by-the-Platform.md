@@ -1,6 +1,9 @@
 # The METS files we write
 
-This page is a specification — a profile, though we don't claim formal METS Profile status — of the METS files that the platform itself creates and maintains. It describes what the `MetsManager` (in the `DigitalPreservation.Mets` library) writes when a Deposit has a *managed* METS file: one created from a Deposit template (`RootLevel` or `BagIt`) rather than supplied by a third party.
+This page is a specification of the METS files that the platform itself creates and maintains. It describes what the `MetsManager` (in the `DigitalPreservation.Mets` library) writes when a Deposit has a *managed* METS file: one created from a Deposit template (`RootLevel` or `BagIt`) rather than supplied by a third party.
+
+> [!NOTE]
+> We call this a **profile**, and that word deserves precision because METS has a formal mechanism of the same name. A [registered METS Profile](https://www.loc.gov/standards/mets/mets-profiles.html) (the Library of Congress mechanism) is a prose-plus-XML *description* document: it brings interoperability and credibility value, but it is not machine-enforceable on its own. Ours is the opposite trade: this page is the human-readable normative spec, and its rules are *checkable* — expressed once as Schematron plus native code, executed identically by the .NET and Python editability judges (see [METS editability](./02e-METS-Editability.md)). A formal LoC registration could be produced later *from* this page if the public statement is ever wanted; nothing here waits on that.
 
 **This is the normative profile.** It is the shape every document the platform edits ends up in: the [editability rules](./02e-METS-Editability.md) are defined against this page, and a third-party document that qualifies for editing is restructured *to* this profile on its first save.
 

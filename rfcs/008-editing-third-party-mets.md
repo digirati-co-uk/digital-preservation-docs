@@ -247,6 +247,18 @@ result is a new preserved version of the item containing the updated METS; the f
 untouched; the IIIF manifest rebuilds and reflects the new access and rights. Subsequent edits to
 the same item are ordinary edits of a platform-shape document.
 
+## A note on formal METS Profiles
+
+"Profile" in this paper does not mean a registered
+[METS Profile](https://www.loc.gov/standards/mets/mets-profiles.html) in the Library of Congress
+sense. We considered that route and set it aside deliberately: an LoC profile is a prose-plus-XML
+*description* — good for interoperability and public credibility, but not machine-enforceable, and
+what this work needs is rules a program can check. Our profile is the opposite trade: a
+human-readable specification whose rules are executable, identically, by the two checkers above.
+If Leeds would value the public statement a registered profile makes, one can be produced later
+*from* our specification — the descriptive document is derivable from the checkable one, not the
+other way round — and nothing in this paper waits on it.
+
 ## What we would like from Leeds
 
 Agreement, or challenge, on the three decisions above — in particular:

@@ -18,6 +18,14 @@ edited.
 > if its `mets:agent` name is exactly the platform's own. The conformance-based rules below replace
 > that gate once the #188 ID migration has bedded in and the corresponding platform changes land.
 
+> [!NOTE]
+> "Profile" and "tier" on this page mean **checkable rule sets** — Schematron plus native code,
+> executed identically by the .NET and Python judges — not a registered
+> [METS Profile](https://www.loc.gov/standards/mets/mets-profiles.html) in the Library of
+> Congress sense, which is a descriptive document rather than an enforceable one. See the note
+> at the top of [02b](./02b-METS-Written-by-the-Platform.md) for the distinction and why we
+> chose the checkable kind; an LoC registration could be derived from 02b later if wanted.
+
 ## Three words, strictly ordered
 
 Editability conversations go wrong when one word does three jobs. These three are distinct, and
