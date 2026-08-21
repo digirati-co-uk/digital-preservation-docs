@@ -28,7 +28,7 @@ The METS file does not usually describe itself; the parser adds an entry for the
 
 - The object's **name** is the first `mods:title` anywhere in the document, falling back to the first `mods:name`. (In EPrints METS the MODS elements are not wrapped in `<mods:mods>`; the parser searches the whole document, so this still works.)
 - The **agent** is the name of the first `mets:agent`.
-- The wrapper is flagged **editable** only when the agent is exactly `University of Leeds Digital Library Infrastructure Project`. Any other agent — `Archivematica`, `Goobi - 447dc - …`, or none — makes the METS read-only to the platform: we will read it, diff it, preserve it, but never modify it.
+- The wrapper is flagged **editable** only when the agent is exactly `University of Leeds Digital Library Infrastructure Project`. Any other agent — `Archivematica`, `Goobi - 447dc - …`, or none — makes the METS read-only to the platform: we will read it, diff it, preserve it, but never modify it. This agent-name gate is agreed to be replaced by conformance-based rules under which defined classes of third-party METS become editable — see [METS editability](./02e-METS-Editability.md).
 
 ## Finding the physical structMap
 
@@ -38,6 +38,13 @@ There may be several `mets:structMap` elements, with or without `TYPE` attribute
 2. otherwise the first structMap that is not explicitly `TYPE="logical"` — EPrints structMaps have no TYPE at all, and this rule selects them.
 
 A METS file with no usable physical structMap is rejected — this is the one hard requirement.
+
+> [!NOTE]
+> This tolerance belongs to the *parser*. The editing stack's path cache — which decides
+> [navigability](./02e-METS-Editability.md#three-words-strictly-ordered) — currently requires the
+> exact string `TYPE="PHYSICAL"`, so a document can be parseable by the rules above and still not
+> be navigable. Archivematica (`TYPE="physical"`) and EPrints (no `TYPE`) both sit in that gap
+> today; closing it is part of the editability work.
 
 All of the following are parseable:
 

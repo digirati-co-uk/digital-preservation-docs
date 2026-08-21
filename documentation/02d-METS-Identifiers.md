@@ -63,8 +63,18 @@ unchanged, indefinitely**. That promise shapes everything:
    writes a reference *into* an older document — an `fptr`, an smLink — it looks up the target
    element's real ID and copies it, rather than minting what the ID "should" be; otherwise it
    would write references to IDs that document does not contain.
-3. **Step 3 (deferred): bulk migration.** Only if and when every legacy document is
-   deliberately rewritten do the old forms disappear.
+3. **Step 3 (built, August 2026): deliberate migration.** A *normalisation* rewrites every
+   illegal ID — and every reference to it, including whitespace-split IDREFS tokens and the
+   xlink attributes that carry IDs — into the encoded form, producing character-for-character
+   what the platform would mint today. IDs that are already legal are never touched, whoever
+   minted them, which is what makes the operation safe to run repeatedly and keeps it away from
+   IDs that are not ours to renumber. It runs three ways: a UI action on a deposit, an API
+   endpoint, and a bulk migration tool (`src/mets-id-migration/`) that works through the
+   preserved corpus creating a METS-only new OCFL version per Archival Group, with the Activity
+   Stream event suppressed — the version changes how the object is *recorded*, not what it
+   holds, so downstream IIIF rebuilds are deliberately not triggered. While the migration
+   feature flag is enabled, writing a managed METS also normalises any illegal IDs still in the
+   document. Once the migration campaigns complete, the legacy forms are gone.
 
 ## Opaque to code, legible to people
 
@@ -93,7 +103,8 @@ Two places in the platform still break the rule, both knowingly, and both scoped
 navigation falls back to the pre-#214 `PHYS_` + raw-path convention when a document's own path
 metadata will not resolve, and the virus-scan reader falls back to matching `digiprovMD` IDs by
 convention when a file's `ADMID` resolves to no usable technical metadata. Both exist only to serve
-documents written before step 2, and both are removed by step 3.
+documents written before step 2, and both become removable once the step 3 migration campaigns have
+run everywhere.
 
 ## The rules, if you consume or produce this METS
 
@@ -121,12 +132,15 @@ documents written before step 2, and both are removed by step 3.
 
 ## Status
 
-As of August 2026: step 1, the IDREFS resolution work and step 2 are all implemented
-(digital-preservation PRs #211, #213 and #214), along with the follow-up fixes from the
-cumulative review (#218, #220). Step 3 is deferred. This page describes behaviour as of #220.
+As of late August 2026: step 1, the IDREFS resolution work and step 2 are implemented
+(digital-preservation PRs #211, #213 and #214, with follow-up fixes in #218 and #220), and step 3 —
+the normalisation machinery and the bulk migration tool — is merged (#232). The migration
+campaigns themselves (development, then production) have been surveyed and sized but not yet run;
+until they complete, documents in both ID forms remain in circulation and all the mixed-form rules
+on this page stay load-bearing.
 
 One related gap is *not* fixed by any of the above, and is worth knowing if you validate our
 METS against the schema: the template writes `DMDID` onto the `objects`, `metadata` and
 `metadata/ad-hoc` divs, while the `dmdSec` those point at is only created when descriptive
 metadata is first set. Until then the reference dangles. It is tracked with the wider
-conformance-checking work rather than with #188.
+conformance and [editability](./02e-METS-Editability.md) work rather than with #188.

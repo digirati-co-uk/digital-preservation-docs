@@ -1,0 +1,165 @@
+# METS editability
+
+This page defines **which METS files the platform may edit, and what editing does to them**. It is
+the specification the editability decision is made against — for the platform's own METS, and for
+METS written by other systems (EPrints, Archivematica, Goobi) that Leeds needs the platform to work
+with.
+
+It complements [The METS files we write](./02b-METS-Written-by-the-Platform.md) — the normative
+profile of the platform's own output, which is also the shape an edited document ends up in — and
+[What the METS parser can read](./02c-METS-Parsing.md), which is a much wider set than what can be
+edited.
+
+> [!NOTE]
+> **Status, August 2026.** This page records the *agreed direction* (issue
+> [#223](https://github.com/digirati-co-uk/digital-preservation/issues/223); plan in
+> [`docs/issues/223/issue-223-editability-plan.md`](https://github.com/digirati-co-uk/digital-preservation/blob/main/docs/issues/223/issue-223-editability-plan.md)).
+> The platform's *current* behaviour is simpler and stricter: a METS file is editable if and only
+> if its `mets:agent` name is exactly the platform's own. The conformance-based rules below replace
+> that gate once the #188 ID migration has bedded in and the corresponding platform changes land.
+
+## Three words, strictly ordered
+
+Editability conversations go wrong when one word does three jobs. These three are distinct, and
+each implies the one before:
+
+1. **Parseable** — `MetsParser` can read the document into the platform's model. The parser is
+   deliberately forgiving; it exists to read METS from anywhere, including shapes not seen yet. We
+   hope *everything* is parseable. Failure to parse is a diagnostic about the document, never a
+   policy judgment about it.
+2. **Navigable** — the document's physical structure resolves to a complete, unambiguous tree of
+   deposit-relative paths (in implementation terms: the path cache builds with no diagnostics).
+   Navigability is what the UI tree, diffing and read-modify need. A document can be perfectly
+   parseable and not navigable — Goobi's presentation METS parses fine, but its file locations are
+   IIIF URLs, not paths in the deposit.
+3. **Editable** — the platform may mutate the document and save it. Requires navigability, plus the
+   structural invariants the editing code relies on, **plus policy** — some documents that could
+   mechanically be edited must not be (see the first principle below).
+
+"Conformance" on this page always means conformance to a *named tier* below — never a loose
+synonym for any of the three words above.
+
+## Two principles
+
+**Conformance is necessary but not sufficient.** A document with a living external editor is not
+editable here even if it conforms, because two writers with different models silently corrupt each
+other's work. This — not its shape — is the decisive reason Goobi METS is never editable: Goobi
+actively re-edits its own documents. Any future source whose METS "looks fine" gets the same
+question first: *is anything else still writing this document?*
+
+**A resolved path must be deposit-relative.** Every editability tier requires that every file
+location resolves to a relative path inside the deposit. This guard is what keeps a presentation
+METS full of `https://…` locations from ever counting as navigable, and it travels with every
+tolerance rule below — never one without the other.
+
+## The classification
+
+| Source | Parseable | Navigable | Editable |
+|---|---|---|---|
+| Platform-written ([02b profile](./02b-METS-Written-by-the-Platform.md)) | yes | yes | **yes** |
+| EPrints-migrated | yes | yes, under the declared assumptions below | **yes, with declared assumptions** — the first save restructures to the 02b profile |
+| Archivematica | yes | partially (needs case-insensitive `TYPE="physical"`; some directory divs lack ADMID) | **no** — read-only |
+| Goobi | yes | no — file locations are absolute IIIF URLs, failing the deposit-relative guard | **never** — and would remain so regardless of shape, per the first principle |
+| Anything else | hopefully | judged per document | only if it reaches an editable tier, judged from the document itself |
+
+The `mets:agent` name plays no part in the decision. It remains in the document as provenance,
+nothing more — which also closes the current rule's other weakness, that a hand-damaged document
+*with* the right agent name counts as editable while being unsafe to edit.
+
+## The EPrints tier: editable under declared assumptions
+
+EPrints-migrated METS is flat: a root div and one div per file, no directory divs, every
+`FLocat/@xlink:href` already a deposit-relative path under `objects/`. Measured against the real
+corpus (a 410-file document: 410 paths resolved, zero diagnostics), it is fully navigable under
+these reading rules — each a tolerance for something METS makes optional, none changing a byte on
+disk:
+
+1. **An untyped `structMap` is read as physical** when it is the only candidate. METS makes `TYPE`
+   optional; absence is not contradiction.
+2. **`TYPE` comparison is case-insensitive** on `structMap` and `div` alike.
+3. **An untyped `div` carrying an `fptr` is read as an Item.**
+4. **The `objects` container is implied.** No div for `objects/` exists, but every file path is
+   under it; the root container is synthesised on read from the paths. Reading never writes it
+   back.
+5. **The file group is mapped.** These documents carry `reference`/`original`/`DEFAULT` fileGrps
+   rather than the platform's single `USE="OBJECTS"`. The fileGrp the physical structMap actually
+   references is treated as the OBJECTS-equivalent. If the structMap references files across
+   *several* fileGrps, the document fails this tier and the ambiguity is reported.
+6. **Every resolved path is deposit-relative** — the standing guard.
+
+Because these documents have no directory divs, nothing in them needs `premis:originalName` on
+read. The first directory div such a document ever acquires is the `objects` div materialised on
+save, below.
+
+## What saving does: restructure to the 02b profile
+
+**On the first platform save, an EPrints-tier document is restructured to the
+[02b profile](./02b-METS-Written-by-the-Platform.md).** The alternative — a document that stays in
+its original shape until individual edits force platform conventions in piecemeal — would create a
+third shape that is neither EPrints' nor the platform's, and that hybrid is the worst outcome for
+every future reader. One save, one transition; the document is 02b thereafter.
+
+What makes this acceptable, stated plainly because it is the part that matters to anyone whose
+own tooling touches these documents:
+
+- **The restructure rides along with a real edit.** Applying a rights statement or access condition
+  was always going to create a new OCFL version, a published Activity Stream event, and a IIIF
+  manifest rebuild. Nothing is mass-transformed: the reading tolerances above cover the whole
+  corpus forever, and restructuring happens lazily, per document, on the first edit somebody
+  actually wanted to make.
+- **Existing IDs survive, all of them.** `eprint_10315_370441` is a legal `xs:ID`, and the
+  platform's rule is that a legal ID is left alone whoever minted it (see
+  [METS identifiers](./02d-METS-Identifiers.md) — IDs are opaque to code). Only elements the save
+  *creates* get platform-minted IDs.
+- **Provenance stays honest.** The original CREATOR agent stays; the platform is added as a
+  modifying agent. The header keeps the document's history legible.
+
+Concretely, the first save:
+
+1. writes `TYPE="PHYSICAL"` onto the structMap and gives divs their types
+   (`Directory`/`Item`);
+2. **materialises the implied `objects` div**: a real Directory div with an `amdSec`/`techMD`
+   carrying `premis:originalName` (`objects`), exactly as 02b specifies for any directory;
+3. makes the referenced fileGrp the single `USE="OBJECTS"` group;
+4. appends the platform agent to `metsHdr`;
+5. applies whatever the edit itself was, through the ordinary editing machinery;
+6. **nothing else** — no ID renumbering, no reordering for its own sake, and sections the platform
+   does not model are preserved as parsed, per the round-trip rules in 02b/02c.
+
+**If your code re-reads one of these documents after a platform save**: you will find an explicitly
+typed physical structMap, an `objects` Directory div with PREMIS metadata, and a single OBJECTS
+fileGrp — a *more* explicit document than was written originally, with every original ID intact.
+Since EPrints-migrated documents are scripted, one-off migration outputs, external re-editing is
+not expected; if it happens anyway, what it finds is legal METS stating outright what the original
+left implied.
+
+## The judge
+
+The editability decision is implemented as a runnable check — one behaviour, two implementations
+(.NET and Python), so that both the platform and external tooling can ask the same question and get
+the same answer. Given a METS document it returns:
+
+- a **verdict**: `editable` (02b tier) · `editable-with-normalisation` (EPrints tier — a save will
+  restructure as above) · `navigable-read-only` (Archivematica tier) · `not-editable`;
+- the **reasons** — every rule failed or satisfied-by-assumption, in actionable terms;
+- for `editable-with-normalisation`, the **list of mutations a save would perform** on this
+  document — a dry run of the contract above.
+
+Structural rules that XML can answer (typing per tier, fileSec shape, header requirements,
+ADMID/DMDID/FILEID referential integrity, SHA256 fixity presence) are expressed once as Schematron
+and shared by both implementations; what Schematron cannot see (path normalisation and uniqueness,
+the deposit-relative guard, implied-`objects` inference, fileGrp ambiguity) is native code on each
+side, specified by this page.
+
+## Current behaviour, for completeness
+
+Until the changes described here land, the platform's rule is: **editable ⇔ the first `mets:agent`
+name is exactly `University of Leeds Digital Library Infrastructure Project`** (see
+[02c](./02c-METS-Parsing.md#header-information-name-agent-editability)). Everything else is
+read-only — readable, diffable, preservable, never modified.
+
+One measured detail worth knowing while that is true: the tolerances in the EPrints tier are not
+yet in the *editing* stack. `MetsParser` already accepts `TYPE="physical"` case-insensitively and
+untyped structMaps (which is why these documents are parseable today), but the path cache that
+editing relies on requires the exact string `PHYSICAL` — so Archivematica and EPrints documents
+are currently parseable but not navigable. That gap is precisely what the reading tolerances close.

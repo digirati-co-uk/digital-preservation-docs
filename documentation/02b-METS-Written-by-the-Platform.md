@@ -2,6 +2,8 @@
 
 This page is a specification — a profile, though we don't claim formal METS Profile status — of the METS files that the platform itself creates and maintains. It describes what the `MetsManager` (in the `DigitalPreservation.Mets` library) writes when a Deposit has a *managed* METS file: one created from a Deposit template (`RootLevel` or `BagIt`) rather than supplied by a third party.
 
+**This is the normative profile.** It is the shape every document the platform edits ends up in: the [editability rules](./02e-METS-Editability.md) are defined against this page, and a third-party document that qualifies for editing is restructured *to* this profile on its first save.
+
 For the METS files we can *read* — which is a much wider set, including Archivematica, EPrints and Goobi output — see [What the METS parser can read](./02c-METS-Parsing.md).
 
 The design principle throughout: **the METS file is the canonical record of everything we know about the object** — its files, their fixity and formats, tool output (format identification, virus scanning, Exif extraction), descriptive metadata, access conditions, and logical structure for presentation. The entire preservation state must be recoverable from the OCFL object alone, and the METS file inside it carries everything that isn't the bitstreams themselves.
@@ -14,7 +16,7 @@ The design principle throughout: **the METS file is the canonical record of ever
 - Running the pipeline (Brunnhilde/Siegfried, ClamAV, Exif tools) patches technical metadata into the entries for each file.
 - Editing names, access conditions, rights, catalogue identifiers or logical structure updates the relevant sections.
 
-A METS file is only treated as editable when its `mets:agent` name is exactly ours (see next section). Third-party METS is never modified.
+A METS file is currently only treated as editable when its `mets:agent` name is exactly ours (see next section); third-party METS is never modified. That gate is agreed to change — editability decided by conformance rather than by the agent name, with defined classes of third-party METS becoming editable. See [METS editability](./02e-METS-Editability.md) for the rules and their status.
 
 Concurrent edits are guarded by the S3 ETag of the METS file: every read-modify-write cycle passes the ETag back, and a mismatch fails the operation rather than clobbering another writer's change.
 
@@ -106,7 +108,9 @@ The root div is always `PHYS_ROOT` with label `__ROOT`, and its descriptive meta
 The convention still makes the METS broadly readable by path, but the platform does not rely on it: since #188 step 1 it navigates by a path cache built from `premis:originalName` (directories) and `FLocat/@xlink:href` (files), treating ID text as opaque. That is what makes it safe for one document to hold IDs in more than one form.
 
 > [!IMPORTANT]
-> **METS files written before this change carry the raw, unencoded form** (`PHYS_objects/my file.pdf` — not a valid `xsd:ID`, and, because of the space, not a single IDREFS token either). Those files remain fully readable and editable, indefinitely; their IDs are never rewritten in place, so a document edited today can legitimately contain both forms side by side. When the platform writes a *reference* into such a document it looks up the target element's real ID rather than minting one. Full story, including what this means if you consume our METS: [METS identifiers](./02d-METS-Identifiers.md).
+> **METS files written before this change carry the raw, unencoded form** (`PHYS_objects/my file.pdf` — not a valid `xsd:ID`, and, because of the space, not a single IDREFS token either). Those files remain fully readable and editable; an ordinary edit never rewrites an existing ID, so a document can legitimately contain both forms side by side. When the platform writes a *reference* into such a document it looks up the target element's real ID rather than minting one.
+>
+> The legacy forms are, however, on their way out: #188 step 3 (August 2026) added an explicit **normalisation** that rewrites every illegal ID — and every reference to it — into the encoded form, producing exactly what the platform would mint today. It runs as a deliberate operation (a UI action, an API endpoint, and a bulk migration tool working through the preserved corpus), and while the migration feature flag is enabled the platform also normalises any remaining illegal IDs whenever it writes a managed METS. IDs that are already legal are never touched, whoever minted them. Once the migration campaigns complete, only the encoded form remains. Full story, including what this means if you consume our METS: [METS identifiers](./02d-METS-Identifiers.md).
 
 > [!NOTE]
 > For readability, the file-level XML examples below write IDs in the unencoded form. Real documents carry the encoding shown in the table above.
