@@ -134,7 +134,12 @@ editable tiers also require, for every document:
 - every `fptr` and every `area` in **every** structMap — logical included — resolves through the
   fileSec;
 - both ends of every `structLink/smLink` resolve, whether they point at files (the platform's
-  own arcrole style) or at divs (Goobi's logical-to-physical style).
+  own arcrole style) or at divs (Goobi's logical-to-physical style);
+- every logical structMap's root div has an ID — logical structure is edited *by address*
+  (replaced, reordered and removed by root div ID), so an ID-less logical map is present but
+  unchangeable, which is exactly what editable must not mean;
+- SHA256 fixity per file, in both tiers — every edit ends in an import job, and import jobs
+  require it.
 
 A failure of any of these leaves the document navigable-read-only at best: its files can be
 listed, but its structure cannot be safely mutated.
