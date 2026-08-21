@@ -81,10 +81,13 @@ disk:
 4. **The `objects` container is implied.** No div for `objects/` exists, but every file path is
    under it; the root container is synthesised on read from the paths. Reading never writes it
    back.
-5. **The file group is mapped.** These documents carry `reference`/`original`/`DEFAULT` fileGrps
-   rather than the platform's single `USE="OBJECTS"`. The fileGrp the physical structMap actually
-   references is treated as the OBJECTS-equivalent. If the structMap references files across
-   *several* fileGrps, the document fails this tier and the ambiguity is reported.
+5. **The file groups are mapped.** These documents carry fileGrps with USE values like
+   `reference`, `original` or `DEFAULT` — EPrints writes *one group per file*, all
+   `USE="reference"` — rather than the platform's single `USE="OBJECTS"`. All the groups the
+   physical structMap references are treated together as the OBJECTS-equivalent, and consolidated
+   into one `USE="OBJECTS"` group on save. What fails the tier is genuine ambiguity: referenced
+   files sitting in groups with *different* USE values (which copy is the content?), or two
+   referenced entries resolving to the same deposit-relative path.
 6. **Every resolved path is deposit-relative** — the standing guard.
 
 Because these documents have no directory divs, nothing in them needs `premis:originalName` on
@@ -119,8 +122,10 @@ Concretely, the first save:
 1. writes `TYPE="PHYSICAL"` onto the structMap and gives divs their types
    (`Directory`/`Item`);
 2. **materialises the implied `objects` div**: a real Directory div with an `amdSec`/`techMD`
-   carrying `premis:originalName` (`objects`), exactly as 02b specifies for any directory;
-3. makes the referenced fileGrp the single `USE="OBJECTS"` group;
+   carrying `premis:originalName` (`objects`), exactly as 02b specifies for any directory, and
+   re-parents the file divs under it — where their paths always said they were;
+3. consolidates the referenced fileGrps into the single `USE="OBJECTS"` group, moving the
+   `mets:file` elements unchanged;
 4. appends the platform agent to `metsHdr`;
 5. applies whatever the edit itself was, through the ordinary editing machinery;
 6. **nothing else** — no ID renumbering, no reordering for its own sake, and sections the platform
