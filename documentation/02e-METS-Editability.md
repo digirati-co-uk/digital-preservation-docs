@@ -113,6 +113,35 @@ surfaced two quirks the machinery must handle:
   are invisible to the platform today. The judge, and eventually the parser, should read them;
   an edit that sets record info through the platform writes standard `mods:recordInfo` while the
   original EPrints elements are preserved untouched in place.
+- **The referenced dmdSec claims MODS but is not MODS** — `mdWrap MDTYPE="MODS"` with no
+  `mods:mods` record. Such a section is not editable as MODS and the platform never edits it;
+  see the foreign-dmdSec rule in the save contract below.
+- **`mdWrap` payloads are not wrapped in `mets:xmlData`** — EPrints puts `premis:object`
+  directly inside `mdWrap`, which the METS schema does not allow (the content model is
+  `binData`/`xmlData`). Harmless to the forgiving parser, but lethal to any schema-typed round
+  trip, which would silently drop the payload — every checksum in the document. The save
+  normalises the wrapper as a declared mutation; the payload is preserved verbatim.
+
+## Editability covers the whole editable surface
+
+"Editable" licenses everything the platform can do to a document — physical structure edits,
+descriptive metadata (titles, access conditions, rights, record identifiers), **logical
+structMaps** (whole-file pointers, time segments, image regions), and **file-to-file links** —
+not just the physical tree the tiers are named for. Editability means the platform understands
+the document and can change it; it cannot safely change linkage it cannot resolve. So both
+editable tiers also require, for every document:
+
+- every `fptr` and every `area` in **every** structMap — logical included — resolves through the
+  fileSec;
+- both ends of every `structLink/smLink` resolve, whether they point at files (the platform's
+  own arcrole style) or at divs (Goobi's logical-to-physical style).
+
+A failure of any of these leaves the document navigable-read-only at best: its files can be
+listed, but its structure cannot be safely mutated.
+
+Deliberately *not* required: DMDID resolution. A dangling `DMDID` is by design in the platform's
+own skeleton — dmdSecs are created lazily, references first — so it can never be a conformance
+rule; what a *resolved* dmdSec must look like is covered by the foreign-dmdSec rule above.
 
 ## What saving does: restructure to the 02b profile
 
@@ -146,10 +175,22 @@ Concretely, the first save:
    re-parents the file divs under it — where their paths always said they were;
 3. consolidates the referenced fileGrps into the single `USE="OBJECTS"` group, moving the
    `mets:file` elements unchanged;
-4. appends the platform agent to `metsHdr`;
-5. applies whatever the edit itself was, through the ordinary editing machinery;
-6. **nothing else** — no ID renumbering, no reordering for its own sake, and sections the platform
+4. **wraps any bare `mdWrap` payload in the `mets:xmlData` element the schema requires** —
+   EPrints puts `premis:object` directly inside `mdWrap`, which is schema-invalid and, left
+   as-is, would be silently dropped by any schema-typed round trip. The wrapped content itself
+   is preserved verbatim; only the missing wrapper is added;
+5. appends the platform agent to `metsHdr`;
+6. applies whatever the edit itself was, through the ordinary editing machinery;
+7. **nothing else** — no ID renumbering, no reordering for its own sake, and sections the platform
    does not model are preserved as parsed, per the round-trip rules in 02b/02c.
+
+**Descriptive metadata on a div whose dmdSec is foreign** deserves its own rule, because it is the
+Leeds use case itself: the EPrints root div's `DMDID` points at a dmdSec that claims MODS but
+holds no `mods:mods` record (and mostly wrong-namespace elements). **The platform never edits a
+foreign dmdSec.** An edit that sets metadata on such a div creates a *new* platform dmdSec and
+**appends** its ID to the div's `DMDID` — `DMDID` is IDREFS, so
+`DMDID="DMD_eprint_10315 DMD_PHYS_ROOT"` is legal METS; the original section stays byte for byte,
+and effective-metadata resolution reads both.
 
 **If your code re-reads one of these documents after a platform save**: you will find an explicitly
 typed physical structMap, an `objects` Directory div with PREMIS metadata, and a single OBJECTS

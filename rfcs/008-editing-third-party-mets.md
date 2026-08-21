@@ -65,7 +65,14 @@ The restructure adds and rearranges; it does not destroy. Specifically, in the s
   working.
 - **All EPrints metadata survives**: descriptive metadata (titles, EPrints and EMu record
   identifiers), technical metadata (checksums, sizes, format identifications) — untouched, in
-  place.
+  place. **The platform never edits an EPrints metadata section**: when an edit sets descriptive
+  metadata on a part of the document whose existing section is EPrints', the platform writes its
+  own new section alongside and links both from the same place — the original stays byte for
+  byte.
+- **One declared repair**: EPrints omits a wrapper element (`mets:xmlData`) that the METS schema
+  requires around each file's technical metadata. The first save adds the missing wrapper; the
+  content inside it — the checksums and formats themselves — is preserved verbatim. This is a
+  repair to where the metadata sits, not to what it says.
 - **Provenance survives**: the `EPrints 3.3.15` creator agent stays in the header; the platform
   adds itself as a second, editing agent. The `premis:storage` record of each file's original
   location on the EPrints server is likewise kept — it is history, not a live address, and when
@@ -159,7 +166,8 @@ content. The saved document:
   </mets:dmdSec>
 
   <mets:amdSec ID="AMD_eprint_10315">
-    <!-- unchanged - every techMD, checksum and format identification as it was -->
+    <!-- every techMD, checksum and format identification as it was; the one change is that
+         each premis:object now sits inside the mets:xmlData wrapper the schema requires -->
   </mets:amdSec>
 
   <!-- NEW: the objects directory, previously only implied by the file paths,
