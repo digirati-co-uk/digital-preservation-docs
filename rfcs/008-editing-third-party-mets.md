@@ -67,7 +67,10 @@ The restructure adds and rearranges; it does not destroy. Specifically, in the s
   identifiers), technical metadata (checksums, sizes, format identifications) — untouched, in
   place.
 - **Provenance survives**: the `EPrints 3.3.15` creator agent stays in the header; the platform
-  adds itself as a second, editing agent.
+  adds itself as a second, editing agent. The `premis:storage` record of each file's original
+  location on the EPrints server is likewise kept — it is history, not a live address, and when
+  the platform records a storage location of its own it does so in a separate element marked as
+  its own assertion.
 - Files themselves are not touched at all: this is a metadata edit, producing a new version of one
   XML file.
 

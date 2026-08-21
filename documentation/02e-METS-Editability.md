@@ -94,6 +94,26 @@ Because these documents have no directory divs, nothing in them needs `premis:or
 read. The first directory div such a document ever acquires is the `objects` div materialised on
 save, below.
 
+### Quirks measured in the production corpus
+
+The assumptions above were checked against recent production EPrints migrations (2025–2026
+ingests, from single-file items to a 355-file item) and held in every document. The same check
+surfaced two quirks the machinery must handle:
+
+- **Every file's techMD carries a `premis:storage`/`contentLocation` holding a `file://` URL** —
+  the file's path on the EPrints server it was migrated from. It is historical provenance, not a
+  live location, and it is never rewritten; when the platform records a storage location of its
+  own (on Archival Group export) it adds a separate `premis:storage` marked with its own
+  `storageMedium`, alongside. The editing stack already reads storage assertions by
+  `storageMedium`; the parser currently does not (it takes any single `contentLocation`, and
+  fails on two), which must be corrected before third-party editing is enabled.
+- **EPrints writes its record identifiers in the METS namespace, not MODS** —
+  `recordInfo`/`recordIdentifier` elements carrying the EPrints id, the EMu number, and the
+  `id.library.leeds.ac.uk` PID. The parser currently reads only `mods:recordIdentifier`, so these
+  are invisible to the platform today. The judge, and eventually the parser, should read them;
+  an edit that sets record info through the platform writes standard `mods:recordInfo` while the
+  original EPrints elements are preserved untouched in place.
+
 ## What saving does: restructure to the 02b profile
 
 **On the first platform save, an EPrints-tier document is restructured to the
