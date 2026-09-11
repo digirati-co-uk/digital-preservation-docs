@@ -1,132 +1,93 @@
 ---
-title: Preservation API
+title: Preservation API overview
 sidebar:
   label: Overview
   order: 1
 ---
 
-import { Aside, Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+import { Card, LinkCard, Aside } from '@astrojs/starlight/components';
 
-The Preservation API is the application-facing API of the platform: it is what the Preservation UI,
-Goobi, the iiif-builder and most scripts talk to. It is JSON over HTTP. This page covers the
-conventions that every endpoint shares; the rest of the section goes through the endpoints by topic.
+The Preservation API is the application-facing API of the platform. It is what the [Preservation UI](../../ui/overview), [iiif-builder](../../internals/iiif-builder), digitisation workflows such as Goobi, and ad hoc scripts all use. If you are integrating with the platform, this is almost certainly the only API you will call.
 
-## Hosts and roots
+It understands [METS](../../mets/overview), manages [Deposits](../deposits) as working areas for assembling content, generates and runs [Import Jobs](../import-jobs) that turn a Deposit into a new version of an [Archival Group](../repository#archivalgroup), and publishes an [Activity Stream](../activity-stream) of what has changed. Underneath it, the [Storage API](../../storage-api/overview) writes to Fedora and OCFL; you never talk to that directly.
 
-Examples throughout use `https://preservation-api.example` as the API host. Your platform instance
-has its own hostname; nothing else changes.
+<Card title="Sample code" icon="seti:python">
+    Each page of the API documentation is accompanied by 💻 <a href="https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/preservation-docs-client">sample Python code</a>.<br/>
+    The samples use deliberately simple helpers so that the HTTP operations are easy to read.
+</Card>
 
-There is no API functionality at the root URL itself (`GET /` returns a short plain-text greeting).
-Resources live under top-level paths such as `/repository`, `/deposits`, `/agents` and `/whoami`.
-Every resource the API returns identifies itself with an `id` that is its own fully qualified URL at
-this host, and refers to other resources by their URLs, so you can navigate by following `id`
-values rather than constructing paths.
+## The API root
 
-The Preservation API sits on top of the [Storage API](../../storage-api/overview). Most callers never
-see the Storage API; where the Preservation API passes a Storage API concept through (browsing the
-repository, for instance) it rewrites the URIs so that they point at the Preservation API host.
+Throughout this documentation the Preservation API is assumed to be at `https://preservation-api.example`. Your platform instance will be on its own hostname. There is no API resource at the root itself; the entry points are:
+
+| Path | What it is |
+|---|---|
+| `/repository` | The root of the preserved repository: a tree of Containers, Archival Groups and Binaries. See [Repository](../repository). |
+| `/deposits` | Working areas for content on its way into (or out of) the repository. See [Deposits](../deposits). |
+| `/activity/archivalgroups/collection` | The activity stream of created and updated Archival Groups. See [Activity Stream](../activity-stream). |
+| `/search` | Search across Deposits and preserved files. See [Search](../search). |
+| `/whoami` | Who the API thinks you are. See below. |
+
+Every other resource is reached by following the `id` links in these responses.
 
 ## JSON conventions
 
-- Property names are camelCase.
-- `id` is a URI: the resource's own location in the API.
-- `type` is a string naming the resource type: `Container`, `Binary`, `ArchivalGroup`, `Deposit`,
-  `ImportJob`, `ImportJobResult`, and so on. The repository root has the special type
-  `RepositoryRoot`.
-- Dates are ISO 8601 strings in UTC, for example `2024-03-14T14:58:46.102335Z`.
-- References to other resources (`partOf`, `createdBy`, `deposit`, `archivalGroup`...) are URIs.
-- Properties with no value are generally omitted from the JSON rather than written as `null`.
-- Request bodies are `application/json`; send `Content-Type: application/json` and
-  `Accept: application/json`.
+The API is JSON over HTTP. Request bodies are sent with `Content-Type: application/json`; responses are JSON objects.
 
-## Common metadata
+* Every resource has an `id` property that is its own URI in the API, and a `type` property naming its resource type (`Deposit`, `ArchivalGroup`, `Container`, `Binary`, `ImportJob`, and so on). References to other resources are always fully qualified URIs, so a client can follow them without building URLs itself.
+* When you send a resource to the API you can omit `id` and `type` where they can be inferred from the request URI, and you should omit read-only properties.
+* Dates are ISO 8601 strings in UTC, for example `2025-10-03T09:55:34.3621834Z`.
 
-Every resource shares this set of properties:
+## Common properties
+
+The main resource types share these properties:
 
 ```jsonc
 {
-  "id": "https://preservation-api.example/...",
-  "type": "Container",
-  "created": "2024-03-14T14:58:46.102335Z",
-  "createdBy": "https://preservation-api.example/agents/goobi",
-  "lastModified": "2024-03-28T12:00:00.000000Z",
-  "lastModifiedBy": "https://preservation-api.example/agents/jane.smith@example.org"
-  // ... type-specific properties
+    "id": "https://preservation-api.example/...",
+    "type": "Deposit",                         // the resource type
+    "created": "2024-03-14T14:58:46.102335Z",
+    "createdBy": "https://preservation-api.example/agents/tom",
+    "lastModified": "2024-03-28T12:00:00.00000Z",
+    "lastModifiedBy": "https://preservation-api.example/agents/donald"
+    // ... type-specific properties
 }
 ```
 
 | Property | Description |
-| --- | --- |
-| `id` | URI of the resource in the API. Its path may only contain characters from the permitted set (below). |
+|---|---|
+| `id` | URI of the resource in the API. |
 | `type` | The resource type. |
-| `created` | When the resource was created _within the platform_ (not the original creation date of a file). |
-| `createdBy` | The [agent](../agents) that created it: a URI of the form `https://preservation-api.example/agents/<name>`. |
+| `created` | When the resource was created *within the platform* (not the original creation date of any file it represents). |
+| `createdBy` | The [Agent](../agents) URI of the user or API client that created it. |
 | `lastModified` | When the resource was last modified within the platform. |
-| `lastModifiedBy` | The agent that last modified it. |
+| `lastModifiedBy` | The Agent URI of who last modified it. |
 
-Resources that represent preserved (or to-be-preserved) files and folders - Containers, Binaries and
-Archival Groups - add `name`, an optional `otherNames` list, `partOf` and `origin`; see
-[Repository](../repository). `ImportJob` and `ImportJobResult` carry `created` and `createdBy` but
-not `lastModified`/`lastModifiedBy`, because they are never modified.
+`ImportJob` and `ImportJobResult` have `created` and `createdBy` but not the `lastModified` pair, because they are never modified once submitted.
 
-## Permitted characters in ids
+## Paths and names
 
-The path of a repository `id` is made of slugs (path segments). Each slug may contain only:
+Resources that live in the repository (Containers, Archival Groups and Binaries) have two kinds of name:
 
-- lower-case letters `a-z`, upper-case letters `A-Z`, digits `0-9`
-- `(`, `)`, `-`, `_`, `.` and `%`
+* The last path segment of the `id` URI, which is restricted to a safe set of characters: letters `a-z` and `A-Z`, digits `0-9`, and `(`, `)`, `-`, `_` and `.`, with `%` permitted only in escape sequences.
+* A `name` property, which may contain any UTF-8 characters. This records the original file or folder name, for example `"my notes (final).doc"` or a name in a non-Latin script, so that ugly or fragile URL encoding is never needed to preserve it.
 
-A slug must be between 1 and 2000 characters long, may not contain spaces, and may not be the word
-`repository`. The API enforces this when you create a Container with PUT, when a Deposit names the
-Archival Group it targets, and when an Archival Group is created by an Import Job; a slug that
-breaks the rule is rejected with `400 Bad Request` and a message listing the offending characters.
-
-Original names are not lost by this restriction. Containers and Binaries have a separate `name`
-property that may contain any UTF-8 text, so a file called `Teto in tree.png` can be preserved as a
-Binary whose `id` ends in `Teto_in_tree.png` (or anything else you choose) and whose `name` is the
-original.
+Often the two are the same, but they do not have to be.
 
 ## Errors
 
-When a request fails, the response body is an RFC 7807 problem details object:
-
-```
-GET /repository/no/such/container
-```
-
-```json
-{
-  "title": "Status 404",
-  "status": 404,
-  "detail": "..."
-}
-```
-
-The status codes you will meet:
-
-| Status | Meaning |
-| --- | --- |
-| `400` | Bad request - an invalid slug, a query parameter combination the endpoint does not support, a body that fails validation. |
-| `401` | No valid bearer token, or no identity could be resolved for the caller. See [Authentication](../authentication). |
-| `404` | Nothing at this path. |
-| `409` | Conflict - something already exists at the path, an ancestor is not a Container, an active Deposit already targets the Archival Group. |
-| `410` | Gone - a _tombstone_: a resource used to exist here and was deleted without being purged. |
-| `412` | Precondition failed - an `If-Match` ETag did not match (see [Editing METS](../editing-mets)). |
-| `422` | Unprocessable - the request was well-formed but cannot be carried out. |
-| `500` | An unexpected error. |
-
-Separately, resources that report on a long-running job (`ImportJobResult`, the pipeline's
-`ProcessPipelineResult`) have an `errors` property listing error objects:
+Operations that run asynchronously (Import Jobs, Exports, Pipeline runs) report problems in an `errors` list on their result resource rather than as an HTTP error, because the failure happens after the HTTP request has returned. Each entry is an error object:
 
 | Property | Description |
-| --- | --- |
-| `id` | The URI of this error. Not always present, if there is nothing sensible to reference. |
+|---|---|
+| `id` | The URI of the resource the error relates to, where there is one. May be null. |
 | `message` | The error message. Always present. |
 
-## Check that you are connected
+Synchronous failures use ordinary HTTP status codes: `400` for a malformed or inconsistent request, `401` for a missing or invalid token, `404` for a resource that does not exist, `409` for a conflict such as a Deposit locked by someone else, `410` for a resource that has been deleted (a *tombstone*, see [Repository](../repository#head-requests-and-tombstones)), and `412` when an `If-Match` precondition fails.
 
-`GET /whoami` returns the identity the API has resolved for the caller, and is the quickest way to
-confirm that your token is accepted and that your actions will be attributed as you expect:
+## Checking your connection
+
+`GET /whoami` returns the identity the API has resolved for the caller. It is the first thing to try once you have credentials, and it tells you what your actions will be attributed to.
 
 ```
 GET /whoami
@@ -134,41 +95,24 @@ GET /whoami
 
 ```json
 {
-  "name": "goobi",
+  "name": "my-integration",
   "source": "token",
-  "appId": "5f0c1a2e-0000-0000-0000-000000000000",
+  "appId": "5f1c...e2a9",
   "depositBucket": "working-bucket"
 }
 ```
 
 | Property | Description |
-| --- | --- |
-| `name` | The name your actions are attributed to - the last path segment of your [agent URI](../agents). |
-| `source` | How the name was resolved: `user` (a signed-in person), `token` (a machine client known to the platform by its app id), `header-fallback` (taken from your `X-Client-Identity` header) or `unknown`. |
-| `appId` | The application id (`azp`/`appid` claim) from your token, when present. |
-| `depositBucket` | The S3 bucket in which Deposits you create will be given their working area. |
+|---|---|
+| `name` | The name your actions are recorded under (in `createdBy`, `preservedBy` and so on). |
+| `source` | How that name was derived: `user` (a signed-in person), `token` (from the client's token), `header-fallback` (from the `X-Client-Identity` header only), or `unknown`. |
+| `appId` | The application id from the token, when the caller authenticated with one. Null otherwise. |
+| `depositBucket` | The S3 bucket in which this caller's Deposits are created. |
 
-[Authentication](../authentication) explains where each `source` comes from.
+See [Authentication](../authentication) for how to obtain a token and why `X-Client-Identity` matters.
 
-<LinkCard title="💻 whoami.py" href="https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/preservation-docs-client/p01_overview/whoami.py" description="Check the configuration in .env, call /whoami and print the result." />
-
-## Python samples
-
-<Card title="preservation-docs-client" icon="github">
-  Each important operation in this section is accompanied by a short Python script in the
-  [preservation-docs-client](https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/preservation-docs-client)
-  directory of the documentation repository. The scripts are deliberately plain - no retries, no
-  error handling - so that the HTTP requests are easy to read. Copy `example.env` to `.env`, fill
-  in your API host and credentials, and run them from the `preservation-docs-client` directory.
-</Card>
-
-## In this section
-
-<CardGrid>
-  <LinkCard title="Authentication" href="../authentication" description="Bearer tokens, the X-Client-Identity header, how UI users are identified." />
-  <LinkCard title="Repository" href="../repository" description="Containers, Binaries and Archival Groups; browsing, HEAD, creating and deleting Containers." />
-  <LinkCard title="Deposits" href="../deposits" description="Working areas in S3 for assembling content." />
-  <LinkCard title="Import Jobs" href="../import-jobs" description="Turning a Deposit into a new version of an Archival Group." />
-  <LinkCard title="Activity stream" href="../activity-stream" description="What has changed, for downstream systems." />
-  <LinkCard title="Agents" href="../agents" description="Who did what." />
-</CardGrid>
+<LinkCard
+  title="💻 Example: who am I?"
+  href="https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/preservation-docs-client/p01_overview/whoami.py"
+  description="Checks the configuration and calls /whoami."
+/>
