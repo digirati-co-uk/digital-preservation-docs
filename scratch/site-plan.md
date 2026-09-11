@@ -57,7 +57,10 @@ Link form: sibling page `../slug`; other group `../../group/slug`; anchor `#head
 
 ## internals/
 1 overview.mdx
-2 workspace-manager.mdx  - WorkingDirectory/WorkingFile/CombinedDirectory, how diff is built
+2 workspace-manager.mdx  - DEFERRED as library docs. For now: a short page saying what WorkspaceManager and
+                          the METS parser/object model are, that both are to be released as standalone
+                          libraries (.NET, with Python equivalents) and documented separately, and where the
+                          HTTP-level view of the same concepts lives (deposit-files, editing-mets, import-jobs).
 3 pipeline-api.mdx       - SNS/SQS, Pipeline API, Brunnhilde/Siegfried/ClamAV/ExifTool/BagIt, EC2, statuses, callbacks
 4 iiif-builder.mdx
 5 deployment.mdx         - services, images, config, feature flags, local running
