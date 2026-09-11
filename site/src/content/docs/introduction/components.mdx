@@ -1,0 +1,137 @@
+---
+title: Components
+sidebar:
+  label: Components
+  order: 3
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+The platform is a set of services layered over an S3 bucket. This page says what each one does and
+which of them talk to each other.
+
+<Aside type="tip">
+Most users - human or machine - only ever have access to the **Preservation API** (or to the
+Preservation UI, which is built on it). The other components are described here so that the
+behaviour of the Preservation API makes sense, not because you will normally call them.
+</Aside>
+
+## Preservation API
+
+The application-facing API, and the one this documentation is mostly about. It:
+
+- provides a hierarchical JSON view of the repository (Containers, Archival Groups, Binaries), passed
+  through from the Storage API;
+- offers **Deposits** - working areas in S3 - for assembling content before it is preserved, and for
+  receiving exports;
+- understands **METS**: it creates and edits METS files for deposits it manages, and reads METS
+  written by other systems (Goobi, Archivematica) to find checksums and structure;
+- generates **Import Jobs** by diffing a Deposit against its Archival Group, and executes them by
+  sending them to the Storage API;
+- triggers **pipeline** runs (format identification, virus scanning) over deposit files and folds the
+  results into the METS;
+- publishes an **activity stream** of created and updated Archival Groups;
+- builds IIIF Manifests from Archival Groups and Deposits.
+
+It is used by the Preservation UI, by Goobi, by the iiif-builder, and by scripts. It has its own
+PostgreSQL database for Deposits, jobs and history. It never talks to Fedora; everything to do with
+preserved content goes through the Storage API.
+
+See the [Preservation API section](../../preservation-api/overview).
+
+## Preservation UI
+
+A web application for staff and external contributors, built on the Preservation API. It lets people
+browse the repository, create Deposits, upload files (including very large uploads straight into the
+deposit's S3 area), edit the managed METS, run pipelines and execute Import Jobs. Some things the UI
+does - uploading a file into a Deposit, for instance - act on S3 directly rather than through the
+API.
+
+See the [Preservation UI section](../../ui/overview).
+
+## Storage API
+
+The exclusive gateway to Fedora. Nothing else talks to Fedora. The Storage API:
+
+- exposes the repository as Containers, Archival Groups and Binaries, with the same JSON shapes the
+  Preservation API passes through;
+- accepts **Import Jobs** and performs them against Fedora inside a transaction, however many files
+  are involved, producing a new OCFL version;
+- **exports** an Archival Group (at any version) to a location in S3;
+- can stream the bytes of a preserved Binary (`/content/...`), and reports each Binary's `origin`
+  in S3;
+- publishes its own activity stream of completed Import Jobs, which the Preservation API consumes.
+
+It has no idea what the files it stores are; a METS file is just another Binary. It has its own
+PostgreSQL database. Import processing can run inside the Storage API or in a separately deployed
+**Storage API Importer** service that takes jobs from an SQS queue, so that large imports can be
+scaled independently.
+
+Direct use is rare: an application that only reads preserved content, and that is trusted with
+direct access to storage locations, might use it. See the
+[Storage API section](../../storage-api/overview).
+
+## Fedora
+
+[Fedora 6](https://wiki.lyrasis.org/display/FEDORA6x) is the repository software that writes OCFL.
+The platform could write OCFL to S3 itself; instead it uses Fedora, whose native persistence format
+is OCFL and which handles versioning and transactions.
+
+Fedora offers much more - a Linked Data Platform implementation, arbitrary RDF triples - and the
+platform deliberately uses almost none of it. Only these Fedora features are used:
+
+- Basic Containers (called simply Containers everywhere in this documentation)
+- Binaries
+- Archival Groups (which become versioned OCFL objects)
+- Transactions
+
+## OCFL in S3
+
+The [Oxford Common File Layout](https://ocfl.io/1.1/spec/) is what is actually preserved: for each
+Archival Group, an [OCFL object](https://ocfl.io/1.1/spec/#object-spec) in an S3 bucket, with an
+inventory listing every version and the SHA-256 of every file. This is the goal of everything else,
+and the bucket can be replicated elsewhere for backup. Very trusted readers may be given direct
+access to it; the `origin` property of a Binary tells them where to look.
+
+## Pipeline API
+
+A service that runs analysis tools over the files in a Deposit. The Preservation API asks for a run
+by publishing a message (AWS SNS/SQS); the Pipeline API then runs
+[Brunnhilde](https://github.com/tw4l/brunnhilde) - which wraps Siegfried for PRONOM format
+identification and ClamAV for virus scanning - as an external process against the deposit's
+`objects/` folder, writes the outputs into the deposit's `metadata/` folder, and reports back to the
+Preservation API. It runs on EC2 rather than Fargate because it spawns child processes, and it
+authenticates its own callers with an API key rather than Entra ID.
+
+See [Tool outputs and pipelines](../../preservation-api/tool-outputs-and-pipelines) and the
+[Pipeline API internals](../../internals/pipeline-api).
+
+## iiif-builder
+
+A long-running Python service that polls the Preservation API's activity stream. For each new or
+updated Archival Group it loads the Archival Group and its METS from the Preservation API, obtains
+the item's persistent identifier and public IIIF Manifest URI from the Leeds Identity Service,
+fetches descriptive metadata from the catalogue, builds a IIIF Manifest (structure from the METS,
+description from the catalogue) and PUTs it to IIIF Cloud Services. It keeps track of what it has
+processed in its own database.
+
+See [iiif-builder internals](../../internals/iiif-builder).
+
+## IIIF Cloud Services
+
+The external platform that hosts the IIIF Manifests built by the iiif-builder and serves the content
+resources derived from preserved files - most commonly IIIF Image API services generated from
+archival TIFFs. It is a consumer of the preservation platform's outputs, not part of it.
+
+## Who talks to whom
+
+| From | To | How |
+| --- | --- | --- |
+| Preservation UI, Goobi, iiif-builder, scripts | Preservation API | HTTPS + Entra ID token |
+| Preservation API | Storage API | HTTPS + Entra ID token (forwarding the caller's token where there is one) |
+| Preservation API | Pipeline API | SNS topic → SQS queue |
+| Pipeline API | Preservation API | HTTPS callback when a run finishes |
+| Storage API, Storage API Importer | Fedora | HTTP (Fedora's REST API), never exposed to anyone else |
+| Fedora | S3 | Writes OCFL |
+| Preservation API, Storage API, Pipeline API, UI, clients | S3 working bucket(s) | Deposit files go in and out here |
+| iiif-builder | IIIF Cloud Services | PUTs manifests |

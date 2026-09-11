@@ -1,0 +1,46 @@
+---
+title: Digital Preservation Documentation
+description: How to use the Digital Preservation platform - the Preservation API, the Preservation UI and the Storage API - to create versioned, OCFL-preserved digital objects.
+template: splash
+hero:
+  tagline: Versioned digital objects, preserved as OCFL in S3, built and managed through the Preservation API.
+  actions:
+    - text: What is the platform?
+      link: ../digital-preservation-docs/introduction/overview
+      icon: right-arrow
+---
+
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+<CardGrid>
+	<LinkCard
+		title="Preservation API"
+		href={import.meta.env.BASE_URL + '/preservation-api/overview'}
+		description="The application-facing API: Deposits, METS, Import Jobs, browsing the repository, exports and the activity stream."
+	/>
+	<LinkCard
+		title="Workflows"
+		href={import.meta.env.BASE_URL + '/workflows/overview'}
+		description="Step-by-step walk-throughs of common preservation tasks, each with runnable Python."
+	/>
+	<LinkCard
+		title="Preservation UI"
+		href={import.meta.env.BASE_URL + '/ui/overview'}
+		description="The web interface: browsing the repository, creating and editing deposits, running pipelines."
+	/>
+	<LinkCard
+		title="METS"
+		href={import.meta.env.BASE_URL + '/mets/overview'}
+		description="The METS files the platform writes, the METS it can read, and the rules for editing them."
+	/>
+	<LinkCard
+		title="Storage API"
+		href={import.meta.env.BASE_URL + '/storage-api/overview'}
+		description="The Fedora-facing API underneath the Preservation API, and where it differs."
+	/>
+	<LinkCard
+		title="Source code on GitHub"
+		href="https://github.com/digirati-co-uk/digital-preservation"
+		description="The platform's source code, issues and releases."
+	/>
+</CardGrid>

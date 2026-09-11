@@ -1,0 +1,143 @@
+---
+title: Concepts
+sidebar:
+  label: Concepts
+  order: 2
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+These are the terms used throughout the documentation. Each is defined once here; the linked pages
+give the detail.
+
+## Archival Group
+
+The unit of preservation. An Archival Group is a set of files and folders that is versioned _as a
+whole_: a digitised book, a manuscript, a born-digital collection, a single PDF. It corresponds
+one-to-one with an **OCFL object** in S3 (and with a
+[Fedora Archival Group](https://wiki.lyrasis.org/display/FEDORA6x/Glossary#Glossary-ArchivalGroupag)
+underneath). Files inside an Archival Group cannot be versioned separately; only the Archival Group
+as a whole has versions.
+
+In the API an Archival Group is a special kind of Container: it has `containers` and `binaries`
+like any Container, plus `version`, `versions` and `storageMap`. A GET on an Archival Group returns
+its _entire_ tree of Containers and Binaries in one response.
+
+See [Repository](../../preservation-api/repository).
+
+## Container
+
+A folder. Containers are used in two places:
+
+- **Above** Archival Groups, to organise the repository into a hierarchy (for example
+  `/repository/library/manuscripts`). These are created directly with a PUT request.
+- **Inside** Archival Groups, as the directories of the preserved object. These are never created
+  directly; they come into existence when an Import Job runs.
+
+The repository root is itself a Container, with the special `type` value `RepositoryRoot`.
+
+See [Repository](../../preservation-api/repository).
+
+## Binary
+
+A file of any kind. Binaries exist only inside Archival Groups. Every Binary has a SHA-256 `digest`,
+a `contentType`, a `size`, and an `origin` - the S3 location of the preserved bytes in the OCFL
+layout. Binaries are never uploaded to the API directly: an Import Job tells the platform where in
+S3 to fetch them from.
+
+See [Repository](../../preservation-api/repository).
+
+## Deposit
+
+A working area in S3 - an S3 key prefix such as `s3://working-bucket/deposits/<id>/` - allocated by
+the Preservation API for assembling the files that will become, or update, an Archival Group. Files
+are put into the deposit by whatever means suit the client (S3 APIs, the UI's uploader, a BagIt
+bag), not through the API. A Deposit is either **new** (for an Archival Group that does not yet
+exist) or targets an existing Archival Group (typically after an export).
+
+A Deposit has a `status`: `new`, `exporting`, `preserved`, `error` or `archived`. It also has a
+`template`, which determines whether the platform manages its METS file: `None` (you supply and
+maintain your own METS), `RootLevel` (the platform creates `mets.xml`, `objects/` and `metadata/`
+and keeps the METS up to date), or `BagIt` (the same, inside a BagIt `data/` directory).
+
+See [Deposits](../../preservation-api/deposits) and [Deposit files](../../preservation-api/deposit-files).
+
+## METS
+
+The XML file at the root of an Archival Group that models the digital object: its files, their
+checksums and formats, its directory structure, and administrative metadata such as access
+conditions and rights. The Preservation API uses METS as the object model - checksums for Import Jobs
+come from the METS, not from the files.
+
+METS is either **managed** (the platform wrote it and can edit it through API operations: add files,
+remove files, set metadata) or **unmanaged** (a third party such as Goobi or Archivematica wrote it;
+the platform reads it but will not modify it).
+
+See the [METS section](../../mets/overview) and [Editing METS](../../preservation-api/editing-mets).
+
+## Import Job
+
+A JSON document that describes the changes to make to an Archival Group, expressed as lists of
+operations: `containersToAdd`, `binariesToAdd`, `binariesToPatch`, `binariesToDelete`,
+`containersToDelete`, `binariesToRename` and `containersToRename`. Each Binary to add or patch
+carries its S3 `origin` and its SHA-256 `digest`.
+
+Usually you ask the Preservation API to generate an Import Job by **diffing** a Deposit against the
+current state of its Archival Group (for a new Archival Group, everything is an addition). You can
+also write one by hand. Executing an Import Job is what creates a new version.
+
+See [Import Jobs](../../preservation-api/import-jobs).
+
+## Import Job Result
+
+The record of an Import Job's execution. Import Jobs run asynchronously; the result has a `status`
+you poll, and when finished lists what was added, patched, deleted and renamed, the `newVersion`,
+and any `errors`.
+
+See [Import Job Results](../../preservation-api/import-job-results).
+
+## Export
+
+Copying the contents of an Archival Group (at a chosen version) out of the repository into a
+Deposit's working area, either to work on the files and preserve a new version, or just to get at
+them. An Export is asynchronous and has its own resource for tracking progress.
+
+See [Exports](../../preservation-api/exports).
+
+## Versions
+
+Every successful Import Job creates a new version of the Archival Group: `v1`, `v2`, `v3` and so on,
+matching the OCFL version directories. Each version also has a Memento timestamp
+(`20250311111913`) from Fedora. The Archival Group's `versions` list and its **storage map** show
+which files belong to which version and where they are in S3.
+
+See [Versions and storage map](../../preservation-api/versions-and-storage-map).
+
+## Activity Stream
+
+A feed, in the [IIIF Change Discovery](https://iiif.io/api/discovery/1.0/) `OrderedCollection`
+format, of Archival Groups that have been created or updated. Downstream systems such as the
+iiif-builder poll it to find out what to process.
+
+See [Activity stream](../../preservation-api/activity-stream).
+
+## Pipeline
+
+A run of file-analysis tools over a Deposit's `objects/` folder: format identification (Siegfried,
+giving PRONOM identifiers), virus scanning (ClamAV) and related characterisation, orchestrated by
+Brunnhilde. The outputs are written under the deposit's `metadata/` folder and, for a managed METS,
+incorporated into the METS as PREMIS technical metadata and events.
+
+See [Tool outputs and pipelines](../../preservation-api/tool-outputs-and-pipelines).
+
+## Agent
+
+The identity a change is attributed to: a person using the UI, or a machine client such as Goobi.
+Agents appear as URIs in `createdBy`, `lastModifiedBy` and similar properties.
+
+See [Agents](../../preservation-api/agents).
+
+<Aside type="note">
+The Storage API uses the same words - Archival Group, Container, Binary, Import Job - with the same
+meanings. It does not have Deposits, METS or Pipelines; those are Preservation API concepts.
+</Aside>
