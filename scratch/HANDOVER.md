@@ -50,6 +50,9 @@ they are in `DigitalPreservation.Mets`, not `Storage.Repository.Common`).
 ## Remaining briefs, in order
 
 ### 1. preservation-api/authentication.mdx (order 2) — DONE (commit 18f2cfe)
+Note for later: the page describes the RFC-0001 Phase 0 mechanism (/whoami, KnownClients,
+per-caller depositBucket), which is on the code branch `feature/multiple-deposit-buckets`,
+not `main` — see findings. The X-Client-Identity header is framed as transitional, as it is.
 Stance (in CLAUDE.md): bearer JWT via standard OAuth2 client-credentials from whichever identity
 provider the instance is configured with; Entra ID is today's concrete example (token endpoint,
 `api://<app-id>/.default` scope), not the design. Explain `X-Client-Identity` (what the API

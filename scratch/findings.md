@@ -6,6 +6,16 @@ documentation error or a code bug.
 
 ## Open
 
+- **The site documents RFC-0001 Phase 0 code that is not yet on `main`.** (overview, authentication)
+  `/whoami`, `CallerResolver`, `WhoAmIResult`, `IClientDirectory`/`KnownClients` and the per-caller
+  `depositBucket` routing exist only on the code repo's `feature/multiple-deposit-buckets` branch;
+  `origin/main` has just `AuthFilterIdentifier` and `ClaimsPrincipalX`. The overview page (previous
+  session) and the authentication page both describe the branch. That matches the handover's
+  instruction to verify against the working tree, and Tom has confirmed the direction, but the site
+  must not go live describing endpoints a deployed instance does not have. Check before publishing;
+  and once `docs/rfc-0001-api-caller-identity.md` reaches `main`, link it from the authentication
+  page's "transitional arrangement" note (deliberately unlinked for now — it would 404).
+
 - **Binary `content` URI is not served by the Preservation API.** (repository page) The old doc said
   `GET /content/...` on the Preservation API returns 403; there is no `/content` route in
   Preservation.API at all, so it is a 404. Only the Storage API serves it. Either add a proxying

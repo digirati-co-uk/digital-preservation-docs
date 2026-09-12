@@ -7,7 +7,7 @@ sidebar:
 
 import { Aside, LinkCard, Steps } from '@astrojs/starlight/components';
 
-Every request to the Preservation API carries two things: a **bearer token**, which proves you are allowed to call the API at all, and an **`X-Client-Identity` header**, which says who you are for the record. They do different jobs, and a machine client needs both.
+Every request to the Preservation API carries two things: a **bearer token**, which proves you are allowed to call the API at all, and an **`X-Client-Identity` header**, which says who you are for the record. They do different jobs, and a machine client sends both.
 
 ```
 GET /repository/my-collection
@@ -68,6 +68,10 @@ A general-purpose OAuth2 or MSAL client library will do; the samples use neither
 We ask API callers to supply an `X-Client-Identity` HTTP header to identify themselves: a short name for your client — `goobi`, `eprints-migration`, `my-integration`. This is not used as a credential in any way; all clients must authenticate and present a valid bearer token. It just allows us to audit calls — who created what. The name becomes your [Agent](../agents) name, and turns up in `createdBy`, `lastModifiedBy`, `preservedBy` and `exportedBy` on everything you touch, and in the platform's logs.
 
 Send it on every request. Use one stable name per client — not a per-run or per-machine name — because it is what someone reading a resource's history months later will see.
+
+<Aside type="note" title="A transitional arrangement">
+The header is how a machine caller is identified today, but it is on its way out. As each caller is given its own registration with the identity provider and added to the allow-list below, its identity comes from the signed token instead — you will see `/whoami` flip from `header-fallback` to `token` — and once every caller has moved, the header will be dropped altogether. So send it today, but don't build anything that depends on it.
+</Aside>
 
 <Aside type="caution" title="Attribution, not authorisation">
 The header is a convenience for supplying the human-readable label the token lacks, but it is self-asserted and unauthenticated: the API does not verify it, and it never grants access to anything. It is not an alternative to a bearer token — a request without a valid token is rejected whatever the header says. Where the API can establish a verifiable name from the signed token, it prefers that over the header (below).
