@@ -16,14 +16,17 @@ Done and verified against code:
 |---|---|---|
 | introduction | overview, concepts, components | – |
 | mets | overview, mets-we-write, mets-we-write-descriptive, mets-we-read, identifiers, editability | – |
-| preservation-api | overview, agents, repository | p01_overview/whoami.py, p03_repository/*.py |
+| preservation-api | overview, authentication, agents, repository | p01_overview/whoami.py, p02_authentication/get_token.py, p03_repository/*.py |
 
 Everything else under `site/src/content/docs/` is a placeholder `overview.mdx`.
 `preservation-docs-client/` has the shared helpers (`preservation.py`, `s3_helpers.py`,
 `settings.py`, `example.env`); samples cannot be run yet against a hosted instance, but the local
 stack runs (see below) so they can be exercised against `localhost` with `DISABLE_AUTH=true`.
 
-Findings so far: `findings.md` (one open: the Binary `content` URI is not served by the
+Samples are run as modules from `preservation-docs-client/` (`python -m p03_repository.browse_repository`);
+the `python dir/script.py` form cannot find `settings.py`.
+
+Findings so far: `findings.md` (open: the Binary `content` URI is not served by the
 Preservation API) and `findings-F.md` (METS: parser detects virus events by PREMIS eventType, not
 ID prefix; judge PR #238 still open; code repo's CLAUDE.md is stale about where METS classes live —
 they are in `DigitalPreservation.Mets`, not `Storage.Repository.Common`).
@@ -46,7 +49,7 @@ they are in `DigitalPreservation.Mets`, not `Storage.Repository.Common`).
 
 ## Remaining briefs, in order
 
-### 1. preservation-api/authentication.mdx (order 2)
+### 1. preservation-api/authentication.mdx (order 2) — DONE (commit 18f2cfe)
 Stance (in CLAUDE.md): bearer JWT via standard OAuth2 client-credentials from whichever identity
 provider the instance is configured with; Entra ID is today's concrete example (token endpoint,
 `api://<app-id>/.default` scope), not the design. Explain `X-Client-Identity` (what the API
