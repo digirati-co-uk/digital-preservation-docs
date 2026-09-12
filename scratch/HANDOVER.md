@@ -1,152 +1,54 @@
-# Handover: porting the documentation to the Starlight site
+# Handover: the documentation site
 
-Written 2026-09-11 at the end of the first session. Read this, then `../CLAUDE.md` (conventions)
-and `site-plan.md` (page slugs), before writing anything.
+Updated 2026-09-12. Read this, then `../CLAUDE.md` (conventions) and `site-plan.md` (page slugs).
 
-## Where we got to
+## Where it got to
 
-Branch `docs-site` in this repo (created off `mets-profiles`, which is unmerged and holds the
-02b–02e METS pages; when `mets-profiles` merges to main, rebase). Last commit: 8ae98b7.
-The site builds clean (`cd site && npm run build`, 18 pages). Dev server: `cd site && npm run dev`
-then http://localhost:4321/digital-preservation-docs/ .
+**Content complete.** 46 pages on branch `docs-site`, building clean. Every section of
+`site-plan.md` is written: introduction (quickstart, overview, concepts, components),
+preservation-api (17 pages), workflows (9), mets (6), ui (5), storage-api (4).
 
-Done and verified against code:
+- **Verified twice.** Written against the code, then re-checked by independent agents. 17 errors
+  in the first 23 pages; 20 errors and 4 broken sequences in the remaining 22. The second pass is
+  not optional - the base rate was high.
+- **All 30 samples run** against the dev instance (p01-p15, w02-w08). Running them found four
+  programs sending `If-Match: None` and a helper with a syntax error that had never executed.
+- **2,552 internal links and anchors resolve.** Checked by crawling `dist/`, not the sources.
+- **Eight screenshots** in `site/src/assets/ui/`, emails and hostnames sanitised before capture.
+- **Ten issues filed** on the code repo: #258-#260, #262-#268. See `findings.md`.
 
-| Section | Pages | Samples |
-|---|---|---|
-| introduction | overview, concepts, components | – |
-| mets | overview, mets-we-write, mets-we-write-descriptive, mets-we-read, identifiers, editability | – |
-| preservation-api | overview, authentication, agents, repository, deposits, deposit-files, editing-mets | p01_overview, p02_authentication, p03_repository, p04_deposits, p05_deposit_files, p06_editing_mets |
+## What is left
 
-Everything else under `site/src/content/docs/` is a placeholder `overview.mdx`.
-`preservation-docs-client/` has the shared helpers (`preservation.py`, `s3_helpers.py`,
-`settings.py`, `example.env`); samples cannot be run yet against a hosted instance, but the local
-stack runs (see below) so they can be exercised against `localhost` with `DISABLE_AUTH=true`.
+1. **Merge `docs-site`.** It sits on `mets-profiles`, which is still unmerged - rebase when that
+   lands. Pages source must be "GitHub Actions" in repo settings; the old `gh-pages` branch is a
+   Jekyll site of sequence diagrams.
+2. **The site describes the `feature/multiple-deposit-buckets` branch, not `main`** - `/whoami`,
+   `KnownClients`, `depositBucket` routing, the pipeline's default-bucket refusal, the import-job
+   suppression gate. Tom accepted this ("it's near release"), but check before publishing.
+3. **No link checker is installed.** The sweep was a one-off script; consider
+   `starlight-links-validator` so this does not rot.
+4. **Fold `sequence-diagrams/` in** and retire the `gh-pages` Jekyll workflow.
+5. **Decisions waiting on Tom**, in `findings.md` under "Needs a decision, not a patch": the Binary
+   `content` URI, whether unenforced import-job requirements should be enforced, and the Storage API
+   example shipping `DisableAuth: "true"`.
 
-Samples are run as modules from `preservation-docs-client/` (`python -m p03_repository.browse_repository`);
-the `python dir/script.py` form cannot find `settings.py`.
+## How to work here
 
-Findings so far: `findings.md` (open: the Binary `content` URI is not served by the
-Preservation API) and `findings-F.md` (METS: parser detects virus events by PREMIS eventType, not
-ID prefix; judge PR #238 still open; code repo's CLAUDE.md is stale about where METS classes live —
-they are in `DigitalPreservation.Mets`, not `Storage.Repository.Common`).
+- **Keep Tom's prose.** Where the code still agrees with the original, keep his sentences; correct
+  only what is wrong; write new text in the same voice. He asked for this explicitly and more than
+  once.
+- **The code wins over the old documentation**, and every discrepancy goes in `findings-*.md`.
+  `documentation/*.md` now carries a superseded banner on every ported file; 02c, 02d and 02e carry
+  a specific warning because they are wrong in ways that matter.
+- **Run the samples.** See `preservation-docs-client/README.md`. The dev API is behind a private
+  load balancer, so it needs the VPN; the UI answering proves nothing.
+- **Verify short snippets hardest.** Three of the four broken sequences were in `recipes.mdx`,
+  written from memory, including a route that has never existed.
+- Two or three writing agents at a time is fine; eight is not.
 
-## How to work
+## Where documentation lives now
 
-- **One or two writing agents at a time.** Eight in parallel exhausted a whole session in nine
-  minutes. Tom also wants to read each section as it lands. Opus is fine for the writing; keep the
-  stronger model for reviewing findings and the judgement-heavy pages (authentication, editability,
-  "where the Storage API differs").
-- Every agent brief must say: read `CLAUDE.md` and `site-plan.md` first; verify everything against
-  `C:\git\uol-dlip\digital-preservation\src\DigitalPreservation`; the code wins over the old docs;
-  append discrepancies to `scratch/findings-<letter>.md`; do NOT run the build or commit; MDX
-  gotchas (escape `{}` and `<` outside code spans; no HTML comments). After each agent: build,
-  read the pages, merge its findings into `findings.md`, commit.
-- Raw material is `documentation/02-Preservation-API.md` (1,710 lines; section line numbers below
-  are approximate) and `06-Quickstart-preservation-workflow.md`. `playwright/PreservationApi/tests/`
-  are old TypeScript exercises of the same flows. `src/mets-id-migration/app/api.py` in the code
-  repo is a real, current Python client with good comments on API semantics.
-
-## Remaining briefs, in order
-
-### 1. preservation-api/authentication.mdx (order 2) — DONE (commit 18f2cfe)
-Note for later: the page describes the RFC-0001 Phase 0 mechanism (/whoami, KnownClients,
-per-caller depositBucket), which is on the code branch `feature/multiple-deposit-buckets`,
-not `main` — see findings. The X-Client-Identity header is framed as transitional, as it is.
-Stance (in CLAUDE.md): bearer JWT via standard OAuth2 client-credentials from whichever identity
-provider the instance is configured with; Entra ID is today's concrete example (token endpoint,
-`api://<app-id>/.default` scope), not the design. Explain `X-Client-Identity` (what the API
-records from it; the `source` values `user`/`token`/`header-fallback`/`unknown` on /whoami). UI
-users sign in interactively. `FeatureFlags:DisableAuth` only as a local-dev note.
-Verify in `Preservation.API/Program.cs`, `DigitalPreservation.Core` (AuthFilterIdentifier,
-CallerResolver, IClientDirectory, depositBucket profiles from RFC-0001), `appsettings.Example.json`.
-Don't invent roles you can't see.
-
-### 2. preservation-api/deposits, deposit-files, editing-mets (orders 4, 5, 6) — DONE
-Raw: 02 lines ~340–1015. Verify: `Features/Deposits/DepositsController.cs` (every route except
-iiif*, pipeline*, archive-job) and `Requests/*`; `DepositQuery` (exact params incl. newer ones such
-as `Archived`, whose semantics are commented in mets-id-migration's api.py); Common.Model `Deposit`
-(all returned properties: pipelineJobs, archivalGroupExists, metsETag, lockedBy/lockDate, active,
-archived…), `DeleteSelection`, `SchemaAndValue`, WorkingDirectory/WorkingFile/MetsExtensions and
-every Metadata type (fill in the EXIF and virus-scan properties the old doc left "tbc");
-`DigitalPreservation.Workspace/WorkspaceManager.cs` (add/delete-to-METS, METS location, ETag check
-and the status code on mismatch); `LeedsDlipServices` (from-identifier schemas). Settle the old
-WARNING about `deleteFromDepositFiles` vs `deleteFromMets` from the code. Document
-`GET {id}/combined`, `GET {id}/parsed-mets`, `POST {id}/mets/normalise`, `PUT {id}/activate|deactivate`.
-Samples: p04_deposits (create, get_and_patch, list, lock_unlock, delete, ensure_deposit helper),
-p05_deposit_files (filesystem_view, combined_view), p06_editing_mets (add_files_to_mets, delete_from_mets).
-
-### 3. preservation-api/import-jobs, import-job-results, exports + workflows/* (orders 8–10; workflows 1–8)
-Raw: 02 lines ~1139–1407 and all of 06. Verify: `Features/ImportJobs/*` (diff generation; execute
-incl. the diff-id-only body; belongs-to-deposit, isUpdate, sourceVersion and lock checks; activity
-suppression flag), Common.Model ImportJob/ImportJobResult (JSON casing of the operation lists as
-actually serialised; how renames are expressed), export route and METS-only export for an existing
-AG, `Features/DepositArchiveJobs` and the `archived` flag (what the deposit archiver is, as a caller
-sees it), Storage API result status strings, BagIt `data/` prefix in the diff.
-Workflow pages as `Steps` walk-throughs: preserve-first-time, update-with-export,
-update-without-export, custom-import-job, managed-mets-deposit, bagit-deposit,
-reading-the-activity-stream (how-to; the stream reference lives in activity-stream.mdx).
-Samples: p08_import_jobs, p09_import_job_results, p10_exports, and w02…w08 end-to-end scripts;
-w02 needs a minimal METS with premis SHA256 fixity (see MetsParser for what it needs; a real one
-is in playwright/PreservationApi/samples); tiny files in preservation-docs-client/sample_files/.
-
-### 4. preservation-api/tool-outputs-and-pipelines (order 7) + internals/pipeline-api (order 3)
-Undocumented today. Raw: 02 "Tool outputs and pipelines" (~1015–1135), rfcs/006 and 006a (intent
-only). Verify: RunPipeline/RunPipelineStatus requests, `Features/PipelineRunJobs`, the SNS publish,
-all of `Pipeline.API` (controller, runner, executor service, SQS/in-process queues, config, ApiKey
-middleware, Dockerfile: Brunnhilde/Siegfried/ClamAV/ExifTool/BagIt), how tool outputs are read
-(grep siegfried/brunnhilde/viruscheck/exif/manifest-sha256 in Workspace and Storage.Repository.Common
-→ the definitive locations table), the ad-hoc metadata folder (MetadataAdHoc), job-claim
-idempotency (#221). Sample: p07_pipelines/run_pipeline.py.
-
-### 5. preservation-api/activity-stream, versions-and-storage-map, search, iiif, vocabularies (11–15)
-Raw: 02 lines ~1408–1711. Verify: `Features/Activity` (incl. POST push: who and why; seeAlso
-target — old WARNING says Storage API), `Features/Ocfl`, `Features/Search` (response shape),
-`Features/Iiif`, deposit iiif / iiif-token routes and UpdateLogicalStructMapsFromManifest,
-`Features/MediaServer`, the manifest builder, `AccessConditions` and `RangeTypes` controllers
-(where the values come from). Samples: p11_activity_stream, p12_versions, p13_search, p14_iiif,
-p15_vocabularies.
-
-### 6. ui/* (orders 1–5)
-No existing docs. Write from `DigitalPreservation.UI` (Pages/*.cshtml + .cs, Controllers, wwwroot
-JS). Audience: staff users. Pages: overview, browsing, deposits (the big one: upload, folders, add
-to METS, metadata/access conditions/inheritance, structure editing, pipeline, lock, activate,
-archive), import-jobs, search-and-changes. Screenshot placeholders as `{/* screenshot: … */}`.
-Note `FeatureFlags:ShowNormaliseMetsIds` gates the normalise action.
-
-### 7. storage-api/* (1–4) + internals/overview, iiif-builder, deployment (1, 4, 5)
-Raw: 03-Storage-API.md, 01-Introduction.md, code repo CLAUDE.md. Storage API only "where it
-differs"; a same/differs table linking to the Preservation API pages. Verify `Storage.API/Features/*`
-(content, import incl. test-path, export + export-mets-only, activity, storagemap, FedoraSearch),
-`Storage.API.Importer`, `src/iiif-builder/app/*` (settings.py env vars, main loop), workflows and
-docker-compose files, each `appsettings.Example.json` (section names only).
-`internals/workspace-manager` is DEFERRED: short pointer page only (see site-plan.md).
-
-## Follow-ups noted, not scheduled
-- **A Deposit workspace will not always be S3.** Tom, 2026-09-12: eventually a file share or local
-  drive too, `file:///` as well as `s3://`. Decision for now is to write S3 concretely rather than
-  abstract it; revisit deposits, deposit-files and `s3_helpers.py` when a second backing store lands.
-- **Nothing validates internal links.** `site/package.json` has no link checker, so a link to a page
-  that has not been written yet builds clean and 404s. Several pages already point forward
-  (import-jobs, exports, tool-outputs-and-pipelines, search, iiif, ui/*). Sweep once the section is
-  complete, or add `starlight-links-validator`.
-- Fold `sequence-diagrams/` (Mermaid) into the site; retire the `gh-pages` branch and its Jekyll
-  workflow once `docs-site` merges (Pages source is already "GitHub Actions"; last deploy wins).
-- WorkspaceManager and the METS parser/object model will become standalone libraries (.NET and
-  Python); document them separately when extracted.
-- Update the code repo's CLAUDE.md about the `DigitalPreservation.Mets` project location.
-
-## Running samples against dev
-`preservation-docs-client/.env` (gitignored) is set up for the **dev** instance, copied from the dev
-block of `src/mets-id-migration/.env` in the code repo. Note the API is behind a PRIVATE load
-balancer (`dlip-pres-mx-private-*`): `preservation-api-dev.library.leeds.ac.uk` resolves publicly but
-times out on 443 without the university VPN, even though the UI host does not. So the samples on the
-deposits/deposit-files/editing-mets pages are written from the code and **have not yet been run**.
-Run them (VPN up) before trusting the exact response shapes, and check the host is dev, never prod.
-
-## Local stack (for running samples)
-`docker compose -f docker-compose.local.yml up -d db-preservation db-storage` in the code repo,
-then `dotnet run` Storage.API (https://localhost:7000) and Preservation.API (https://localhost:7228)
-from `src/DigitalPreservation`; Development settings point at the shared dev Fedora and the dev
-deposits bucket with auth disabled. AWS profile `leeds` must be valid. `pip install boto3` is
-still needed in the Python environment.
+- **This repo** - the site and the samples, for people *using* the platform.
+- **Code repo `docs/internals/`** - overview, pipeline-api, deployment: building and running it.
+- **uol-dlip/preservation-ops** - the authority for infrastructure. Do not restate it anywhere else.
+- **iiif-builder is deliberately undocumented**: Leeds run their own fork.
