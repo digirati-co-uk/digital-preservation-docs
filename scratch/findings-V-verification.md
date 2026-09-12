@@ -80,3 +80,48 @@ Four were confirmed against the running dev instance, marked **[live]**.
   `StartsWith("objects/")`. These read as code bugs; a real BagIt deposit would confirm.
 - `Browse.cshtml.cs:83` only looks for not-yet-existing objects when the path has more than two
   segments, so they never appear at or just below the root. Unclear whether that is deliberate.
+
+## Second verification pass (the 22 pages the first pass did not cover)
+
+Three agents; 20 errors and 4 broken sequences, all corrected on the site. The residue:
+
+- **`ContentController` returns HTTP 200 with a ProblemDetails body.** `new ObjectResult(pd)` with
+  no `StatusCode`, twice, where the rest of the codebase uses `ControllerX.GetProblemObjectResult`
+  which sets it. So a request for the bytes of something that is not a Binary answers 200 with JSON
+  saying 404. Filed as [#262](https://github.com/digirati-co-uk/digital-preservation/issues/262).
+  **[verified]**
+
+- **A pipeline run writes the METS itself.** `ExecutePipelineJob` calls `AddObjectsToMets`
+  unconditionally once the tools finish (`:571`), adding every file under `objects/`, and each
+  Brunnhilde output is added as it is uploaded (`UploadFileToDeposit`, `updateMets` defaulting true).
+  Three pages said the opposite — that tool output never reaches METS until you ask. True for output
+  you place yourself, false for a platform pipeline run. **[verified]**
+
+- **The Deposit `template` is never persisted**, so every response says `"template": "None"` whatever
+  you asked for. Already recorded above; the second pass found it independently, and it means any
+  example showing a `RootLevel` or `BagIt` deposit's response body would be wrong.
+
+- **Several documented "requirements" on a hand-written Import Job are not enforced.**
+  `ImportJob.ItemsWithInvalidSlugs()` and `AddedBinariesWithInvalidContentTypes()` exist but are
+  called only by the UI. On the API path the only checks are a null `id` and a `#` in one. And
+  `archivalGroup` is never compared with the Deposit's own — a job naming a different Archival Group
+  runs against that group and reports success. That last one is worth a code fix.
+
+- **A non-export Deposit against an Archival Group that has a METS always gets that METS copied in**,
+  regardless of `template`. `None` suppresses writing a *new* METS, not copying the existing one.
+  Three pages implied an empty workspace.
+
+- **`POST /export` cannot report a version mismatch.** The 201 has already gone out; the conflict is
+  only logged, so the Export never gains `dateFinished` and never gains an `errors` entry. Only the
+  synchronous `exportMetsOnly` can answer 409.
+
+- **`GET /repository/{path}` with `?version=vN` is Archival-Group-only** — a Container or Binary is a
+  400 telling you to use the Memento timestamp.
+
+- **Push to the activity stream**: a path that does not exist is 404 (410 if tombstoned), not the 400
+  the page claimed; only a wrong resource *type* is 400.
+
+Lesson for whoever writes here next: three of the four broken sequences were in `recipes.mdx`,
+written quickly from memory rather than checked against the code — including a `GET
+/repository/{path}/versions` route that has never existed. Short snippets need the same verification
+as long ones, and arguably more, because they are what people copy.

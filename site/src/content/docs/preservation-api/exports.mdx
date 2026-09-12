@@ -68,7 +68,7 @@ Usually `versionExported` is not set on the POST and the **latest** version is e
 
 `archivalGroup` is required, and must exist: without it, or against a path where there is no Archival Group, the request is `400 Bad Request`. The [other checks that apply to creating a Deposit](../deposits#what-the-api-checks) apply here too — notably, `409 Conflict` if there is already an active Deposit for that Archival Group.
 
-The POST returns the new Deposit immediately, but it is **not complete** until its `status` property is `new`. Only then are the files all present in S3 at the location given by `files`. You might see files arriving in S3 while you wait, but you can't do any work with the Deposit through the API until it gets there: asking for a diff Import Job against an `exporting` Deposit is `400 Bad Request`, and so is patching it.
+The POST returns the new Deposit immediately, but it is **not complete** until its `status` property is `new`. Only then are the files all present in S3 at the location given by `files`. You might see files arriving in S3 while you wait, but you can't do any work with the Deposit through the API until it gets there: asking for a diff Import Job against an `exporting` Deposit is `400 Bad Request`, and patching one is `409 Conflict`.
 
 <Aside type="note" title="Fetching the Deposit is what moves it on">
 There is no background process watching exports. When you GET a Deposit whose status is `exporting`, the API asks the Storage API whether the export has finished and, if it has, moves the Deposit to `new` — and reconciles its `metadata` folders with the METS that has just arrived. So polling the Deposit is not merely observing the transition, it is causing it.
@@ -106,7 +106,7 @@ What happens to the METS depends on what is there:
 
 * The Archival Group has a METS file — it is copied into the root of the Deposit workspace. This is the ordinary case.
 * The Archival Group has no METS file, and you asked for `RootLevel` or `BagIt` — the platform writes one, describing the Archival Group's current contents. This only works when you are working from the head version; asking for an older version of a METS-less object is refused, because a METS written now for a version from the past would be a statement nobody made.
-* You asked for `template: "None"` — nothing is created. You are managing the METS yourself.
+* You asked for `template: "None"` — no *new* METS is written for you. Note that this does not mean an empty workspace: for a deposit against an Archival Group that already has a METS, that document is copied in whatever template you asked for, because it is the object's own description and the diff needs it.
 
 <LinkCard
   title="💻 Example: a METS-only deposit for an existing Archival Group"

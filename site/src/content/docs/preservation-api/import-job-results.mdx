@@ -59,7 +59,7 @@ This resource is returned quickly, before the Import Job actually runs. The job 
 | `binariesRenamed` | Populated once the job has finished successfully. |
 | `containersRenamed` | Populated once the job has finished successfully. |
 
-The shared property `created` is the moment the API received the POST of the job. An ImportJobResult has `created` and `createdBy` but not `lastModified` and `lastModifiedBy`; it is a record of an event, not something anyone edits.
+The shared property `created` is the moment the API received the POST of the job. An ImportJobResult carries all four of `created`, `createdBy`, `lastModified` and `lastModifiedBy` — `lastModified` moves as the job progresses, which is a cheap way to tell a job that is still working from one that has stalled.
 
 ## Polling
 

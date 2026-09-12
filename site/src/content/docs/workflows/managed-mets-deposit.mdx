@@ -83,7 +83,9 @@ Every METS-editing step below needs a METS file whose `mets:agent` says the plat
 
    The [file system view](../../preservation-api/deposit-files) shows not just the layout but the metadata collected for each file from the tool outputs: digests, PRONOM format identifications, virus scan results.
 
-   And yet the METS file is still the original, unpopulated one. Nothing has pushed any of this into the XML. That is deliberate: the tools might have been run outside the platform entirely, and even when the platform ran them, you might not want every file to end up in the preserved object. Synchronising the Deposit with its METS is a separate, explicit step.
+   If you ran the pipeline in the previous step, the METS is **already populated**: once the tools finish, the run adds every file under `objects/` to the METS, and adds its own output files as it uploads them. The next step is then a top-up rather than a necessity.
+
+   If the tool output arrived some other way — analysis run outside the platform and uploaded with the files — nothing has pushed it into the XML, and the next step is what does it. Synchronising a Deposit with its METS is a separate, explicit step precisely because the platform may not have been the one that looked at the files, and because not every file you analysed necessarily belongs in the preserved object.
 
 6. ### Add the files to the METS
 
@@ -102,7 +104,7 @@ Every METS-editing step below needs a METS file whose `mets:agent` says the plat
    ]
    ```
 
-   A list of paths relative to the root of the Deposit. Parent folders are created for you; folders are not expanded, so list every file you want. The `If-Match` is the Deposit's `metsETag`, sent back exactly as you received it.
+   A list of paths relative to the root of the Deposit. Parent folders are created for you; folders are not expanded, so list every file you want. The `If-Match` is the Deposit's `metsETag` — **fetch the Deposit again to get it**. It is null in the response to creating one, and a pipeline run will have changed it since, so an ETag held from earlier in this walk-through is stale and will be refused with a `409`.
 
    The platform adds each file to the METS *with all the metadata it has collected for it* — which is why this step comes after the pipeline and not before. See [Editing the METS](../../preservation-api/editing-mets) for the rules and the response.
 
@@ -133,7 +135,9 @@ Every METS-editing step below needs a METS file whose `mets:agent` says the plat
    GET /deposits/e56fb7yg/combined
    ```
 
-   The combined view is the Deposit's file tree and the METS structure merged, which is exactly what the diff Import Job is computed from. Anything sitting in the Deposit but not the METS will stop the diff, so this is the last chance to notice it.
+   The combined view is the Deposit's file tree and the METS structure merged, which is exactly what the diff Import Job is computed from. Anything sitting in the Deposit but not the METS will stop the diff.
+
+   That endpoint is a debugging aid, though, and hidden from the API description for a reason: the structure holds references in both directions, so the JSON grows alarmingly with the size of the deposit. In normal use compare `GET /deposits/{id}/filesystem` with `GET /deposits/{id}/parsed-mets`, or simply ask for the diff and read its `422`.
 
 9. ### Generate and run the Import Job
 

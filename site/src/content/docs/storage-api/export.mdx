@@ -92,7 +92,7 @@ means "done", not "succeeded". Check `errors` and compare the length of `files` 
 expected.
 </Aside>
 
-If you asked for a version that is not the one the Storage Map resolves to, the export fails immediately with a conflict rather than silently giving you the wrong bytes.
+If you asked for a version that is not the one the Storage Map resolves to, `POST /exportMetsOnly` answers `409` there and then, because it is synchronous. `POST /export` cannot: it has already returned `201`, and the mismatch is only logged - the Export you are polling simply never gains a `dateFinished`, and gains no `errors` entry either. Poll with a timeout rather than forever.
 
 ## Exporting just the METS file
 

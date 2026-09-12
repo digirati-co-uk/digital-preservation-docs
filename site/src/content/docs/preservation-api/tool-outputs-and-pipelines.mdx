@@ -46,9 +46,13 @@ There are no timestamped output folders. A tool has one place to write, and a se
 
 ## How tool output reaches the METS
 
-It doesn't, until you ask. Assembling a deposit and describing an object are separate steps, for the reasons set out in [Editing the METS file](../editing-mets) — and if the platform ran the tools, some of the files it looked at may turn out not to belong in the object at all.
+That depends on who ran the tools.
 
-So the sequence is:
+**If you placed the output in the workspace yourself**, it does not reach the METS until you ask. Assembling a deposit and describing an object are separate steps, for the reasons set out in [Editing the METS file](../editing-mets) — and some of the files you analysed may turn out not to belong in the object at all.
+
+**If the platform ran the pipeline**, it does it for you: once the tools finish, the run adds every file under `objects/` to the METS, and adds each of its own output files as it uploads them. You do not have to, and a deposit that has had a pipeline run is already described. Submitting the same files again afterwards is harmless — entries are updated, not duplicated — and is how you pick up anything you added since.
+
+For output you placed yourself, the sequence is:
 
 <Steps>
 

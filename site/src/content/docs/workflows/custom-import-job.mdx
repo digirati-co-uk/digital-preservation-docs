@@ -29,7 +29,7 @@ The `id` properties of the Containers and Binaries listed must belong to the tar
    }
    ```
 
-   No export, no template: you are not going to ask for a diff, so the Deposit is only a place to put the bytes and a record of what you did.
+   No export, no template: you are not going to ask for a diff, so the Deposit is mainly a place to put the bytes and a record of what you did. It will not be empty, mind — a deposit made against an Archival Group that already has a METS gets that METS copied in, whatever template you asked for.
 
 2. ### Upload only what you need
 
@@ -92,13 +92,13 @@ The `id` properties of the Containers and Binaries listed must belong to the tar
 | | |
 |---|---|
 | `deposit` | Required, and must be the Deposit you are POSTing to. Without it the job is `400 Bad Request`. |
-| `archivalGroup` | Required. Must match the Deposit's own `archivalGroup`. |
+| `archivalGroup` | Required — and *not* checked against the Deposit's own. The job runs against whatever it names, so a mistake here writes to a different object and reports success. Set it deliberately. |
 | `isUpdate` | State it explicitly. False against an object that exists, or true against one that doesn't, fails the job once it is running. |
 | `archivalGroupName` | Required when `isUpdate` is false. A new Archival Group has to be given a name. |
 | `origin` | Every Binary in `binariesToAdd` and `binariesToPatch` must have an origin inside the Deposit's `files` location. An origin anywhere else is `400 Bad Request`. |
 | `digest` | Required, unless the platform can get a SHA256 for that file from the METS or from S3 object metadata. On a hand-written job, supply it. |
-| `contentType` | Required on Binaries being added or patched. |
-| `id` slugs | Every path segment of every `id` must use only the [permitted characters](../../preservation-api/overview#paths-and-names). |
+| `contentType` | Supply it on every Binary you add or patch. Nothing rejects a job without one: the header is simply omitted and the binary is stored with whatever the repository defaults to. |
+| `id` slugs | Use only the [permitted characters](../../preservation-api/overview#paths-and-names) in every path segment. Only two things are checked on this path — a null `id`, and a `#` in one — so an unusable slug is left to the repository to refuse, or not. |
 | `binariesToDelete`, `containersToDelete` | `id` is the only property needed. A Container must be empty already, or contain only Binaries deleted in the same job. |
 
 `sourceVersion` on a hand-written job is informational; the platform works out for itself which version it is changing at the moment it changes it.

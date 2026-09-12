@@ -17,9 +17,11 @@ All of these assume the headers from the [Quickstart](../../introduction/quickst
 
 ```
 GET /repository/my-collection/my-object
-GET /repository/my-collection/my-object?view=lightweight     # without the file listing
-GET /repository/my-collection/my-object?version=v2           # as it was at v2
+GET /repository/my-collection/my-object?view=lightweight                 # without the file listing
+GET /repository/my-collection/my-object?view=lightweight&version=v2      # as it was at v2
 ```
+
+`version` is only allowed with `view=lightweight`; any other combination is a `400`. On a Container or Binary use the Memento timestamp rather than `v2`.
 [Repository](../../preservation-api/repository)
 
 **Give me the object's METS.**
@@ -32,9 +34,11 @@ Returns the XML. [Repository](../../preservation-api/repository#the-view-and-ver
 **What versions does it have, and what changed in each?**
 
 ```
-GET /repository/my-collection/my-object/versions
-GET /repository/my-collection/my-object/ocfl/storagemap
+GET /repository/my-collection/my-object          # the versions list is a property of the object
+GET /ocfl/storagemap/my-collection/my-object     # what each version holds, and where
 ```
+
+There is no `/versions` route: `versions` is a property on the Archival Group itself.
 [Versions and the Storage Map](../../preservation-api/versions-and-storage-map)
 
 **Which deposits have touched this object?**
@@ -67,10 +71,12 @@ Create a deposit against the existing object *without* `export`, put just the ne
 ```
 POST /deposits          {"type":"Deposit","archivalGroup":"…/my-object","template":"RootLevel"}
 # upload objects/new-page.tif to the deposit's files prefix
-GET  /deposits/{id}/filesystem?refresh=true
+GET  /deposits/{id}                                          # for metsETag - the POST above has none
 POST /deposits/{id}/mets            If-Match: <metsETag>     ["objects/new-page.tif"]
 POST /deposits/{id}/importjobs      {"id":"…/deposits/{id}/importjobs/diff"}
 ```
+
+No separate `filesystem?refresh=true` is needed: adding to the METS re-reads the workspace itself.
 [Update without an export](../update-without-export)
 
 **See what the import job would do, before doing it.**
@@ -97,7 +103,7 @@ Each file in that response carries a `metadata` list — digests, PRONOM identif
 POST /deposits/{id}/pipeline
 GET  /deposits/{id}/pipelinerunjobs
 ```
-Then re-add the files to the METS to pull the new metadata in. [Tool outputs and pipelines](../../preservation-api/tool-outputs-and-pipelines)
+The run adds the files under `objects/` to the METS itself, so there is nothing further to do unless you added files after it started. [Tool outputs and pipelines](../../preservation-api/tool-outputs-and-pipelines)
 
 **Abandon a deposit.**
 

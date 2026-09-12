@@ -9,20 +9,38 @@ import { Aside, LinkCard, Steps } from '@astrojs/starlight/components';
 
 Use case: your content arrives as a [BagIt](https://datatracker.ietf.org/doc/html/rfc8493) bag — a payload under `data/`, with tag files and a checksum manifest in the root — and you would like to upload it as it is rather than take it apart first.
 
-The `BagIt` Deposit template exists for exactly this. It produces the same layout as `RootLevel`, one level down:
+The `BagIt` Deposit template exists for exactly this. It gives you the same layout as `RootLevel`, one level down — and nothing else:
 
 ```
 /
-  bagit.txt
-  bag-info.txt
-  manifest-sha256.txt
-  tagmanifest-sha256.txt
   data/
     objects/
     metadata/
        ad-hoc/
     mets.xml
 ```
+
+The tag files and the manifest come from your bag, not from the template, so once you have uploaded it the workspace looks like this:
+
+```
+/
+  bagit.txt                  <- yours
+  bag-info.txt               <- yours
+  manifest-sha256.txt        <- yours, and the platform reads it for digests
+  tagmanifest-sha256.txt     <- yours
+  data/
+    objects/                 <- your payload goes in or below here
+    metadata/
+       ad-hoc/
+    mets.xml
+```
+
+<Aside type="caution">
+Your payload has to end up under `data/objects/`, not directly under `data/`. Anything outside
+`objects/` and `metadata/` is quietly ignored when files are added to the METS, and the diff then
+refuses with a `422` naming a file it cannot find in the METS. If your bag's payload is not already
+arranged that way, that is the one thing you do have to rearrange.
+</Aside>
 
 Two things follow from that, and they are what this page is about.
 
@@ -61,7 +79,7 @@ Two things follow from that, and they are what this page is about.
    If `manifest-sha256.txt` is present in the root, the platform reads it and uses its digests as a source of SHA256 for the payload files, alongside the METS and S3 object metadata. A bag that already carries its checksums does not need you to supply them again.
    </Aside>
 
-   The platform works out that a Deposit is in BagIt layout by looking for a `data/` directory in the workspace, not from the `template` you asked for. A bag uploaded into a Deposit that was created with a different template will still be treated as a bag.
+   The platform works out that a Deposit is in BagIt *layout* by looking for a `data/` directory in the workspace, not from the `template` you asked for. Finding the METS is a separate question, and it is answered root-first: the root of the workspace is searched before `data/`. So a bag uploaded into a `RootLevel` deposit is a mixture — a `data/`-rooted file tree paired with the `mets.xml` the template already put at the root. Upload a bag into a deposit made with `template: None` or `BagIt`, not into a `RootLevel` one.
 
 3. ### Work on it as usual
 

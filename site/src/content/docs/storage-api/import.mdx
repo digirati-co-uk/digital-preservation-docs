@@ -65,7 +65,7 @@ POST /import
 }
 ```
 
-The `id` you give the job is yours - any unique URI will do, and it is echoed back on the result as `originalImportJob`. The API mints its own identifier for the job it actually runs.
+The `id` you give the job is yours - any unique URI will do, and it comes back on the result as `importJob`. `originalImportJob` echoes the separate `originalId`, if you sent one, and is absent otherwise. What the API mints is the *result's* identifier, which is what the result URI is built from.
 
 | Property | Description |
 |---|---|

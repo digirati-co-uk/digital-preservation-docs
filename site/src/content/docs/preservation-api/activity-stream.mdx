@@ -192,7 +192,7 @@ The API checks the body before accepting it, and everything below is a `400 Bad 
 * `type` must be `Update`. No other activity type is accepted.
 * `object.type` must be `ArchivalGroup`.
 * `object.id` must be a URI on this Preservation API's own host.
-* the resource at that path must exist and really be an Archival Group — the API asks the underlying storage before it writes anything.
+* the resource at that path must really be an Archival Group — the API asks the underlying storage before it writes anything. A path holding a Container or a Binary is the `400`; a path that does not exist is `404`, and one whose resource has been deleted is `410`, because the storage answer is passed through as it stands.
 
 The event then appears at the end of the stream, as an `Update` with **no** `seeAlso`, exactly as if a new version had been imported. Consumers need no special handling for it, which is the point.
 

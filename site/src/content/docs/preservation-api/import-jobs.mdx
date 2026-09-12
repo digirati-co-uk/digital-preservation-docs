@@ -137,7 +137,7 @@ You can of course generate this JSON manually. It is not required that the `id` 
 | `containersToRename` | See [Renames](#renames). |
 | `binariesToRename` | See [Renames](#renames). |
 
-`created`, `createdBy`, `lastModified` and `lastModifiedBy` are the [common resource properties](../overview#common-properties). Whatever you send for `createdBy` and `lastModifiedBy` is overwritten by the API with the identity it resolved for you.
+`created`, `createdBy`, `lastModified` and `lastModifiedBy` are the [common resource properties](../overview#common-properties). `lastModifiedBy` is always overwritten with the identity the API resolved for you. `createdBy` is only filled in if you leave it out — one you supply is kept, and is what is stored and passed on to the Storage API.
 
 For an update, `isUpdate` is true and `sourceVersion` names the version being changed:
 
@@ -180,9 +180,9 @@ The diff has to be able to account for every file in the Deposit. Where it can't
 |---|---|
 | A file in the Deposit is not in the METS | `422 Unprocessable Content` |
 | A file in the METS has no SHA256 digest | `422 Unprocessable Content` |
-| One or more files have no checksum from any source | `422 Unprocessable Content` |
+| A file has no checksum from any source — not METS, not tool output, not S3 | `400 Bad Request` |
 | A folder with content in it is not in the METS | `422 Unprocessable Content` |
-| A file's digest in the METS disagrees with the digest of the file in the Deposit | `409 Conflict` |
+| A file's digest in the METS disagrees with the digest of the file in the Deposit | `400 Bad Request` |
 | A file's size or content type disagrees between the METS and the Deposit | `400 Bad Request` |
 | Two files in the Deposit would end up at the same repository URI once their names were made URI-safe | `400 Bad Request` |
 | A Binary to add or patch has no file in the Deposit | `400 Bad Request` |

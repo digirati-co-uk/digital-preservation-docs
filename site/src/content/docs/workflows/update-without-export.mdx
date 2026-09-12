@@ -39,7 +39,7 @@ That **still exports the METS file**, but no other files. And that is what makes
      "archivalGroupExists": true,
      "files": "s3://working-bucket/deposits/bb7c8mast5/",
      "status": "new",
-     "metsETag": "\"a29a88372f20681b6d1877e3ca93fae1\""
+     "metsETag": null
      // ... the other Deposit properties
    }
    ```
@@ -48,7 +48,7 @@ That **still exports the METS file**, but no other files. And that is what makes
 
    Upload only what is changing. A file that is in the METS but not in the workspace is not missing — it is simply not being touched by this job.
 
-   Then bring the METS into line: add an entry for a new file, change the digest and size of one you are replacing, remove the entry for one you are deleting. If the METS is one the platform wrote, the [METS editing](../../preservation-api/editing-mets) endpoints will do this for you, guarded by the `metsETag` above.
+   Then bring the METS into line: add an entry for a new file, change the digest and size of one you are replacing, remove the entry for one you are deleting. If the METS is one the platform wrote, the [METS editing](../../preservation-api/editing-mets) endpoints will do this for you, guarded by the `metsETag` — which you get by fetching the Deposit, since the create response above does not carry one.
 
 3. ### Look at the diff before you run it
 

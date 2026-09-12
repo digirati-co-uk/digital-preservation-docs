@@ -17,8 +17,8 @@ Two pieces of code sit at the centre of everything the Preservation API does wit
 Both are to be released as standalone libraries - in .NET, with Python equivalents - so that
 applications can read and write the platform's METS, and reason about a deposit workspace, without
 going through the API. Their documentation belongs with those releases, so this page is a signpost
-rather than a description. A working Python METS parser already exists inside the
-[iiif-builder](https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/internals), which reads the same METS files this way.
+rather than a description. A working Python METS parser already exists in the platform's own
+iiif-builder service (`src/iiif-builder/app/mets_parser/`), which reads the same METS files this way.
 
 The class-level detail is deliberately not written out here: it would date faster than anything else
 on this site, and none of it is needed to use the platform.
@@ -50,7 +50,7 @@ The API does offer some operations on deposit content, because some of them need
 | `UploadSingleSmallFile` | Puts a file into the workspace. You cannot POST binary content to the API. |
 | `SetModsInformation` | Sets access conditions, a rights statement, rights suppression, record identifiers and file links on a file or folder. Everything on the [access and inheritance](../ui/deposits) side of the UI. |
 | `SetLogicalStructMap` / `RemoveLogicalStructMap` | Edits logical structure one range at a time. Over HTTP you can only POST a whole IIIF Manifest back, and only behind a feature flag. |
-| `RebuildDepositFileSystem` / `ValidateDepositFileSystem` | Rebuilds the cached view of the workspace, or checks it against storage. |
+| `ValidateDepositFileSystem` | Checks the cached view of the workspace against what is actually in storage and reports the differences. (Rebuilding it *is* available over HTTP — that is what `GET {id}/filesystem?refresh=true` does.) |
 
 If you are integrating over HTTP and need one of these, the answer today is to do the equivalent yourself in the workspace and let the API read the result — which is precisely the arrangement the boundary describes.
 

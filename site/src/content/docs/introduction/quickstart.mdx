@@ -135,7 +135,7 @@ print(result["status"], result["newVersion"])       # completed v1
 
 **Watch the ETag.** `metsETag` is null in the response to *creating* the deposit, even though a METS file was created — which is why step 3 fetches the deposit again. Every successful write changes it, so re-read between edits or your next `If-Match` is rejected with a `409`.
 
-Between steps 2 and 3 you can also [run the pipeline](../../preservation-api/tool-outputs-and-pipelines) to identify formats and scan for viruses; add the files to the METS afterwards and their findings go in with them.
+Between steps 2 and 3 you can also [run the pipeline](../../preservation-api/tool-outputs-and-pipelines) to identify formats and scan for viruses. A pipeline run adds the files under `objects/` to the METS itself, so if you do that, step 3 becomes a way of picking up anything you added afterwards rather than a requirement.
 
 <LinkCard
   title="💻 The same thing, as a runnable sample"

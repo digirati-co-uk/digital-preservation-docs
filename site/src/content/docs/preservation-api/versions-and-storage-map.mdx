@@ -55,7 +55,7 @@ The two forms are kept in step: the platform pairs the repository's list of Meme
 GET /repository/library/manuscripts/ms-342?view=lightweight&version=v1
 ```
 
-The `version` parameter is only allowed together with `view=lightweight`; any other combination is a `400`. That means you can ask *whether* a resource existed at a version, and get its metadata, but you cannot browse its children that way. See [the view and version parameters](../repository#the-view-and-version-parameters).
+The `version` parameter is only allowed together with `view=lightweight`; any other combination is a `400`. The `vN` form is an Archival Group shorthand: on a Container or a Binary it is refused with a `400` telling you to use the Memento timestamp instead, which works for every resource type. That means you can ask *whether* a resource existed at a version, and get its metadata, but you cannot browse its children that way. See [the view and version parameters](../repository#the-view-and-version-parameters).
 
 To see the files of an older version, use the Storage Map for that version.
 

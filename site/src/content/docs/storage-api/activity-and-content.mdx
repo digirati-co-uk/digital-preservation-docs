@@ -105,7 +105,7 @@ GET /content/library/manuscripts/ms-342/objects/34r.tiff
 
 The path is the same as the repository path apart from the first segment. This URI is exposed as the `content` property of a Binary in both APIs; it is only honoured here.
 
-The response streams the file with the Binary's recorded `contentType`. Anything at the path that is not a Binary - a Container, an Archival Group, nothing at all - gives a `404`.
+The response streams the file with the Binary's recorded `contentType`. Anything at the path that is not a Binary - a Container, an Archival Group, nothing at all - is an error, and the body is a problem document saying `404`. Be careful how you detect it: the controller does not set the response status, so what you actually receive is **HTTP 200** carrying that document, and a client that branches on the status code will read the failure as success. Check the content type, or the body, rather than the status ([issue #262](https://github.com/digirati-co-uk/digital-preservation/issues/262)).
 
 <Aside type="note">
 `/content/...` serves the **current** version. There is no `version` parameter, whatever query
