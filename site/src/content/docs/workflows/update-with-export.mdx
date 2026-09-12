@@ -1,0 +1,148 @@
+---
+title: Preserve a new version — full export
+sidebar:
+  label: Update with export
+  order: 3
+---
+
+import { Aside, LinkCard, Steps } from '@astrojs/starlight/components';
+
+Use case: you need to view or work with the complete set of files of an Archival Group in order to make changes for a new version.
+
+<Aside type="caution">
+This does a full export to S3 of the Archival Group, making copies of all its Containers and Binaries in the Deposit working space. For a large object that is a lot of copying, and you pay for it in time and storage. If you already know which files you are changing, [update without an export](../update-without-export) instead.
+</Aside>
+
+<Steps>
+
+1. ### Create an export
+
+   You POST a partial Deposit to the export endpoint, with at least the `archivalGroup` property:
+
+   ```
+   POST /deposits/export
+   ```
+
+   ```json
+   {
+     "type": "Deposit",
+     "archivalGroup": "https://preservation-api.example/repository/library/c18-printed-books/a-10000001"
+   }
+   ```
+
+   Usually that is all you send and the **latest** version is exported. To work from an older one, name it:
+
+   ```json
+   {
+     "type": "Deposit",
+     "archivalGroup": "https://preservation-api.example/repository/library/c18-printed-books/a-10000001",
+     "versionExported": "v7"
+   }
+   ```
+
+   A new Deposit comes back at `201 Created`. Whether or not you asked for a version, the one you got is recorded:
+
+   ```jsonc
+   {
+     "id": "https://preservation-api.example/deposits/fcc44m9b8a",
+     "type": "Deposit",
+     "archivalGroup": "https://preservation-api.example/repository/library/c18-printed-books/a-10000001",
+     "archivalGroupName": "A Treatise on Opticks",
+     "archivalGroupExists": true,
+     "files": "s3://working-bucket/deposits/fcc44m9b8a/",
+     "status": "exporting",
+     "versionExported": "v7"
+     // ... the other Deposit properties
+   }
+   ```
+
+2. ### Wait for the export to finish
+
+   The `status` of the Deposit you just got back is `exporting`. You can't start working with it until that becomes `new`.
+
+   ```
+   GET /deposits/fcc44m9b8a
+   ```
+
+   ```jsonc
+   {
+     "id": "https://preservation-api.example/deposits/fcc44m9b8a",
+     // ...
+     "status": "new"
+     // ...
+   }
+   ```
+
+   You might see files arriving in S3 while you wait. Don't work with them until the status changes: fetching the Deposit is what checks the export and moves it on, and it also reconciles the Deposit's `metadata` folders with the METS that has just landed.
+
+3. ### Modify the files
+
+   From here the flow is the same as [preserving for the first time](../preserve-first-time) — upload files to S3, remove files from S3, and update the METS file to reflect the changed object.
+
+   The export arrives in the platform's standard layout: content under `objects/`, tool outputs under `metadata/`, and the METS file in the root. If the object's METS is one the platform wrote, you can also use the [METS editing](../../preservation-api/editing-mets) endpoints rather than editing the XML yourself.
+
+4. ### Create and execute an Import Job
+
+   As in step 5 of the first-time workflow. A new `ImportJobResult` is returned.
+
+   ```
+   POST /deposits/fcc44m9b8a/importjobs
+   ```
+
+   ```json
+   {
+     "id": "/deposits/fcc44m9b8a/importjobs/diff"
+   }
+   ```
+
+   Because the Archival Group exists, the generated job has `isUpdate: true` and a `sourceVersion`, and it is a genuine diff: anything in the Archival Group that is no longer in the Deposit lands in `binariesToDelete` or `containersToDelete`. This is exactly why a full export matters here — the Deposit is being read as the complete new state of the object.
+
+5. ### Poll the result until it has finished
+
+   ```
+   GET /deposits/fcc44m9b8a/importjobs/results/km7b992sd
+   ```
+
+   While the job is processing, `sourceVersion` shows which version of the Archival Group the import is based on:
+
+   ```jsonc
+   {
+     "id": "https://preservation-api.example/deposits/fcc44m9b8a/importjobs/results/km7b992sd",
+     "type": "ImportJobResult",
+     "status": "running",
+     "sourceVersion": "v7",
+     "newVersion": null
+     // ...
+   }
+   ```
+
+   When it completes, the new version is there too:
+
+   ```jsonc
+   {
+     "id": "https://preservation-api.example/deposits/fcc44m9b8a/importjobs/results/km7b992sd",
+     "type": "ImportJobResult",
+     "status": "completed",
+     "sourceVersion": "v7",
+     "newVersion": "v8"
+     // ...
+   }
+   ```
+
+</Steps>
+
+## Exporting just to look
+
+Not every export leads to an Import Job. If you only wanted to read the files — to appraise them, to run something over them, to give someone a copy — the workflow stops at step 2, and the Deposit's job is done. Delete it when you have finished with it:
+
+```
+DELETE /deposits/fcc44m9b8a
+```
+
+That removes the workspace contents as well as the Deposit record, and has no effect whatever on the Archival Group. If you leave it, the [deposit archiver](../../preservation-api/exports#archived-deposits) will clear the workspace eventually — but an abandoned export also blocks anybody else from creating a Deposit for the same Archival Group, because only one active Deposit per Archival Group is allowed.
+
+<LinkCard
+  title="💻 End-to-end example: update with a full export"
+  href="https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/preservation-docs-client/workflows/w03_update_with_export.py"
+  description="Exports an Archival Group, waits for the files, adds one, and preserves the next version."
+/>

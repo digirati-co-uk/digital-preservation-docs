@@ -1,0 +1,267 @@
+---
+title: Import Jobs
+sidebar:
+  label: Import Jobs
+  order: 8
+---
+
+import { Aside, LinkCard } from '@astrojs/starlight/components';
+
+An ImportJob is a statement, in JSON form, of what changes you want carried out to an [Archival Group](../repository#-archivalgroup). Containers to add, Containers to delete, Binaries to add, Binaries to delete, Binaries to update (patch), and Containers and Binaries to rename.
+
+If you are using a [Deposit](../deposits) as an assembly area for files, you can ask the Preservation API to build an ImportJob for you, from the content of the Deposit in S3. You can also ask it to build and execute the ImportJob in a single operation. This is a **diff** import job — the Preservation API compares what's in the Deposit with what's in the current Archival Group (if there is one) and prepares the changes required to create the Archival Group, or update it to a new version.
+
+An automated diff isn't always desirable. You might create a Deposit for the purposes of making an edit to a single file (a METS file, say), and the content of the Deposit might be just that one file you want to change — and not necessarily sitting in the Deposit at the correct relative path. In that scenario, if you asked the platform to generate a diff, it would see the mostly empty working space and produce an ImportJob with many Containers to delete and many Binaries to delete. It would have been better to construct the ImportJob manually and specify just the one Binary to patch, giving both the `id` property of the Binary — its repository address — and the `origin` property, its current S3 or filesystem URI. See [Custom import job](../../workflows/custom-import-job).
+
+It is a little more nuanced than this. The Deposit doesn't have to contain all the files in order for the correct diff to be constructed, if they are mentioned in the METS file. That is what makes [updating without a full export](../../workflows/update-without-export) work.
+
+<Aside type="note">
+An Import Job is a means of synchronising a Deposit with the repository, whether the Deposit represents the new state in its entirety, or is partial. Even if the only operations you want to perform in an Import Job are deletions, you still need a Deposit to give the ImportJob a context — to launch it from — and for auditing.
+</Aside>
+
+## Before you can ask for one
+
+Both operations on this page — generating a diff, and executing a job — check the Deposit first:
+
+| Condition | Response |
+|---|---|
+| The Deposit has no `archivalGroup` | `400 Bad Request`, "Deposit requires Archival Group" |
+| The Deposit's status is `exporting` | `400 Bad Request`, "Deposit is being exported" |
+| The Deposit already has an Import Job result that is not `completedWithErrors` | `409 Conflict`, "There are existing import jobs for this deposit" |
+
+The last of these is the one that surprises people. A Deposit is good for **one** successful (or still-running) Import Job. Once a job has run, the Deposit is a record of what happened, not a place to do more work; to make further changes, create another Deposit. A job that finished as `completedWithErrors` doesn't count, so you can [reactivate](../deposits#active-and-inactive) a failed Deposit, fix whatever was wrong, and try again.
+
+This applies to the `archivalGroup` property of the Deposit, not of the job. It doesn't matter *when* in your workflow you set it, as long as it is set before this point.
+
+## Generate a "diff" Import Job
+
+Requesting an Import Job to be created from the files in S3 makes no changes to any state, and is retrieved with a GET:
+
+```
+GET /deposits/e56fb7yg/importjobs/diff
+```
+
+It returns an `ImportJob`:
+
+```jsonc
+{
+  "id": "https://preservation-api.example/deposits/e56fb7yg/importjobs/transient/638950821343621834",
+  "type": "ImportJob",
+  "originalId": "https://preservation-api.example/deposits/e56fb7yg/importjobs/diff",
+  "created": "2025-10-03T09:55:34.3621834Z",
+  "createdBy": "https://preservation-api.example/agents/tom",
+  "lastModified": "2025-10-03T09:55:34.3621834Z",
+  "lastModifiedBy": "https://preservation-api.example/agents/tom",
+  "deposit": "https://preservation-api.example/deposits/e56fb7yg",
+  "archivalGroup": "https://preservation-api.example/repository/library/c20-printed-books/my-book",
+  "archivalGroupName": "My Book",
+  "isUpdate": false,
+  "suppressActivityStreamEvent": false,
+  "source": "s3://working-bucket/deposits/e56fb7yg/",
+  "sourceVersion": null,
+  "containersToAdd": [
+    {
+      "id": "https://preservation-api.example/repository/library/c20-printed-books/my-book/objects",
+      "type": "Container",
+      "name": "objects",
+      "origin": "s3://working-bucket/deposits/e56fb7yg/objects"
+    }
+  ],
+  "binariesToAdd": [
+    {
+      "id": "https://preservation-api.example/repository/library/c20-printed-books/my-book/objects/cat-uv.png",
+      "type": "Binary",
+      "name": "cat-uv.png",
+      "origin": "s3://working-bucket/deposits/e56fb7yg/objects/cat-uv.png",
+      "contentType": "image/png",
+      "size": 449518,
+      "digest": "1587a18ce3567215bfba9d0866b9e05e548b0ba70ab1b6e001a96a2f0e95c7f3"
+    },
+    {
+      "id": "https://preservation-api.example/repository/library/c20-printed-books/my-book/mets.xml",
+      "type": "Binary",
+      "name": "mets.xml",
+      "origin": "s3://working-bucket/deposits/e56fb7yg/mets.xml",
+      "contentType": "application/xml",
+      "size": 3278,
+      "digest": "2274bfad9b5420043fc62c6c34441ae436a0caab12d8a62a4679f4dfb2599e53"
+    }
+  ],
+  "containersToDelete": [],
+  "binariesToDelete": [],
+  "binariesToPatch": [],
+  "containersToRename": [],
+  "binariesToRename": []
+}
+```
+
+The Import Job is generated from multiple sources:
+
+- The layout of files in S3
+- The METS file in that layout, if present: the API looks for a METS file in specific locations
+- SHA256 checksums in the METS, and/or…
+- SHA256 checksums in AWS S3 object metadata
+- Content type information in the METS
+- File and Directory name information in the METS (if present)
+- File and Directory (S3 object) key names in S3
+
+The METS file itself appears in the job like any other file, even though a METS document does not usually describe itself. The platform adds it to the object's file list with a digest taken from storage.
+
+You can of course generate this JSON manually. It is not required that the `id` values of your Containers and Binaries in the intended Archival Group match the source S3 file structure; that will always be the case if you requested an Import Job from the API, but may not be convenient for a single-file update deep within the structure. You can set the `origin` of the Binary to any location the API has access to within the Deposit, and it will fetch the binary content from there when importing to the repository.
+
+<LinkCard
+  title="💻 Example: generate a diff Import Job"
+  href="https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/preservation-docs-client/p08_import_jobs/get_diff.py"
+  description="Asks for the diff and summarises what it would do."
+/>
+
+### ImportJob properties
+
+| Property | Description |
+|---|---|
+| `id` | The URI this Import Job was assigned by the API, or your own identifier for it if you generated or edited it yourself. This URI has no special significance for *processing* the job. A generated diff gets a transient URI containing a timestamp, because asking for the diff again may produce something different. |
+| `type` | `ImportJob` |
+| `originalId` | Set by the API when it has assigned a new `id`. For a diff request, this records the fact that the job was requested as a diff — and it is the value to use if you want to [post a diff reference](#the-diff-reference-shortcut) rather than the whole job. |
+| `deposit` | The Deposit that was used to generate this job, and to which it will be sent if executed. The job must be POSTed to the value of this property plus `/importjobs`. |
+| `archivalGroup` | The URI of the object in the repository that the job is to be performed on. This object doesn't necessarily exist yet — this job might be creating it. The value must match the `archivalGroup` of the Deposit, so it's technically redundant, but must be included so that the intent is explicit and self-contained. |
+| `archivalGroupName` | The display name of the Archival Group. **Required** when creating a new one. Can also be used to change the name in a subsequent version. A generated diff takes it from the Deposit, from the existing Archival Group, or from the title in the METS, in that order. |
+| `isUpdate` | Whether this job changes an Archival Group that already exists. Set by the API on a generated diff. On a job you write yourself, state it explicitly: the job fails if it says false and the Archival Group is there, or says true and it is not. |
+| `suppressActivityStreamEvent` | Keeps the new version out of the published [Activity Stream](../activity-stream). Almost always false — see [Suppressing the Activity Stream event](#suppressing-the-activity-stream-event). |
+| `source` | The root URI of the Deposit workspace the job was created from. |
+| `sourceVersion` | The version of the Archival Group the job is based on. Always set by the API on a generated diff when the Archival Group already exists; null for a new object. This is a version **object**, not a string — see below. |
+| `containersToAdd` | Containers to be created within the Archival Group. The `id` gives the URI of the Container to be created, whose path must be *within* the Archival Group and must only use characters from the [permitted set](../overview#paths-and-names). The `name` may be any UTF-8 characters, and can be used to preserve an original directory name. |
+| `binariesToAdd` | Binaries to be created within the Archival Group from keys in S3. The `id` gives the URI of the Binary to be created; `origin` must be a location within the Deposit. `digest` is only required if the SHA256 cannot be obtained from the METS or from S3 metadata — all API-generated jobs include it. The last path element of the `id`, the `name`, and the last element of the `origin` could all be different; this is permitted, if unusual. |
+| `containersToDelete` | Containers to remove. `id` is the only required property. They must either be empty already, or contain only Binaries named in `binariesToDelete` in the same job. |
+| `binariesToDelete` | Binaries to remove. `id` is the only required property. |
+| `binariesToPatch` | Binaries to be updated from keys in S3. The `id` gives the URI of the Binary to be patched, which must already exist. Otherwise as `binariesToAdd`. |
+| `containersToRename` | See [Renames](#renames). |
+| `binariesToRename` | See [Renames](#renames). |
+
+`created`, `createdBy`, `lastModified` and `lastModifiedBy` are the [common resource properties](../overview#common-properties). Whatever you send for `createdBy` and `lastModifiedBy` is overwritten by the API with the identity it resolved for you.
+
+For an update, `isUpdate` is true and `sourceVersion` names the version being changed:
+
+```json
+{
+  "isUpdate": true,
+  "sourceVersion": {
+    "mementoTimestamp": "20250915120000",
+    "mementoDateTime": "2025-09-15T12:00:00Z",
+    "ocflVersion": "v2"
+  }
+}
+```
+
+The same information appears on the [ImportJobResult](../import-job-results) as a plain string, `"v2"`. On a job you write yourself, `sourceVersion` is informational: the Storage API works out for itself which version it is changing, at the moment it changes it.
+
+### Renames
+
+A rename changes the `name` of a Container or Binary — its `dc:title`, the UTF-8 display name that preserves the original file or folder name. **It cannot change the slug**, the last segment of the `id`, because that is the object's address in the repository and in OCFL. A file whose path must change is a delete and an add.
+
+So an entry in `binariesToRename` or `containersToRename` is the resource as it should now be: the same `id` as the existing one, with a different `name`. A generated diff populates these lists by comparing the name in the Deposit's METS with the name currently recorded in the Archival Group.
+
+<Aside type="note" title="These two are the odd ones out">
+Every other property of an ImportJob has an explicit name in the JSON. `containersToRename` and `binariesToRename` fall back to the framework's default camelCase, which happens to produce the same spelling — but they are the only two lists whose name is not pinned in the code. Send them as shown here.
+</Aside>
+
+### BagIt deposits
+
+In a [BagIt-layout Deposit](../deposits#templates) the object's content lives under `data/`. That prefix does not appear in the Import Job at all: the diff is generated from `data/` downwards, so the `id` paths are `.../objects/…` and `.../metadata/…` exactly as they would be for a `RootLevel` Deposit, and the target Archival Group looks the same whichever layout you deposited from.
+
+The `origin` URIs *do* include it, because that is where the bytes actually are: `s3://working-bucket/deposits/e56fb7yg/data/objects/…`. The `source` property remains the Deposit root.
+
+The BagIt tag files in the root of the workspace — `bagit.txt`, `bag-info.txt`, `manifest-sha256.txt`, `tagmanifest-sha256.txt` — sit above `data/` and are not preserved. The bag is how the content travelled, not part of the content.
+
+### When a diff can't be produced
+
+The diff has to be able to account for every file in the Deposit. Where it can't, the request fails and nothing is created:
+
+| Condition | Response |
+|---|---|
+| A file in the Deposit is not in the METS | `422 Unprocessable Content` |
+| A file in the METS has no SHA256 digest | `422 Unprocessable Content` |
+| One or more files have no checksum from any source | `422 Unprocessable Content` |
+| A folder with content in it is not in the METS | `422 Unprocessable Content` |
+| A file's digest in the METS disagrees with the digest of the file in the Deposit | `409 Conflict` |
+| A file's size or content type disagrees between the METS and the Deposit | `400 Bad Request` |
+| Two files in the Deposit would end up at the same repository URI once their names were made URI-safe | `400 Bad Request` |
+| A Binary to add or patch has no file in the Deposit | `400 Bad Request` |
+
+An empty folder that is in the Deposit but not the METS is skipped rather than failing the diff: there is no content being silently dropped. That is what allows a Deposit cloned from an older Archival Group — whose METS predates the `metadata/ad-hoc` convention — to be diffed at all.
+
+## Execute an Import Job
+
+Whether generated as a diff by the API or written by hand, you POST the JSON to the Deposit's `importjobs` endpoint:
+
+```
+POST /deposits/e56fb7yg/importjobs
+Content-Type: application/json
+```
+
+```
+(the Import Job JSON body, as above)
+```
+
+The response is an [ImportJobResult](../import-job-results), and it comes back at `201 Created` before the job has run.
+
+### The diff reference shortcut
+
+There is a special case where you don't need to see or edit the diff-generated Import Job. Here the body POSTed to `importjobs` comprises **only** the `id` property, whose value is the diff URI, and no operation lists at all:
+
+```
+POST /deposits/e56fb7yg/importjobs
+```
+
+```json
+{
+  "id": "https://preservation-api.example/deposits/e56fb7yg/importjobs/diff"
+}
+```
+
+This is an instruction to the API to synchronise the Archival Group with the contents of the Deposit **in a single action**: it generates the diff itself, at that moment, and runs it. It is equivalent to a `GET .../importjobs/diff` followed by a POST of the result, without the round trip and without the window in between where the Deposit might change underneath you.
+
+The value to send is the `originalId` of a diff, not its transient `id`. It can be a full URI or a path, but it must end with exactly the path you are POSTing to plus `/diff`. In particular the match is case-sensitive, so POST to the lower-case `/importjobs`; a body whose `id` doesn't line up is not recognised as a diff reference at all, and is then rejected as an ordinary job with nothing in it.
+
+### What the API checks
+
+Beyond the Deposit checks at the top of this page, the posted job has to be the Deposit's own:
+
+| Condition | Response |
+|---|---|
+| The job has no `deposit` property | `400 Bad Request`, "Import job must declare which Deposit it is for." |
+| `deposit` names a different Deposit from the one it was posted to | `400 Bad Request` |
+| A Binary to add or patch has an `origin` outside the Deposit's `files` location | `400 Bad Request`, naming the offending origin |
+| The Deposit is locked by somebody else | `409 Conflict` |
+
+You do not need to hold a [lock](../deposits#locking-a-deposit) to run a job; you just can't run one against a Deposit somebody else has locked.
+
+Once accepted, the job is handed to the Storage API and queued. Everything that can go wrong from that point on — the Archival Group existing when `isUpdate` is false, a missing `archivalGroupName` on a new object, a binary that can't be fetched from its origin — happens after the HTTP response, and is reported in the `errors` of the [ImportJobResult](../import-job-results).
+
+<Aside type="caution">
+The Storage API allows only one active Import Job per Archival Group. If another job for the same Archival Group is still running — most likely somebody else's, from a different Deposit — yours is refused with `409 Conflict`.
+</Aside>
+
+<LinkCard
+  title="💻 Example: execute an Import Job"
+  href="https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/preservation-docs-client/p08_import_jobs/execute_diff.py"
+  description="Posts the diff reference and prints the result that comes back."
+/>
+
+## Suppressing the Activity Stream event
+
+```json
+{
+  "suppressActivityStreamEvent": true
+}
+```
+
+The [Activity Stream](../activity-stream) is how everything downstream of the platform learns that an object changed; a IIIF manifest builder reading it treats an entry as "rebuild what you derived from this". Occasionally the platform preserves a new version that changes *how an object is recorded* rather than *what it holds* — the migration of METS identifiers described in [Identifiers in METS](../../mets/identifiers) is the reason this flag exists. There is nothing for a consumer to rebuild, so an entry would be both wasted work and a misleading account of the object's history.
+
+It suppresses the stream entry, not the record. The event is still stored, and OCFL still holds the new version with everything that made it.
+
+Because it is so easy to misuse, it is fenced in on both sides:
+
+* The API refuses it unless the `EnableMetsIdNormalisation` feature flag is on, with `400 Bad Request`. An API that has never heard of the flag will also refuse the job, which is what protects a newer client against an older API.
+* The API refuses it unless the job is a single `binariesToPatch` entry, for a METS file, with nothing added, deleted or renamed — again `400 Bad Request`, naming which of those it failed. For a diff reference this is checked after the diff has been generated, so the check sees the job that will actually run.
+
+Anything that changes content must be announced.

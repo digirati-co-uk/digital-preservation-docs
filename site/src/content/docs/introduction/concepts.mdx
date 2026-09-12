@@ -10,7 +10,7 @@ import { Aside } from '@astrojs/starlight/components';
 These are the terms used throughout the documentation. Each is defined once here; the linked pages
 give the detail.
 
-## Archival Group
+## 📦 Archival Group
 
 The unit of preservation. An Archival Group is a set of files and folders that is versioned _as a
 whole_: a digitised book, a manuscript, a born-digital collection, a single PDF. It corresponds
@@ -25,7 +25,7 @@ its _entire_ tree of Containers and Binaries in one response.
 
 See [Repository](../../preservation-api/repository).
 
-## Container
+## 📁 Container
 
 A folder. Containers are used in two places:
 
@@ -38,7 +38,7 @@ The repository root is itself a Container, with the special `type` value `Reposi
 
 See [Repository](../../preservation-api/repository).
 
-## Binary
+## 📄 Binary
 
 A file of any kind. Binaries exist only inside Archival Groups. Every Binary has a SHA-256 `digest`,
 a `contentType`, a `size`, and an `origin` - the S3 location of the preserved bytes in the OCFL
@@ -52,8 +52,8 @@ See [Repository](../../preservation-api/repository).
 A working area in S3 - an S3 key prefix such as `s3://working-bucket/deposits/<id>/` - allocated by
 the Preservation API for assembling the files that will become, or update, an Archival Group. Files
 are put into the deposit by whatever means suit the client (S3 APIs, the UI's uploader, a BagIt
-bag), not through the API. A Deposit is either **new** (for an Archival Group that does not yet
-exist) or targets an existing Archival Group (typically after an export).
+bag), not through the API. A Deposit either creates an Archival Group that does not yet
+exist, or targets an existing one (typically after an export).
 
 A Deposit has a `status`: `new`, `exporting`, `preserved`, `error` or `archived`. It also has a
 `template`, which determines whether the platform manages its METS file: `None` (you supply and
@@ -100,7 +100,7 @@ See [Import Job Results](../../preservation-api/import-job-results).
 
 Copying the contents of an Archival Group (at a chosen version) out of the repository into a
 Deposit's working area, either to work on the files and preserve a new version, or just to get at
-them. An Export is asynchronous and has its own resource for tracking progress.
+them. An Export is asynchronous, and you track it by fetching the Deposit: it sits at status `exporting` until the files have all arrived, and asking for it is what moves it on to `new`.
 
 See [Exports](../../preservation-api/exports).
 

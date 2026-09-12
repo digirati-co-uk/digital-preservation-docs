@@ -33,7 +33,7 @@ Returns a JSON list of every Agent URI the platform has recorded, as plain strin
 ]
 ```
 
-This is the list you would use to populate a filter in a user interface, for example to offer the `createdBy` and `preservedBy` filters when [listing Deposits](../deposits#listing-and-searching-deposits). Those filters accept either the full Agent URI or just its last path segment.
+This is the list you would use to populate a filter in a user interface, for example to offer the `createdBy` and `preservedBy` filters when [listing Deposits](../deposits#listing-and-searching-deposits). Those filters want the **name** only — the last segment of the URI — matched exactly. Passing a whole Agent URI from this list returns nothing, so take the part after `/agents/`.
 
 <Aside type="note">
 Agent URIs are identifiers, not yet resources: requesting one returns nothing. A dereferenceable Agent resource may follow in a later version of the API.

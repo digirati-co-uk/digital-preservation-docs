@@ -24,7 +24,7 @@ An [import job](../../preservation-api/import-jobs) is the thing that turns a [d
 | *No jobs can be run as the Deposit status is currently 'Exporting'.* | Wait for the export to finish. |
 | The button is there but greyed out | Either a pipeline run is in progress, or the deposit has [files whose metadata disagrees with the METS](../deposits#the-file-table) — the red banner above says how many. Add those files to the METS again and the button comes back. |
 
-One more requirement is not announced in advance: the deposit must have an **Archival Group Name**. Without one the diff is refused with a conflict, because the object would have nothing to be called.
+One more requirement is not announced in advance, and it bites late: a job that *creates* an object needs an **Archival Group Name**. The diff itself does not mind — it is the Storage API that refuses, at execution, so the job comes back `completedWithErrors` rather than failing up front. An update to an existing object does not need one.
 
 ## The diff
 

@@ -1,0 +1,94 @@
+---
+title: Reading the Activity Stream
+sidebar:
+  label: Reading the Activity Stream
+  order: 8
+---
+
+import { Aside, LinkCard, Steps } from '@astrojs/starlight/components';
+
+Use case: you run a service that derives something from preserved objects — a IIIF manifest, a search index, a report — and you need to know when an object has been created or changed so you can rebuild it.
+
+The Preservation API publishes an [Activity Stream](../../preservation-api/activity-stream) for exactly this. It is an ordered, paged, append-only record of everything preserved, in [IIIF Change Discovery](https://iiif.io/api/discovery/1.0/) form, and it is the only supported way to find out what has changed. Don't poll the repository, and don't ask the deposits list — a Deposit is one client's working area, while the stream is the object's history.
+
+This page is the how-to. The structure of the collection, the pages and the activities is described on the [Activity Stream](../../preservation-api/activity-stream) reference page.
+
+## The two ways to read it
+
+<Steps>
+
+1. ### First time: read everything
+
+   Start at the collection and walk to the end.
+
+   ```
+   GET /activity/archivalgroups/collection
+   ```
+
+   It tells you how many activities there are and where the first and last pages are. Follow `first`, then each `next`, to the end.
+
+   ```
+   GET /activity/archivalgroups/pages/1
+   GET /activity/archivalgroups/pages/2
+   …
+   ```
+
+   Pages are **oldest first** and 100 activities long. Process each activity in order, and record where you got to.
+
+2. ### Afterwards: read backwards until you recognise something
+
+   This is the [processing algorithm](https://iiif.io/api/discovery/1.0/#activity-streams-processing-algorithm) from the IIIF Change Discovery specification, and it is what you should implement rather than anything of your own devising.
+
+   Start at the collection's `last` page, walk its activities in reverse, and follow `prev` until you reach an activity you have already processed. Then act on everything you collected, oldest first.
+
+   The reason for reading backwards is that the stream is append-only and grows at the end: going back from the end means you read as few pages as it takes to catch up, however long you were away.
+
+</Steps>
+
+## What to do with an activity
+
+Each entry names an object and says whether it was created or updated, with the moment it happened:
+
+```json
+{
+  "type": "Update",
+  "object": {
+    "id": "https://preservation-api.example/repository/library/c18-printed-books/a-10000001",
+    "type": "ArchivalGroup",
+    "seeAlso": [
+      {
+        "id": "https://storage-api.example/import/results/km7b992sd/library/c18-printed-books/a-10000001",
+        "type": "ImportJobResult"
+      }
+    ]
+  },
+  "endTime": "2025-10-03T09:58:44.117290Z"
+}
+```
+
+* `object.id` is the Archival Group, and it is the thing to act on. `GET` it to load the whole object; add `?view=mets` to fetch its METS instead of walking the JSON.
+* `type` is `Create` for a first version and `Update` for every subsequent one. Note the capital letter.
+* `seeAlso` names the Import Job Result that produced the version — but as a **Storage API** URI, which almost no consumer can dereference. Treat it as an opaque identifier, useful for recognising two activities from the same import, and don't try to fetch it. See the [caution on the Activity Stream page](../../preservation-api/activity-stream#an-activity).
+* Skip anything you don't recognise rather than failing on it. The stream's first entry is a placeholder from when the database was created, and its `object.id` is not in this repository at all.
+
+<Aside type="tip" title="Collapse before you work">
+An object that was preserved four times while your consumer was down produces four activities. If your work is "rebuild whatever is derived from this object", you only need to do it once: group the batch by `object.id` and keep the latest. Only do this within one catch-up batch, and only if your work really is idempotent.
+</Aside>
+
+## Things worth knowing before you build one
+
+**The stream lags.** A background process inside the Preservation API reads the Storage API's record of finished Import Jobs about once a minute, and that is what puts an entry in the stream. An object is preserved a little before it appears here. If that read fails, it backs off for half an hour, so a gap of some minutes is normal and a gap of half an hour is not alarming.
+
+**Not everything preserved is announced.** An Import Job can ask for [its event to be suppressed](../../preservation-api/import-jobs#suppressing-the-activity-stream-event). This is only permitted for a change to how an object is recorded rather than what it holds — the migration of METS identifiers — and it exists precisely so that consumers like you are not sent to rebuild something that has not changed in any way you care about. The version is still in OCFL; it just isn't in the stream.
+
+**Deletions are not in the stream yet.** Every activity is a `Create` or an `Update`. If an object can be removed in your deployment, the stream will not tell you.
+
+**Page boundaries are not stable.** Activities are numbered by position from the start of the stream, so "page 7" means something different once seven more objects are preserved. Record your position as the activity you last processed — its object id and `endTime` — not as a page number.
+
+**`endTime` is the ordering key.** Activities are ordered by it, and it is the value to compare against when deciding whether you have seen something before.
+
+<LinkCard
+  title="💻 End-to-end example: follow the Activity Stream"
+  href="https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/preservation-docs-client/workflows/w08_reading_the_activity_stream.py"
+  description="Walks the stream backwards from the last page to a remembered position, then acts on what it found, oldest first."
+/>

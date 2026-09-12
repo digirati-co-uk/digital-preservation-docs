@@ -13,7 +13,7 @@ Everything here is read-only, with one exception: you can create and delete orga
 
 ## Resource types
 
-### Container
+### 📁 Container
 
 ```jsonc
 {
@@ -39,7 +39,7 @@ Everything here is read-only, with one exception: you can create and delete orga
 
 Plus the [common properties](../overview#common-properties).
 
-### Binary
+### 📄 Binary
 
 ```json
 {
@@ -70,7 +70,7 @@ Plus the [common properties](../overview#common-properties).
 `origin` deliberately exposes the real storage location rather than hiding it. Few callers have access to that bucket, but those that do (for example, something serving the content at runtime) can go straight to the file. The `content` URI streams the same bytes over HTTP for callers that cannot.
 </Aside>
 
-### ArchivalGroup
+### 📦 ArchivalGroup
 
 An Archival Group is a Container with versions. It might be one file or thousands, with any depth of internal structure. Files within it cannot be versioned separately; the group is versioned as a whole (v1, v2, v3 ...).
 

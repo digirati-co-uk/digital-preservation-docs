@@ -9,7 +9,7 @@ import { Aside, Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
 import { Image } from 'astro:assets';
 import imgBrowseRoot from '../../../assets/ui/browse-root.jpg';
 
-The Preservation UI is the web application library staff use to work with the platform: to look at what has been preserved, to assemble files into a [Deposit](../../preservation-api/deposits), to describe them, and to preserve them as a new version of an [Archival Group](../../preservation-api/repository#archivalgroup).
+The Preservation UI is the web application library staff use to work with the platform: to look at what has been preserved, to assemble files into a [Deposit](../../preservation-api/deposits), to describe them, and to preserve them as a new version of an [Archival Group](../../preservation-api/repository#-archivalgroup).
 
 It is a client of the [Preservation API](../../preservation-api/overview) and nothing more. Everything it does, it does by calling that API — creating deposits, editing METS, running import jobs — so anything you can do here you could also do from a script, and anything done from a script shows up here. The UI's job is to make the common tasks quick and to stop you doing things that will not work.
 
@@ -72,6 +72,6 @@ If an action this documentation mentions is not in your **Actions** menu, that i
 
 ## When something goes wrong
 
-The UI reports problems as coloured banners at the top of the page, above the content: red for a failure, green for something that worked. They come straight from the Preservation API, so a message like *"There is already an ACTIVE deposit for the archival group"* is the API's own answer, not the UI's guess. Most are dismissible; they do not persist across a page load.
+The UI reports problems as coloured banners at the top of the page, above the content: red for a failure, green for something that worked. They come straight from the Preservation API, Most come straight from the Preservation API. A few are the UI's own: *"There is already an ACTIVE deposit for the archival group"* is checked in the UI before the API is called, so its wording differs slightly from the API's answer to the same situation. Most are dismissible; they do not persist across a page load.
 
 A banner that mentions a status code is worth reading carefully — a `409 Conflict` usually means somebody else got there first (a lock, or a deposit that already exists), not that you did anything wrong.

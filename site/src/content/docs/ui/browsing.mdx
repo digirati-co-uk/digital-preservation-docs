@@ -9,7 +9,7 @@ import { Aside } from '@astrojs/starlight/components';
 import { Image } from 'astro:assets';
 import imgBrowseArchivalGroup from '../../../assets/ui/browse-archival-group.jpg';
 
-**Browse** shows the preserved repository as a tree you can walk: folders (Containers) holding more folders, and eventually [Archival Groups](../../preservation-api/repository#archivalgroup) — the preserved objects — each holding its own folders and files. It starts at `/browse` and every row is a link one level down.
+**Browse** shows the preserved repository as a tree you can walk: folders (Containers) holding more folders, and eventually [Archival Groups](../../preservation-api/repository#-archivalgroup) — the preserved objects — each holding its own folders and files. It starts at `/browse` and every row is a link one level down.
 
 Nothing here can be edited. The contents of an Archival Group only ever change by running an [import job](../import-jobs) from a [deposit](../deposits). The two exceptions are organisational folders *above* Archival Groups, which you can create and delete from this page.
 
@@ -25,7 +25,7 @@ Which columns you see depends on where you are.
 
 **Inside an Archival Group**, the last four columns change to type, PRONOM format, metadata, and a biohazard column for the virus scan. These come from the object's [METS](../../mets/overview) file rather than from the repository itself, which is why they are only available inside an object.
 
-The metadata column shows the access conditions, rights statement and record identifiers that apply to each file or folder. A value shown in **bold italics** is set on that item itself; a value in plain muted text is *inherited* from somewhere above it. That distinction matters, and is explained in full on the [deposits page](../deposits#access-conditions-rights-and-record-identifiers), where you can also change these values.
+The metadata column shows the access conditions, rights statement and record identifiers that apply to each file or folder. A value shown in bold italics is set on that item itself; an *inherited* value is shown the same way but in a muted colour. (The deposit file table draws the same distinction differently — there an inherited value stays hidden until you hover the row.) That distinction matters, and is explained in full on the [deposits page](../deposits#access-conditions-rights-and-record-identifiers), where you can also change these values.
 
 ### Objects that do not exist yet
 

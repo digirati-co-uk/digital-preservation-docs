@@ -1,0 +1,133 @@
+---
+title: Search
+sidebar:
+  label: Search
+  order: 13
+---
+
+import { Aside, LinkCard } from '@astrojs/starlight/components';
+
+The API offers a simple search facility for finding Deposits and Binaries within Archival Groups. It is a "find the thing I half-remember" tool, not a discovery interface: there is no full-text index of file *content*, no faceting and no relevance ranking. It matches substrings of names, paths and notes.
+
+```
+GET /search?text=pipeline
+GET /search?text=pipeline&pageNumber=2
+GET /search?text=pipeline&pageNumber=2&pageSize=50
+```
+
+| Query parameter | Type | Default | Description |
+|---|---|---|---|
+| `text` | string | — | Required. The search term. An empty or missing value is a `400`. |
+| `pageNumber` | integer | `0` | The page of results, counting from **0**. Negative values are a `400`. |
+| `pageSize` | integer | `20` | Results per page. Must be greater than 0 and no more than 500, or you get a `400`. |
+| `type` | string | `All` | `All`, `Deposits` or `Fedora`. Which result set `pageNumber` applies to — see below. |
+| `otherPage` | integer | `0` | The page number for the result set that `type` did *not* name. |
+
+<Aside type="caution">
+Note `pageNumber`, not `page`, and that it starts at 0 — unlike [listing Deposits](../deposits#listing-and-searching-deposits), where the parameter is `page` and the first page is 1. An unrecognised parameter is silently ignored, so `?page=2` returns page 0 without complaining.
+</Aside>
+
+## What is searched
+
+Every request searches both sources, whatever `type` says.
+
+* **Deposits**, where the search term matches any part of the Deposit `id`'s last path element, `archivalGroup`, `archivalGroupName` or `submissionText`. Matching is case-insensitive and on substrings, so `pipeline` finds `local-pipeline-test`.
+* **Preserved files**, where the search term matches any part of the resource's path in the repository. This would typically be used to search for a file name but could match on file extensions, or on a folder name anywhere above the file. Only Binaries are returned — Containers and Archival Groups never appear in the results. Matches are newest first.
+
+Because both result sets come back together but are paged independently, `type` and `otherPage` exist to let you page one of them without disturbing the other. Set `type=Deposits` and `pageNumber` moves through the deposit results while `otherPage` holds the preserved-resource results still — which is how a user interface offers "next page" links on two lists at once.
+
+## The response
+
+The returned Search object partitions the result sets:
+
+```jsonc
+{
+  "fedoraSearch": {
+    "total": 18,
+    "count": 18,
+    "results": [
+      {
+        "fedoraId": "info:fedora/kickoff/pipeline2/local-pipeline-test/mets.xml",
+        "created": "2025-10-01T16:34:36.279",
+        "lastModified": "2025-10-01T16:34:36.279",
+        "contentSize": 15727,
+        "mimeType": "application/xml"
+      },
+      {
+        "fedoraId": "info:fedora/kickoff/pipeline2/local-pipeline-test/objects/cat-uv.png",
+        "created": "2025-10-01T16:34:35.768",
+        "lastModified": "2025-10-01T16:34:35.768",
+        "contentSize": 449518,
+        "mimeType": "image/png"
+      }
+      // more
+    ],
+    "pageSize": 20,
+    "page": 0
+  },
+  "depositSearch": {
+    "deposits": [
+      // ... Deposit resources, exactly as returned by /deposits
+    ],
+    "total": 5,
+    "page": 0,
+    "pageSize": 20
+  },
+  "identifier": null,
+  "text": null,
+  "searchType": null
+}
+```
+
+| Property | Description |
+|---|---|
+| `fedoraSearch` | Matching preserved files, or `null` if the search of the repository could not be run. |
+| `depositSearch` | Matching Deposits, or `null` if there were none. |
+| `identifier` | A matching identifier record, or `null`. See [below](#identifier-lookup). |
+| `text` | Always `null`. Keep your own copy of the search term. |
+| `searchType` | Always `null`. |
+
+`fedoraSearch` has `total` (how many matches there are altogether), `count` (how many are in `results`), `page`, `pageSize` and `results`. `depositSearch` has `total`, `page`, `pageSize` and `deposits`, and its `deposits` are complete [Deposit](../deposits) resources, not summaries.
+
+<Aside type="caution">
+Both `fedoraSearch` and `depositSearch` can be `null` rather than an empty page object, so check for null before reading `total`. A search that matches no Deposits returns `"depositSearch": null`, not a `depositSearch` with an empty list.
+</Aside>
+
+### Preserved file results
+
+The properties of this result set reflect that Fedora is the underlying repository storage, which is why they do not look like the rest of the API:
+
+| Property | Description |
+|---|---|
+| `fedoraId` | The internal identifier of the matching resource. The part after `info:fedora/` is the resource's path under `/repository`, so `info:fedora/kickoff/pipeline2/x/mets.xml` is `https://preservation-api.example/repository/kickoff/pipeline2/x/mets.xml`. |
+| `created`, `lastModified` | When the resource was written to the repository. |
+| `contentSize` | Size in bytes. |
+| `mimeType` | The media type recorded for it. |
+
+There is no `type` property, because every result is a Binary: the query requires a media type, which only Binaries have. If you need the resource itself, build its `/repository/...` URI from `fedoraId` and [fetch it](../repository).
+
+<LinkCard
+  title="💻 Example: search"
+  href="https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/preservation-docs-client/p13_search/search_deposits.py"
+  description="Runs a search, reads both result sets, and pages one of them with type and otherPage."
+/>
+
+## Identifier lookup
+
+Alongside the two searches, the API asks the institutional identity service whether the search term *is* an identifier: first as a PID, then as a catalogue record number. If one matches, the record comes back in the `identifier` property, so that typing a known identifier into a search box takes you to the right object rather than to a list of near misses.
+
+```json
+{
+  "identifier": {
+    "id": "4f2b1c...",
+    "catIrn": "123456",
+    "title": "Album of photographs",
+    "manifestUri": "https://iiif.example/manifests/4f2b1c",
+    "repositoryUri": "https://preservation-api.example/repository/library/photographs/4f2b1c"
+  }
+}
+```
+
+<Aside type="note">
+This part of the search is an institution-specific extension: it depends on a local identity service, and on the identifier schemes that service knows about. An instance without one simply returns `"identifier": null` for every search. The same service is what [creating a Deposit from an identifier](../deposits#creating-a-deposit-from-an-identifier) uses.
+</Aside>

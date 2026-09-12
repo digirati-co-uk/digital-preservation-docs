@@ -1,0 +1,117 @@
+---
+title: Export
+sidebar:
+  label: Export
+  order: 3
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Exporting copies the files of an Archival Group, at a chosen version, out of OCFL and into a location you name. The [Preservation API's exports](../../preservation-api/exports) are built on this, but present it differently: there you export *into a Deposit*, and the API works out the destination for you. Here you give the destination yourself, and no Deposit is involved.
+
+## Starting an export
+
+```
+POST /export
+```
+
+```json
+{
+    "archivalGroup": "https://storage-api.example/repository/docs-misc/import-job-doc",
+    "destination": "s3://my-export-bucket/export-of-my-ag",
+    "sourceVersion": "v15"
+}
+```
+
+Omit `sourceVersion` to export the current version.
+
+The response is `201 Created` with the same resource type back, now with an `id` of its own:
+
+```json
+{
+    "id": "https://storage-api.example/export/h6bb4dpm32",
+    "type": "Export",
+    "archivalGroup": "https://storage-api.example/repository/docs-misc/import-job-doc",
+    "destination": "s3://my-export-bucket/export-of-my-ag",
+    "sourceVersion": "v15",
+    "dateBegun": null,
+    "dateFinished": null,
+    "files": [],
+    "errors": null
+}
+```
+
+Nothing has been copied yet. A `409 Conflict` instead means there is already an unfinished export for this Archival Group; only one runs at a time.
+
+## Polling it
+
+```
+GET /export/h6bb4dpm32
+```
+
+Poll until a non-null `dateFinished` appears:
+
+```json
+{
+    "id": "https://storage-api.example/export/h6bb4dpm32",
+    "type": "Export",
+    "archivalGroup": "https://storage-api.example/repository/docs-misc/import-job-doc",
+    "destination": "s3://my-export-bucket/export-of-my-ag",
+    "sourceVersion": "v15",
+    "dateBegun": "2025-10-03T09:55:34.3621834Z",
+    "dateFinished": "2025-10-03T09:57:20.076543Z",
+    "files": [
+        "s3://my-export-bucket/export-of-my-ag/mets.xml",
+        "s3://my-export-bucket/export-of-my-ag/objects/file1.doc"
+    ],
+    "errors": []
+}
+```
+
+| Property | Description |
+|---|---|
+| `archivalGroup` | The Storage API URI of the Archival Group to export. |
+| `destination` | The S3 location to export to. A trailing slash is trimmed; the Archival Group's internal paths are recreated below it. |
+| `sourceVersion` | The OCFL version being exported. If you asked for one it is honoured or the export fails; if you left it out, it is filled in with the version that was actually exported, so the result always records what you got. |
+| `dateBegun` | When the API started processing. Null or missing until then. |
+| `dateFinished` | When the API finished. Null or missing until then. |
+| `files` | Every file successfully exported, as S3 URIs. |
+| `errors` | [Error objects](../../preservation-api/overview#errors), not strings. Null until the export has run. |
+
+An Export also carries the [common properties](../../preservation-api/overview#common-properties), but unlike every other resource in the platform the API does not fill them in: the export is stored as you sent it, with only an `id` added. If you want `created` and `createdBy` on the record, send them.
+
+## What an export actually does
+
+The API looks up the [Storage Map](../activity-and-content#the-storage-map) for the requested version, which tells it, for every logical path in the Archival Group, the real S3 key of the file that path resolves to in that version and its SHA-256. It then copies each one with a server-side S3 copy, asking S3 to compute the SHA-256 of the copy as it goes.
+
+The checksum of each copy is compared with the one OCFL recorded. A file that matches is added to `files`; a file that does not is added to `errors` with both digests in the message, and is **not** listed in `files`. So an export is verified, and `files` is a list of what arrived intact rather than a list of what was attempted.
+
+<Aside type="note">
+An export finishes with `dateFinished` set even when some files failed, so a non-null `dateFinished`
+means "done", not "succeeded". Check `errors` and compare the length of `files` against what you
+expected.
+</Aside>
+
+If you asked for a version that is not the one the Storage Map resolves to, the export fails immediately with a conflict rather than silently giving you the wrong bytes.
+
+## Exporting just the METS file
+
+```
+POST /exportMetsOnly
+```
+
+The body is the same, and so is the response body - but this one runs **synchronously** and returns `200 OK` with the finished Export. It is not recorded, so there is no `id` to poll and nothing appears under `/export/...`.
+
+It copies only the METS file: any file in the object whose name ends `.xml` and contains `mets`. Everything else in the Archival Group is skipped.
+
+This exists because a great deal of work on a preserved object needs only its METS - the Preservation API uses it to create a METS-only Deposit for an existing Archival Group, so that the METS can be edited and preserved again without moving gigabytes of TIFFs around.
+
+<Aside type="caution">
+Because a METS-only export is not recorded, it has no `id`, and the error-reporting path assumes it
+has one. A failure that would be reported as an `errors` entry on a normal export instead escapes as
+a `500` here. Treat a non-`200` as "the METS was not exported" and retry.
+</Aside>
+
+## Export always runs in this process
+
+Unlike import, export has no separately deployable runner. `FeatureFlags:UseLocalHostedServiceForExport` exists, but setting it to `false` makes the Storage API refuse to start: the separate export service has not been written. Exports are queued on an in-memory channel bounded at ten and drained by a hosted service inside the Storage API, which means a restart loses anything still queued. See [Deployment](../../internals/deployment#import-processing).

@@ -66,7 +66,7 @@ A virus scan is the one that behaves differently, because an event is not a fact
 
 ## The ad-hoc metadata folder
 
-`metadata/ad-hoc` is scaffolded into every `RootLevel` and `BagIt` deposit, and it is the one folder under `metadata/` that is **not** tool output.
+`metadata/ad-hoc` is scaffolded into a new `RootLevel` or `BagIt` deposit — though not into one made against an Archival Group that already exists, where the object's own content defines the deposit — and it is the one folder under `metadata/` that is **not** tool output.
 
 It is for metadata that belongs to the object but that no tool produced: a scanning technician's notes, a rights assessment, a spreadsheet that came with the transfer. The platform does not try to interpret anything in it — there is no parser, no schema and no derived `metadata` entries. It simply preserves what is there.
 

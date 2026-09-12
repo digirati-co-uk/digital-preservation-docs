@@ -9,7 +9,7 @@ import { Aside, LinkCard, Steps } from '@astrojs/starlight/components';
 
 A Deposit is a working set of files in S3, which:
 
-* will become an [Archival Group](../repository#archivalgroup) that doesn't yet exist,
+* will become an [Archival Group](../repository#-archivalgroup) that doesn't yet exist,
 * or can be used for updating an Archival Group,
 * or can be used to obtain the files in an Archival Group for other purposes (e.g. just to look at them).
 
@@ -68,7 +68,7 @@ The response body is the created Deposit, which you can also fetch at that locat
   "exported": null,
   "exportedBy": null,
   "versionExported": null,
-  "template": "BagIt",
+  "template": "None",   // note: the API does not echo back the template you asked for
   "metsETag": null,
   "lockedBy": null,
   "lockDate": null,
@@ -269,11 +269,19 @@ The response is a page object, not a bare list:
 | `archivalGroupPath` | string | null | Deposits for one Archival Group. A value containing `/` matches the whole path; a value without one matches any path ending in it. |
 | `archivalGroupPathParent` | string | null | Deposits for any Archival Group below that path. |
 | `status` | string | null | Only deposits with that `status`. |
-| `active` | boolean | null | `false` returns only inactive deposits. Ignored when `showAll` is true. |
+| `active` | boolean | null | `false` returns only inactive deposits. Ignored when `showAll` is true, and see the caution below. |
 | `showAll` | boolean | `false` | By default only active deposits are returned; this overrides that. |
-| `archived` | boolean | null | A filter, not an include: `true` returns **only** archived deposits, `false` only unarchived ones. Omit it to get both. |
+| `archived` | boolean | null | A filter, not an include: `true` returns **only** archived deposits, `false` only unarchived ones. Omit it to get both. See the caution below. |
 
-\* An agent URI or just its last path segment.
+\* The agent's **name** — the last segment of its Agent URI, matched exactly. A full Agent URI does not work here, and nor does part of a name: `createdBy=goobi` finds them, `createdBy=https://preservation-api.example/agents/goobi` finds nothing.
+
+<Aside type="danger" title="archived and active do nothing on their own">
+These two are not counted when the API decides whether you asked it anything. Send `archived=true`
+by itself and you get the default listing — active, unarchived deposits — with no error and no sign
+that your filter was dropped. They only take effect alongside a parameter that does count, and
+`showAll=true` is the usual one: `?archived=true&showAll=true`. Verified against a running instance;
+it looks like a bug rather than a design, so check before relying on it.
+</Aside>
 
 <Aside type="caution">
 Sending no query parameters at all is not the same as sending ones that happen to match everything. With no terms, the API returns active deposits ordered by creation date, newest first. To walk every deposit there has ever been, ask for `showAll=true` with `orderBy=created&ascending=true` — ascending order keeps paging stable while other people are still creating deposits, because a new deposit sorts after everything you have already seen.

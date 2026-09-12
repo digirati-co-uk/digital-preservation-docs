@@ -1,0 +1,191 @@
+---
+title: Preserve a digital object for the first time
+sidebar:
+  label: Preserve for the first time
+  order: 2
+---
+
+import { Aside, LinkCard, Steps } from '@astrojs/starlight/components';
+
+Use case: preserve a digital object — a set of files that includes a METS file describing the object. The object does not yet exist in the repository; this will be version `v1`.
+
+This is the workflow for consumers who *manage and supply their own METS file*. You use the platform for versioned object storage rather than for generating or managing the content of your objects, so none of the [METS editing](../../preservation-api/editing-mets) or [pipeline](../../preservation-api/tool-outputs-and-pipelines) operations come into it. If you would rather the platform wrote the METS for you, see [Managed METS deposit](../managed-mets-deposit) instead.
+
+<Steps>
+
+1. ### Make a Container to put it in, if you need one
+
+   You can only create repository structure *outside* preserved objects; Containers within an object come from Import Jobs. So if the parent Container does not exist yet, make it first:
+
+   ```
+   GET /repository/library/c20-printed-books
+   => 404 Not Found
+
+   PUT /repository/library/c20-printed-books
+   {
+     "type": "Container",
+     "name": "20th Century Printed Books"
+   }
+   => 201 Created
+   ```
+
+   See [Repository](../../preservation-api/repository) for what you can and can't do here.
+
+2. ### Create a Deposit
+
+   ```
+   POST /deposits
+   ```
+
+   ```json
+   {
+     "type": "Deposit",
+     "archivalGroup": "https://preservation-api.example/repository/library/c20-printed-books/my-book",
+     "archivalGroupName": "My Book",
+     "submissionText": "A note from me for anyone interested"
+   }
+   ```
+
+   Minimally an empty object is OK, though unusual — you can decide where the object goes later, and patch it in. But you do have to set `archivalGroup` before you can ask for an Import Job, so setting it now saves a step.
+
+   Leave `template` unset (or send `None`): you are supplying the METS, and a template would have the platform write one.
+
+   This returns `201 Created` with the new Deposit as the body. The property that matters next is `files`:
+
+   ```jsonc
+   {
+     "id": "https://preservation-api.example/deposits/szwettbzp4xw",
+     "type": "Deposit",
+     "archivalGroup": "https://preservation-api.example/repository/library/c20-printed-books/my-book",
+     "archivalGroupExists": false,
+     "files": "s3://working-bucket/deposits/szwettbzp4xw/",
+     "status": "new",
+     "template": "None",
+     "active": true
+     // ... the other Deposit properties
+   }
+   ```
+
+3. ### Upload the files
+
+   The `files` property is where the content of the new object goes. You interact directly with the AWS API (or, for another kind of backing store, whatever copying mechanism it offers) — there is no endpoint to POST bytes to.
+
+   With no template the layout is yours to choose; the platform preserves what the METS describes. The convention the rest of the platform uses — and the one an [exported](../../preservation-api/exports) object will come back in — is an `objects/` folder for the content and a `metadata/` folder for anything said about it, so following it will save you trouble later.
+
+   The files must include a METS file in the root of the workspace that provides a SHA256 digest for each file, as PREMIS metadata attached to the file's entry:
+
+   ```xml
+   <premis:fixity>
+     <premis:messageDigestAlgorithm>SHA256</premis:messageDigestAlgorithm>
+     <premis:messageDigest>49ea24a3070c92a393289685ad9d3c3d71e5c23f0ac72e76e63aac658dc3ee59</premis:messageDigest>
+   </premis:fixity>
+   ```
+
+   You do not need to describe the METS file in its own METS: the platform adds it to the object itself, with a digest taken from storage.
+
+   <Aside type="tip">
+   If uploading to S3, set `ChecksumAlgorithm` to `SHA256` on the put. AWS then calculates a SHA256 and stores it in the object's metadata. This is not *required* when the METS supplies digests, but if both are present the platform checks that they agree — and disagreement is `409 Conflict` rather than a corrupted object.
+   </Aside>
+
+4. ### Set anything you left out
+
+   If the Deposit was created from an empty body, or you have changed your mind, patch `archivalGroup`, `archivalGroupName` or `submissionText`:
+
+   ```
+   PATCH /deposits/szwettbzp4xw
+   ```
+
+   ```json
+   {
+     "archivalGroup": "https://preservation-api.example/repository/library/c20-printed-books/my-other-book",
+     "archivalGroupName": "My Other Book",
+     "submissionText": "I changed my mind about what this is called"
+   }
+   ```
+
+5. ### Create and execute an Import Job in a single operation
+
+   This is the shortcut for when you don't need to see or modify the Import Job and can rely on the API to generate it for you:
+
+   ```
+   POST /deposits/szwettbzp4xw/importjobs
+   ```
+
+   ```json
+   {
+     "id": "/deposits/szwettbzp4xw/importjobs/diff"
+   }
+   ```
+
+   <Aside type="tip">
+   This is equivalent to `GET /deposits/szwettbzp4xw/importjobs/diff` followed by `POST /deposits/szwettbzp4xw/importjobs` with the returned body. Do it in two steps if you want to see the job before it runs — [Update without export](../update-without-export) shows that.
+   </Aside>
+
+   The returned object is an [ImportJobResult](../../preservation-api/import-job-results) at `201 Created`:
+
+   ```jsonc
+   {
+     "id": "https://preservation-api.example/deposits/szwettbzp4xw/importjobs/results/ge7n4ds2",
+     "type": "ImportJobResult",
+     "importJob": "https://preservation-api.example/deposits/szwettbzp4xw/importjobs/transient/638950821343621834",
+     "originalImportJob": "https://preservation-api.example/deposits/szwettbzp4xw/importjobs/diff",
+     "deposit": "https://preservation-api.example/deposits/szwettbzp4xw",
+     "archivalGroup": "https://preservation-api.example/repository/library/c20-printed-books/my-other-book",
+     "status": "waiting",
+     "dateBegun": null,
+     "dateFinished": null,
+     "sourceVersion": null,
+     "newVersion": null,
+     "errors": null,
+     "containersAdded": [],
+     "binariesAdded": []
+     // ... the other result lists
+   }
+   ```
+
+6. ### Poll the result until it has finished
+
+   ```
+   GET /deposits/szwettbzp4xw/importjobs/results/ge7n4ds2
+   ```
+
+   You can do this as little or often as you like — or even not at all. Over time you expect `status` to become `completed`, `newVersion` to become `v1`, and `binariesAdded` and its neighbours to fill up.
+
+   A `completedWithErrors` means nothing was preserved; `errors` says why. The Deposit becomes inactive either way, and you can [reactivate](../../preservation-api/deposits#active-and-inactive) it to try again.
+
+7. ### Load the Archival Group
+
+   Whether it's one you have just created or one that has existed for years, this is no different from browsing any other part of the repository:
+
+   ```
+   GET /repository/library/c20-printed-books/my-other-book
+   ```
+
+   <Aside type="note">
+   When you request Containers above or below the level of an Archival Group, only their immediate child members (`containers` and `binaries`) are populated. When you request an Archival Group — which is also a kind of Container — the full hierarchy comes back, all descendant Containers and Binaries however deep. An Archival Group is a complete representation of the preserved object.
+   </Aside>
+
+</Steps>
+
+## Starting from an identifier instead
+
+If the platform is integrated with an identity service that already knows where your object belongs, you can skip deciding on a path and a title. POST the identifier instead of a Deposit:
+
+```
+POST /deposits/from-identifier
+```
+
+```json
+{
+  "schema": "catirn",
+  "value": "1000001"
+}
+```
+
+The Deposit comes back with `archivalGroup` and `archivalGroupName` already filled in — here, the API consulted an external service to learn that `1000001` should be preserved at `.../library/c18-printed-books/a-10000001` and that its title is "A Treatise on Opticks". From that point on the flow is exactly the same, without step 4. See [Creating a Deposit from an identifier](../../preservation-api/deposits#creating-a-deposit-from-an-identifier) for the schemas.
+
+<LinkCard
+  title="💻 End-to-end example: preserve for the first time"
+  href="https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/preservation-docs-client/workflows/w02_preserve_first_time.py"
+  description="Creates a deposit, builds a minimal METS with SHA256 fixity, uploads it with two files, runs the diff and waits for v1."
+/>

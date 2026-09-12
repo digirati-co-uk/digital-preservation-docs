@@ -1,0 +1,207 @@
+---
+title: The Activity Stream
+sidebar:
+  label: Activity Stream
+  order: 11
+---
+
+import { Aside, LinkCard, Steps } from '@astrojs/starlight/components';
+
+The Preservation API publishes an [Activity Stream](https://www.w3.org/TR/activitystreams-core/) which other applications can use to learn about new or changed Archival Groups. The particular implementation is modelled on the [IIIF Change Discovery API](https://iiif.io/api/discovery/1.0/), which readers of this documentation can also study. One use of an activity stream might be for a client application to listen for changed digital objects and publish new or updated IIIF Manifests for them — which is exactly what the platform's own [iiif-builder](../../internals/iiif-builder) does.
+
+The stream is a pull, not a push: nothing calls you. You poll it on whatever interval suits you, remember how far you got, and next time read back only as far as that point. Consumers should use the [processing algorithm](https://iiif.io/api/discovery/1.0/#activity-streams-processing-algorithm) given in the IIIF Change Discovery specification, which is also spelled out [below](#the-consuming-algorithm).
+
+This page is the reference for the stream's structure. For a worked example of building and running a consumer, see [Reading the Activity Stream](../../workflows/reading-the-activity-stream).
+
+## The collection
+
+```
+GET /activity/archivalgroups/collection
+```
+
+This is the entry point to the single (for now) Activity Stream. It returns an `OrderedCollection` object:
+
+```json
+{
+  "@context": "http://iiif.io/api/discovery/1/context.json",
+  "id": "https://preservation-api.example/activity/archivalgroups/collection",
+  "type": "OrderedCollection",
+  "totalItems": 3914,
+  "first": {
+    "id": "https://preservation-api.example/activity/archivalgroups/pages/1",
+    "type": "OrderedCollectionPage"
+  },
+  "last": {
+    "id": "https://preservation-api.example/activity/archivalgroups/pages/40",
+    "type": "OrderedCollectionPage"
+  }
+}
+```
+
+| Property | Description |
+|---|---|
+| `id` | The URI of the collection. |
+| `type` | Always `OrderedCollection`. |
+| `totalItems` | How many activities the stream currently holds. |
+| `first` | The oldest page. Always page 1. |
+| `last` | The newest page, the one to start from when catching up. |
+
+Pages hold 100 activities each and the size is not adjustable, so `last` is `totalItems` divided by 100, rounded up. Do not calculate page URIs yourself — follow the links.
+
+## A page
+
+```
+GET /activity/archivalgroups/pages/40
+```
+
+```jsonc
+{
+  "@context": "http://iiif.io/api/discovery/1/context.json",
+  "id": "https://preservation-api.example/activity/archivalgroups/pages/40",
+  "type": "OrderedCollectionPage",
+  "startIndex": 3900,
+  "partOf": {
+    "id": "https://preservation-api.example/activity/archivalgroups/collection",
+    "type": "OrderedCollection"
+  },
+  "prev": {
+    "id": "https://preservation-api.example/activity/archivalgroups/pages/39",
+    "type": "OrderedCollectionPage"
+  },
+  "orderedItems": [
+    {
+      "type": "Create",
+      "object": {
+        "id": "https://preservation-api.example/repository/cc/lqj7mqhg",
+        "type": "ArchivalGroup",
+        "seeAlso": [
+          {
+            "id": "https://storage-api.example/import/results/m3cnbckjmtd9/cc/lqj7mqhg",
+            "type": "ImportJobResult"
+          }
+        ]
+      },
+      "endTime": "2025-10-06T10:34:19Z"
+    },
+    {
+      "type": "Update",
+      "object": {
+        "id": "https://preservation-api.example/repository/cc/abd321",
+        "type": "ArchivalGroup",
+        "seeAlso": [
+          {
+            "id": "https://storage-api.example/import/results/ec29ybrcz8rg/cc/abd321",
+            "type": "ImportJobResult"
+          }
+        ]
+      },
+      "endTime": "2025-10-06T13:29:02Z"
+    }
+    // ... up to 100 activities, oldest first
+  ]
+}
+```
+
+| Property | Description |
+|---|---|
+| `id` | The URI of this page. |
+| `type` | Always `OrderedCollectionPage`. |
+| `startIndex` | The index within the whole stream of the first activity on this page. |
+| `partOf` | The collection this page belongs to. |
+| `prev` | The next page **back** in time. Absent on page 1. |
+| `next` | The next page forward in time. Absent on the last page. |
+| `orderedItems` | The activities, **oldest first**. |
+
+## An activity
+
+| Property | Description |
+|---|---|
+| `type` | `Create` when this import produced the Archival Group's first version, `Update` for every later version. |
+| `object` | What changed. Always an `ArchivalGroup` in this stream. |
+| `object.id` | The Archival Group's URI in the [repository](../repository). This is the thing to act on. |
+| `object.seeAlso` | A list, in practice of one entry, referring to the [Import Job Result](../import-job-results) that caused the change. See the caution below. |
+| `endTime` | When the change finished: an ISO 8601 UTC timestamp. This is the value you compare against your watermark. |
+
+<Aside type="caution">
+The `seeAlso` entry is a **Storage API** Import Job Result URI, not a Preservation API one, so almost no consumer can dereference it. Treat it as an opaque identifier — useful for recognising two activities that came from the same import — and act on `object.id`. A future version will link to the Preservation API result instead.
+</Aside>
+
+The value of `object` in this stream will always be an ArchivalGroup; future streams may describe events for other resource types, such as Deposits.
+
+## What is, and is not, in the stream
+
+* **One activity per completed import job.** The Preservation API builds its stream by reading the Storage API's own stream of finished import jobs, once a minute, and recording an event for each. So an activity appears shortly after a new version is written, not at the moment you submitted the job.
+* **Deletions are not represented yet.** Only `Create` and `Update` are ever emitted.
+* **Some changes are deliberately hidden.** An Import Job can ask for its event to be suppressed, for maintenance that changes how an object is recorded rather than what it holds — the METS identifier migration, for example. Such a version is written to OCFL, but no activity appears and `totalItems` does not increase. There is nothing you can do about this and nothing you need to do: the point is that you should *not* rebuild anything.
+* **Objects you do not recognise may appear.** The very first activity in the stream is a placeholder written when the database was created, whose `object.id` is not in this repository at all. Consumers should skip anything they do not recognise rather than fail on it; a consumer that only cares about part of the repository should filter on the path of `object.id` anyway.
+
+## The consuming algorithm
+
+Read backwards from the newest activity until you reach the point you had already seen, then process what you gathered oldest-first.
+
+<Steps>
+
+1. **Remember a watermark.** The `endTime` of the last activity you successfully processed. On a first run, use a date far enough in the past to cover everything you care about.
+
+2. **Fetch the collection** and follow its `last` link to the newest page.
+
+3. **Walk `orderedItems` backwards** from the end of the list. For each activity, compare its `endTime` with your watermark. If it is newer, collect it; if it is not, stop — you have everything.
+
+4. **If you reach the start of the page** without meeting the watermark, follow `prev` and repeat. If there is no `prev`, you have reached the beginning of the stream.
+
+5. **Process the collected activities oldest-first**, and advance your watermark as each one succeeds. That way a failure part-way through leaves the watermark on the last activity you actually completed, and the next run picks up from there instead of skipping the rest.
+
+</Steps>
+
+Two properties of the stream make this safe. Activities are immutable and append-only, so a page you have already read never changes underneath you. And processing is idempotent by nature — an activity only tells you *that* an Archival Group changed, so the worst outcome of processing one twice is that you rebuild something that was already correct. Because of that, it is better to set the watermark slightly too far back than slightly too far forward.
+
+<Aside type="note">
+Comparing timestamps rather than remembering a position is deliberate. Page numbers shift as the stream grows: today's page 40 is not tomorrow's page 40. `endTime` is stable.
+</Aside>
+
+<LinkCard
+  title="💻 Example: read the Activity Stream"
+  href="https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/preservation-docs-client/p11_activity_stream/read_activity_stream.py"
+  description="Walks back from the last page to a watermark and prints the new activities oldest-first."
+/>
+
+## Pushing an event onto the stream
+
+Sometimes an Archival Group has not changed but the things derived from it should be rebuilt anyway — a catalogue record it draws on has been corrected, say, or a consumer's own template has changed and its output needs regenerating. Rather than give every consumer its own way to be nudged, the API lets you add an activity to the stream.
+
+```
+POST /activity/archivalgroups/collection
+```
+
+```json
+{
+  "type": "Update",
+  "object": {
+    "id": "https://preservation-api.example/repository/library/manuscripts/ms-342",
+    "type": "ArchivalGroup"
+  }
+}
+```
+
+```
+HTTP/1.1 204 No Content
+```
+
+The API checks the body before accepting it, and everything below is a `400 Bad Request`:
+
+* `type` must be `Update`. No other activity type is accepted.
+* `object.type` must be `ArchivalGroup`.
+* `object.id` must be a URI on this Preservation API's own host.
+* the resource at that path must exist and really be an Archival Group — the API asks the underlying storage before it writes anything.
+
+The event then appears at the end of the stream, as an `Update` with **no** `seeAlso`, exactly as if a new version had been imported. Consumers need no special handling for it, which is the point.
+
+<Aside type="caution">
+The `endTime` is set by the API to the moment of the POST; any `startTime` or `endTime` you send is ignored. An activity therefore cannot be backdated, and a pushed event does not record a version change — the Archival Group's `version` and `versions` are untouched. If you want a downstream consumer to notice that something *outside* the repository has changed, this is the right tool. If you want to change what is preserved, run an [Import Job](../import-jobs).
+</Aside>
+
+<LinkCard
+  title="💻 Example: push an event"
+  href="https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/preservation-docs-client/p11_activity_stream/push_activity.py"
+  description="Posts an Update activity for an existing Archival Group and finds it at the end of the stream."
+/>

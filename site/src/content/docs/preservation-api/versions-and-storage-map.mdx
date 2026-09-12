@@ -1,0 +1,168 @@
+---
+title: Versions and the Storage Map
+sidebar:
+  label: Versions and the Storage Map
+  order: 12
+---
+
+import { Aside, LinkCard } from '@astrojs/starlight/components';
+
+An [Archival Group](../repository#-archivalgroup) is the unit of versioning. Files inside it are not versioned separately: every time an [Import Job](../import-jobs) runs against it, the whole group gains a new version — v1, v2, v3 and so on — whether that job changed one file or a thousand.
+
+Those versions are OCFL versions. The Archival Group *is* an [OCFL](https://ocfl.io/) object in S3, and everything on this page is a view of what is really in that object. The **Storage Map** is the most direct view: it tells you where, in storage, each file of a given version actually lives.
+
+## The version object
+
+Every version is described by the same small object, which appears in several places:
+
+```json
+{
+  "ocflVersion": "v2",
+  "mementoDateTime": "2025-09-09T11:09:44.900134Z",
+  "mementoTimestamp": "20250909110944"
+}
+```
+
+| Property | Description |
+|---|---|
+| `ocflVersion` | The name of the [version directory](https://ocfl.io/1.1/spec/#version-directories) in the OCFL object, and therefore the unique version label. |
+| `mementoDateTime` | ISO 8601 date-time: the actual moment the version was created. |
+| `mementoTimestamp` | The same moment as `yyyyMMddHHmmss`, the form used by [Memento](https://datatracker.ietf.org/doc/html/rfc7089). |
+
+<Aside type="note">
+The presence of Memento values in this API is a reflection of the underlying Linked Data Platform API of Fedora. These properties are very likely to be removed in a future version and only the OCFL form (`v1`, `v2`, and so on) used. Write code against `ocflVersion`.
+</Aside>
+
+The two forms are kept in step: the platform pairs the repository's list of Memento versions with the OCFL object's own list of versions when it loads an Archival Group, and refuses to serve the group at all if they disagree about how many versions there are or when they were made. A disagreement would mean the repository and the OCFL storage had drifted apart, which is exactly the condition the platform exists to prevent.
+
+## Where versions appear
+
+| Where | Property | Meaning |
+|---|---|---|
+| [ArchivalGroup](../repository#-archivalgroup) | `version` | The version you are looking at. |
+| ArchivalGroup | `versions` | Every version of the group, oldest first. |
+| [Storage Map](#the-storage-map) | `version` | The version this map describes. |
+| Storage Map | `headVersion` | The current latest version, which may not be the one you asked for. |
+| Storage Map | `allVersions` | Every version of the object. |
+| [Deposit](../deposits) | `versionExported` | The version that was exported into the deposit. |
+| Deposit | `versionPreserved` | The version the deposit created when it was preserved. |
+| [ImportJob](../import-jobs) | `sourceVersion` | The version the job expects to be working from — a version object. |
+| [ImportJobResult](../import-job-results) | `sourceVersion`, `newVersion` | What the job started from and what it produced, as plain version labels rather than version objects. |
+
+## Asking for an old version
+
+```
+GET /repository/library/manuscripts/ms-342?view=lightweight&version=v1
+```
+
+The `version` parameter is only allowed together with `view=lightweight`; any other combination is a `400`. That means you can ask *whether* a resource existed at a version, and get its metadata, but you cannot browse its children that way. See [the view and version parameters](../repository#the-view-and-version-parameters).
+
+To see the files of an older version, use the Storage Map for that version.
+
+<Aside type="caution">
+A Binary's `origin` property — the location of its bytes in storage — is only filled in when you are looking at the Archival Group's **head** version. For any earlier version, the Storage Map is the way to find where a file's content lives.
+</Aside>
+
+## The Storage Map
+
+While the Archival Group hierarchy of Containers and Binaries shows you how the files are laid out with respect to the digital object root in the API URI space, the Storage Map shows the underlying OCFL storage structure. It is included as the `storageMap` property of the Archival Group, and is also available separately on the `/ocfl/...` API path:
+
+```
+GET /ocfl/storagemap/kickoff/fedora-camp/tuesday-1
+GET /ocfl/storagemap/kickoff/fedora-camp/tuesday-1?version=v1
+GET /ocfl/storagemap/kickoff/fedora-camp/tuesday-1?version=20250909110722
+```
+
+The path after `/ocfl/storagemap/` is the Archival Group's path under `/repository`. The optional `version` parameter can either take the Memento timestamp form used by the underlying Fedora API, or the OCFL version label. If no version is supplied, the latest version is returned.
+
+```json
+{
+  "version": {
+    "mementoTimestamp": "20250909110944",
+    "mementoDateTime": "2025-09-09T11:09:44.900134Z",
+    "ocflVersion": "v2"
+  },
+  "storageType": "S3",
+  "root": "fedora-bucket",
+  "objectPath": "initial/aed/7d3/4c4/aed7d34c481858e223749aa0b16897e39dfa0ff1626cad3db7d4bff67e950444",
+  "files": {
+    "mets.xml": {
+      "hash": "0369e6d262c152815747fd43decdd042a30242b70847340109cbcaf9a133a10f",
+      "fullPath": "v2/content/mets.xml"
+    },
+    "objects/an-empty-folder/Teto in tree.png": {
+      "hash": "11a88fedd9e77ecbcbdd0f7180e9f2b1ff4b358a7fbe71658c23ff854aefc06f",
+      "fullPath": "v1/content/objects/an-empty-folder/Teto%20in%20tree.png"
+    },
+    "objects/a-new-folder/orca-near-ynys-enlli.png": {
+      "hash": "4e5e93d49ec2fad44bf895d5f0284e1b2cf5500b9454a3c724ff54106e3e6288",
+      "fullPath": "v2/content/objects/a-new-folder/orca-near-ynys-enlli.png"
+    },
+    "objects/teto-and-jiji.png": {
+      "hash": "8e90b164302b40c2f9cfd31d20ef9b7dea2b3c428fe6210eba53a61a801a10e0",
+      "fullPath": "v1/content/objects/teto-and-jiji.png"
+    }
+  },
+  "hashes": {
+    "0369e6d262c152815747fd43decdd042a30242b70847340109cbcaf9a133a10f": "v2/content/mets.xml",
+    "11a88fedd9e77ecbcbdd0f7180e9f2b1ff4b358a7fbe71658c23ff854aefc06f": "v1/content/objects/an-empty-folder/Teto%20in%20tree.png",
+    "4e5e93d49ec2fad44bf895d5f0284e1b2cf5500b9454a3c724ff54106e3e6288": "v2/content/objects/a-new-folder/orca-near-ynys-enlli.png",
+    "8e90b164302b40c2f9cfd31d20ef9b7dea2b3c428fe6210eba53a61a801a10e0": "v1/content/objects/teto-and-jiji.png"
+  },
+  "headVersion": {
+    "mementoTimestamp": "20250909110944",
+    "mementoDateTime": "2025-09-09T11:09:44.900134Z",
+    "ocflVersion": "v2"
+  },
+  "allVersions": [
+    {
+      "mementoTimestamp": "20250909110722",
+      "mementoDateTime": "2025-09-09T11:07:22.035664Z",
+      "ocflVersion": "v1"
+    },
+    {
+      "mementoTimestamp": "20250909110944",
+      "mementoDateTime": "2025-09-09T11:09:44.900134Z",
+      "ocflVersion": "v2"
+    }
+  ],
+  "archivalGroup": "https://fedora.internal.example/fcrepo/rest/kickoff/fedora-camp/tuesday-1"
+}
+```
+
+The Storage Map reflects the underlying storage implementation, rather than the Preservation API translation of it.
+
+| Property | Description |
+|---|---|
+| `version` | The version of the returned storage map; a [version object](#the-version-object). |
+| `headVersion` | The current latest version, which may not be this version. |
+| `allVersions` | A list of all the versions in the OCFL object. `version` and `headVersion` will be in this list. |
+| `storageType` | The implementation of the storage. Always `S3` today; `FileSystem` is defined but no deployment uses it. |
+| `root` | If the storage type is AWS S3, the value is a bucket name. If the storage type is a file system, this will be a file path under which this *and other* objects live. |
+| `objectPath` | The relative path within the `root` to this particular object. |
+| `files` | A dictionary where the keys are logical file paths — the relative paths of the Binaries — and the values are objects with a `hash` (SHA-256) and a `fullPath` property, where `fullPath` gives the relative path under the `objectPath` to a particular Binary. Thus `root` + `objectPath` + `fullPath` for a particular Binary is the same as the Binary's `origin` property. |
+| `hashes` | A map of SHA-256 hashes to content paths under `objectPath`; a way of navigating via *content addressing* from a unique hash to the path in storage of the file with that hash. It is the [manifest](https://ocfl.io/1.1/spec/#manifest) block of the OCFL Inventory, restricted to the files present at this version. |
+| `archivalGroup` | The source of the Archival Group in the underlying repository (Fedora) — you are unlikely to have access to this. |
+
+<Aside type="note">
+`archivalGroup` is the one URI in a Preservation API response that is not a Preservation API URI. The Storage Map is passed through from the layer below without rewriting, precisely because it is meant to describe storage rather than the API's view of it.
+</Aside>
+
+The `files` and `hashes` maps list only preserved content. The repository keeps some sidecar files of its own inside the OCFL object; those are filtered out, so what you see is the files you put in, plus the METS file.
+
+<LinkCard
+  title="💻 Example: versions and the storage map"
+  href="https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/preservation-docs-client/p12_versions/versions_and_storage_map.py"
+  description="Lists an Archival Group's versions and fetches the storage map for the earliest and latest."
+/>
+
+## Relation of the Storage Map to the OCFL object
+
+The Storage Map is derived from the OCFL Inventory for a specific version, and re-maps the logical state of the object at that version to allow a look-up by relative file path, which is typically where you would start from a METS reference or other record of the files. This then gives the path on disk, which is how the `origin` properties of Binaries are computed. The logical path is not necessarily the same as the content path relative to the OCFL object root, and several logical files may share the same content path if their contents are identical.
+
+Two consequences are worth spelling out, because both are visible in the example above:
+
+* **A file's `fullPath` names the version in which its bytes were first written, not the version you asked for.** `objects/teto-and-jiji.png` is part of v2, but its content path is `v1/content/...` because it has not changed since v1. That is OCFL working as intended: unchanged files are not copied into each new version directory.
+* **Two logical paths can share one content path.** If you add a second copy of a file under a different name, OCFL stores the bytes once. Both entries in `files` then carry the same `hash` and `fullPath`, and `hashes` has a single entry for them.
+
+For further details see the [OCFL Specification](https://ocfl.io/).

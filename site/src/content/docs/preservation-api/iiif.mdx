@@ -1,0 +1,132 @@
+---
+title: IIIF
+sidebar:
+  label: IIIF
+  order: 14
+---
+
+import { Aside, LinkCard } from '@astrojs/starlight/components';
+
+A preserved object and a [IIIF](https://iiif.io/) Manifest describe overlapping things: an ordered set of files, some of which are images or audio-visual, arranged into a structure that means something to a reader. The Preservation API can present either an [Archival Group](../repository#-archivalgroup) or a [Deposit](../deposits) as a [IIIF Presentation 3](https://iiif.io/api/presentation/3.0/) Manifest, which gives you two things for free: a way to *look* at what you are about to preserve, in any IIIF viewer; and a way to *edit* the logical structure of an object, in any IIIF manifest editor, by sending the manifest back.
+
+<Aside type="note">
+These manifests are a working view of material in the platform. They are not the public manifests an institution publishes — those are built separately by [iiif-builder](../../internals/iiif-builder), which combines the preserved METS with catalogue metadata and serves them from a public IIIF server.
+</Aside>
+
+## What ends up in a manifest
+
+Both kinds of manifest are built the same way, from the [METS](../../mets/overview) file: its physical structure supplies the canvases, its logical structMaps supply the ranges.
+
+* **Canvases** come from files below `objects/`, in METS order. A file is skipped if it is not under `objects/`, if the platform does not know its media type, or if it is the *target* of a link from another file — a transcript or a derivative, which belongs on the linked file's canvas rather than on one of its own.
+* **Images, video and audio** get a painting annotation of the right type. Width, height and duration come from the extents recorded in METS, which the [pipeline](../tool-outputs-and-pipelines) puts there. A file with no extents cannot be painted.
+* **Anything else** — a PDF, a spreadsheet, a file the pipeline has not characterised — gets a grey placeholder canvas with `behavior: ["placeholder"]`, and a `rendering` entry pointing at the real file, so it is still reachable from the viewer.
+* **Linked files** become supplementing annotations on the canvas of the file they belong to, each carrying a `provides` value describing the relationship.
+* **Ranges** come from the logical structMaps, one top-level Range per structMap, nested as deeply as the METS nests them. Each Range carries its access restrictions, rights statement and record identifiers as `metadata` and `rights`.
+
+## An Archival Group as a Manifest
+
+```
+GET /iiif/library/manuscripts/ms-342
+```
+
+The path after `/iiif/` is the Archival Group's path under `/repository`. The response is a IIIF Manifest whose `id` is the request URI. The path must resolve to an Archival Group exactly — a Container, a Binary or a path that does not exist all give `404`, as does an Archival Group with no METS file in it.
+
+This endpoint needs the same bearer token as the rest of the API; there is no anonymous variant.
+
+<Aside type="caution">
+The painting annotations in an Archival Group's manifest point at the Binaries' `/repository/...` URIs. Those URIs return JSON descriptions of the Binaries, not image bytes, because the Preservation API does not currently serve file content (see [Fetching file content](../repository#fetching-file-content)). The manifest is therefore useful for its *structure* — what the object contains, and how it is arranged — but a viewer will not be able to display it. Use the Deposit manifest below when you want to see the images.
+</Aside>
+
+<LinkCard
+  title="💻 Example: an Archival Group as a Manifest"
+  href="https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/preservation-docs-client/p14_iiif/archival_group_manifest.py"
+  description="Fetches the manifest for an Archival Group and summarises its canvases and ranges."
+/>
+
+## A Deposit as a Manifest
+
+A Deposit's files are in a private working area that no viewer can read. So the deposit manifest is served from a short-lived, unguessable URL, and the files in it are served through the API itself.
+
+```
+GET /deposits/e56fb7yg/iiif
+```
+
+This is an authenticated request, and its answer is a redirect:
+
+```
+HTTP/1.1 302 Found
+Location: /deposits/e56fb7yg/iiif-token/9f3c1a4b7d2e8065c4a1b9f70d3e2a18
+```
+
+Follow it, and you get the manifest:
+
+```
+GET /deposits/e56fb7yg/iiif-token/9f3c1a4b7d2e8065c4a1b9f70d3e2a18
+```
+
+The tokenised URL needs no `Authorization` header. That is what makes it usable: you can hand it to a viewer or a manifest editor running in a browser, which has no way to obtain your token. The manifest's `id` is the tokenised URL, so everything inside it — the media URLs in particular — carries the same token, and the whole thing works as a unit.
+
+The response also carries a header naming the URL to send edits back to:
+
+```
+X-IIIF-Post-Url: https://preservation-api.example/deposits/e56fb7yg/iiif-token/9f3c1a4b7d2e8065c4a1b9f70d3e2a18
+```
+
+It is the same URL as the GET, and it exists so that a manifest editor can discover where to save without being told separately.
+
+The manifest's `metadata` block summarises the deposit itself — its status, its Archival Group, who created, preserved and exported it and when, and how many files the METS describes.
+
+<Aside type="caution">
+The token is the *only* protection on these URLs. Anyone holding one can read every file in the deposit and change its structure, until it expires. Treat it like a password: do not put it in a bug report, a shared document or a URL you paste into a chat. It lasts eight hours from last use, and it does not survive a restart of the API, so a token that worked yesterday will usually not work today. Fetch `/deposits/{id}/iiif` again to get a fresh one.
+</Aside>
+
+The tokenised routes and the media endpoints below are controlled by the `EnableIiifMediaEndpoints` feature flag, and are off unless an instance has turned them on. When they are off, `GET /deposits/{id}/iiif` still redirects, but the redirect target answers `401` — a `401` there means the feature is disabled, not that your credentials are wrong.
+
+<LinkCard
+  title="💻 Example: a Deposit as a Manifest"
+  href="https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/preservation-docs-client/p14_iiif/deposit_manifest.py"
+  description="Follows the redirect to the tokenised manifest and reads its canvases, ranges and media URLs."
+/>
+
+### The media endpoints
+
+The manifest's canvases point at `/media/...` URLs on the Preservation API, which read the deposit's working area on your behalf. They carry the same token and need no other authentication.
+
+```
+/media/{token}/deposit/{deposit-id}/{type}/{path within the deposit}
+```
+
+| `type` | What it serves |
+|---|---|
+| `imagesvc` | A [IIIF Image API 3](https://iiif.io/api/image/3.0/) **level 0** service for an image file. Only `/info.json` and `/full/{w},{h}/0/default.jpg` are answered; any other Image API request is a `404`. `info.json` requires the file's pixel dimensions to have been recorded, so an image the pipeline has not characterised has no image service. |
+| `file` | The file itself, with its recorded media type. |
+| `video`, `audio` | The file itself, as above. Byte-range requests are supported, so a browser can seek within a long recording. |
+| `placeholder` | The generated grey `canvas.png` and `thumb.png` used by placeholder canvases. |
+
+Only deposits can be served this way; the segment after the token is always `deposit`.
+
+## Editing structure by POSTing a Manifest back
+
+The reason for a *writable* manifest is that IIIF Ranges and METS logical structMaps describe the same thing — "these files, in this order, are a chapter" — and there are good editors for IIIF Ranges. So rather than build a structure editor, the platform lets you open the deposit in one, rearrange the structure there, and save it back.
+
+```
+POST /deposits/e56fb7yg/iiif-token/9f3c1a4b7d2e8065c4a1b9f70d3e2a18
+```
+
+The body is a complete IIIF Manifest — in practice, the one you fetched from the same URL, with its `structures` changed.
+
+```
+HTTP/1.1 204 No Content
+```
+
+**Only `structures` is read.** Every top-level Range becomes one logical structMap in the deposit's METS, replacing what was there. Nothing else in the body has any effect: canvases are not created, deleted, renamed or reordered, no file is added or removed, and the manifest's own label and metadata are ignored. To change the *files* in a deposit, upload them and [edit the METS](../editing-mets); to change how they are *grouped*, post a manifest.
+
+The API checks the body before writing anything:
+
+* A body that is not a IIIF Manifest, or is empty, is a `400`.
+* Every canvas referenced from a Range must be one of the canvases the manifest itself declares. Referring to a canvas that is not part of this deposit is a `400` naming the offending canvas.
+* A canvas may be referenced with a [media fragment](https://www.w3.org/TR/media-frags/) — `#t=0,10` for a time span, `#xywh=0,0,100,100` for a region, or both joined with `&` — and the fragment is recorded as the area of the METS file pointer. Both the fragment-on-the-id form and the `SpecificResource` with a `FragmentSelector` form are understood.
+
+<Aside type="caution">
+Each Range carries `Type`, `Name` and `id` entries in its `metadata`, and those are not decoration: they are how a Range is matched back to the structMap division it came from. An editor that preserves the `metadata` block round-trips cleanly. One that drops or rewrites it will not fail, but every Range will be treated as newly authored — given a fresh identifier, and its `Type` reset to `Collection` at the top level and `Item` below — and any access restriction or record identifier held in `metadata` will be lost. The permitted `Type` values come from [`/range-types`](../vocabularies#range-types).
+</Aside>

@@ -9,7 +9,7 @@ import { Card, LinkCard, Aside } from '@astrojs/starlight/components';
 
 The Preservation API is the application-facing API of the platform. It is what the [Preservation UI](../../ui/overview), [iiif-builder](../../internals/iiif-builder), digitisation workflows such as Goobi, and ad hoc scripts all use. If you are integrating with the platform, this is almost certainly the only API you will call.
 
-It understands [METS](../../mets/overview), manages [Deposits](../deposits) as working areas for assembling content, generates and runs [Import Jobs](../import-jobs) that turn a Deposit into a new version of an [Archival Group](../repository#archivalgroup), and publishes an [Activity Stream](../activity-stream) of what has changed. Underneath it, the [Storage API](../../storage-api/overview) writes to Fedora and OCFL; you never talk to that directly.
+It understands [METS](../../mets/overview), manages [Deposits](../deposits) as working areas for assembling content, generates and runs [Import Jobs](../import-jobs) that turn a Deposit into a new version of an [Archival Group](../repository#-archivalgroup), and publishes an [Activity Stream](../activity-stream) of what has changed. Underneath it, the [Storage API](../../storage-api/overview) writes to Fedora and OCFL; you never talk to that directly.
 
 <Card title="Sample code" icon="seti:python">
     Each page of the API documentation is accompanied by 💻 <a href="https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/preservation-docs-client">sample Python code</a>.<br/>
@@ -63,8 +63,6 @@ The main resource types share these properties:
 | `lastModified` | When the resource was last modified within the platform. |
 | `lastModifiedBy` | The Agent URI of who last modified it. |
 
-`ImportJob` and `ImportJobResult` have `created` and `createdBy` but not the `lastModified` pair, because they are never modified once submitted.
-
 ## Paths and names
 
 Resources that live in the repository (Containers, Archival Groups and Binaries) have two kinds of name:
@@ -83,7 +81,7 @@ Operations that run asynchronously (Import Jobs, Exports, Pipeline runs) report 
 | `id` | The URI of the resource the error relates to, where there is one. May be null. |
 | `message` | The error message. Always present. |
 
-Synchronous failures use ordinary HTTP status codes: `400` for a malformed or inconsistent request, `401` for a missing or invalid token, `404` for a resource that does not exist, `409` for a conflict such as a Deposit locked by someone else, `410` for a resource that has been deleted (a *tombstone*, see [Repository](../repository#head-requests-and-tombstones)), and `412` when an `If-Match` precondition fails.
+Synchronous failures use ordinary HTTP status codes: `400` for a malformed or inconsistent request, `401` for a missing or invalid token, `404` for a resource that does not exist, `409` for a conflict — a Deposit locked by someone else, or an `If-Match` precondition that does not hold — `410` for a resource that has been deleted (a *tombstone*, see [Repository](../repository#head-requests-and-tombstones)), and `422` for a request the API understood but cannot carry out, such as a METS file it will not rewrite.
 
 ## Checking your connection
 

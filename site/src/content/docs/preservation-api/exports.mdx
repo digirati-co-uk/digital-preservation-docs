@@ -1,0 +1,156 @@
+---
+title: Exports
+sidebar:
+  label: Exports
+  order: 10
+---
+
+import { Aside, LinkCard } from '@astrojs/starlight/components';
+
+While API consumers are expected to have access to Deposit locations, it is assumed that direct access to the repository storage is not available. To get at the files in an Archival Group, you export it into a new [Deposit](../deposits) first. That may be purely for access, in which case there is no further API interaction; or it may be so you can make changes and preserve a new version from the same Deposit.
+
+There are two ways to make a Deposit for an Archival Group that already exists, and the difference between them matters:
+
+| | `POST /deposits/export` | `POST /deposits` |
+|---|---|---|
+| What arrives in the workspace | Every file in the Archival Group | The METS file only |
+| Initial `status` | `exporting` | `new` |
+| Ready to work on | When `status` becomes `new` | Immediately |
+| Good for | Looking at the object; changes that need the existing files | Adding or replacing a few files in a large object |
+
+Both give you a Deposit whose `archivalGroupExists` is true, and from which an [Import Job](../import-jobs) will produce a new version rather than a new object.
+
+## Export: creating a Deposit from an existing Archival Group
+
+This is when you want access to the files of an Archival Group in S3, usually because you want to make an update, but it could be for any purpose. You may be an API client that has access to the working S3 space but not to the underlying repository — almost certainly! While you can request an individual HTTP response for any Binary via its `content` property, sometimes you want the whole object to work on.
+
+To do this you POST a non-empty Deposit body to `/deposits/export`:
+
+```
+POST /deposits/export
+Content-Type: application/json
+```
+
+```json
+{
+  "type": "Deposit",
+  "archivalGroup": "https://preservation-api.example/repository/library/c18-printed-books/a-10000001"
+}
+```
+
+If you wish to export a specific version of an Archival Group, name it in `versionExported`:
+
+```json
+{
+  "type": "Deposit",
+  "archivalGroup": "https://preservation-api.example/repository/library/c18-printed-books/a-10000001",
+  "versionExported": "v2"
+}
+```
+
+Usually `versionExported` is not set on the POST and the **latest** version is exported. Either way it is always returned on the Deposit:
+
+```jsonc
+{
+  "id": "https://preservation-api.example/deposits/fcc44m9b8a",
+  "type": "Deposit",
+  "archivalGroup": "https://preservation-api.example/repository/library/c18-printed-books/a-10000001",
+  "archivalGroupName": "A Treatise on Opticks",
+  "archivalGroupExists": true,
+  "files": "s3://working-bucket/deposits/fcc44m9b8a/",
+  "status": "exporting",
+  "exported": "2025-10-03T09:41:12.884210Z",
+  "exportedBy": "https://preservation-api.example/agents/tom",
+  "versionExported": "v7"
+  // ... the other Deposit properties
+}
+```
+
+`archivalGroup` is required, and must exist: without it, or against a path where there is no Archival Group, the request is `400 Bad Request`. The [other checks that apply to creating a Deposit](../deposits#what-the-api-checks) apply here too — notably, `409 Conflict` if there is already an active Deposit for that Archival Group.
+
+The POST returns the new Deposit immediately, but it is **not complete** until its `status` property is `new`. Only then are the files all present in S3 at the location given by `files`. You might see files arriving in S3 while you wait, but you can't do any work with the Deposit through the API until it gets there: asking for a diff Import Job against an `exporting` Deposit is `400 Bad Request`, and so is patching it.
+
+<Aside type="note" title="Fetching the Deposit is what moves it on">
+There is no background process watching exports. When you GET a Deposit whose status is `exporting`, the API asks the Storage API whether the export has finished and, if it has, moves the Deposit to `new` — and reconciles its `metadata` folders with the METS that has just arrived. So polling the Deposit is not merely observing the transition, it is causing it.
+</Aside>
+
+An exported Deposit always arrives in the `RootLevel` layout, matching the Archival Group, whatever `template` you asked for.
+
+<LinkCard
+  title="💻 Example: export an Archival Group"
+  href="https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/preservation-docs-client/p10_exports/export_archival_group.py"
+  description="Exports an Archival Group into a new deposit and waits for the files to arrive."
+/>
+
+## Creating an *empty* Deposit for an existing Archival Group
+
+This is exactly the same process as [creating any other Deposit](../deposits#creating-a-deposit). When the URI value of `archivalGroup` is an Archival Group that already exists, a Deposit for that Archival Group is created — but without exporting its contents, *except for* the METS file in the root.
+
+```
+POST /deposits
+```
+
+```json
+{
+  "type": "Deposit",
+  "template": "RootLevel",
+  "archivalGroup": "https://preservation-api.example/repository/library/c18-printed-books/a-10000001"
+}
+```
+
+The reason the METS file is exported is so that the Deposit is aware of the files and their metadata captured in METS, and can therefore decide whether a file is being added or patched. Copying one document is quick, so the Deposit comes back at status `new` and is ready at once.
+
+A reason to create an empty Deposit might be to patch a single file out of thousands; only the changed file needs to be put into the Deposit working space. Even if you then ask for a diff Import Job to be generated, it will be aware of all the existing files and their metadata from the METS, and know that you don't mean to delete all the non-exported files.
+
+What happens to the METS depends on what is there:
+
+* The Archival Group has a METS file — it is copied into the root of the Deposit workspace. This is the ordinary case.
+* The Archival Group has no METS file, and you asked for `RootLevel` or `BagIt` — the platform writes one, describing the Archival Group's current contents. This only works when you are working from the head version; asking for an older version of a METS-less object is refused, because a METS written now for a version from the past would be a statement nobody made.
+* You asked for `template: "None"` — nothing is created. You are managing the METS yourself.
+
+<LinkCard
+  title="💻 Example: a METS-only deposit for an existing Archival Group"
+  href="https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/preservation-docs-client/p10_exports/mets_only_deposit.py"
+  description="Creates a deposit against an existing Archival Group and shows what arrived."
+/>
+
+## Archived deposits
+
+A Deposit's workspace is working space, and working space is not free. Once a Deposit has done its job — its Import Job has run, its Archival Group holds the result — the copy of the files in S3 is redundant, and the platform's **deposit archiver** tidies it away.
+
+From a caller's point of view this is something that happens *to* a Deposit rather than something you ask for. The archiver deletes the workspace contents, sets the Deposit's `archived` timestamp and moves its `status` to `archived`. The Deposit record itself stays readable through the API, as do its [Import Job results](../import-job-results); only the files go. Nothing about the preserved object is affected — the whole point of preserving it was that the Archival Group, not the Deposit, is where it lives.
+
+To find archived deposits, use the `archived` query parameter on [the deposits list](../deposits#listing-and-searching-deposits), remembering that it filters in both directions: `archived=true` returns only archived deposits, `archived=false` only unarchived ones, and omitting it returns both.
+
+You can ask what the archiver did to a particular Deposit:
+
+```
+GET /depositarchivejobs/e56fb7yg
+```
+
+The path segment is the **Deposit's** identifier, not a job identifier; the most recent archive job for that Deposit is returned. `404 Not Found` means the Deposit has never been archived.
+
+```jsonc
+{
+  "id": null,
+  "type": "ArchiveJobResult",
+  "depositId": "e56fb7yg",
+  "dateBegun": "2025-11-02T02:14:07.112000Z",
+  "dateFinished": "2025-11-02T02:14:09.664000Z",
+  "errors": null,
+  "status": null
+}
+```
+
+| Property | Description |
+|---|---|
+| `depositId` | The identifier of the Deposit that was archived. |
+| `dateBegun` | When the archiver started on it. |
+| `dateFinished` | When it finished. |
+| `errors` | A list of [error objects](../overview#errors) if anything went wrong, null otherwise. |
+
+This is the one resource in the API that does not carry an `id` of its own: it is reached only through the Deposit it belongs to. `status` is declared but never set. Treat a `dateFinished` with no `errors` as success.
+
+<Aside type="caution">
+A Deposit that has been archived cannot be worked on again: its files are gone. If you need the object's files once more, export the Archival Group into a fresh Deposit.
+</Aside>

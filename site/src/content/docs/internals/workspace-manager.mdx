@@ -1,0 +1,82 @@
+---
+title: WorkspaceManager and the METS libraries
+sidebar:
+  label: WorkspaceManager
+  order: 2
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Two pieces of code sit at the centre of everything the Preservation API does with a Deposit.
+
+**The METS parser and object model** (`DigitalPreservation.Mets`) reads a METS file into a usable object graph and writes one back out. It has to cope with METS from Archivematica, EPrints and Goobi as well as METS the platform wrote itself, all of which lay out their structural maps and file sections differently. Reading and writing are deliberately implemented in different styles, for reasons set out in [METS we read](../../mets/mets-we-read) and [METS we write](../../mets/mets-we-write).
+
+**`WorkspaceManager`** (`DigitalPreservation.Workspace`) merges the two views of a Deposit: the actual tree of files in S3, and the physical structure described by the METS. The result is a combined tree in which each file carries both its real storage entry and its METS entry - or is visibly missing one of them. That structure is what the Preservation API diffs against an Archival Group to produce an [Import Job](../../preservation-api/import-jobs), and what the Pipeline API walks when it folds tool output back into the METS.
+
+<Aside type="note" title="Documented separately, later">
+Both are to be released as standalone libraries - in .NET, with Python equivalents - so that
+applications can read and write the platform's METS, and reason about a deposit workspace, without
+going through the API. Their documentation belongs with those releases, so this page is a signpost
+rather than a description. A working Python METS parser already exists inside the
+[iiif-builder](../iiif-builder), which reads the same METS files this way.
+
+The class-level detail is deliberately not written out here: it would date faster than anything else
+on this site, and none of it is needed to use the platform.
+</Aside>
+
+## Which side of the boundary they sit on
+
+There is a division of labour here that is easy to miss, and it is deliberate.
+
+The Preservation API manages **deposits, import jobs, exports and the repository** — the lifecycle of preservation. It does not manage the *contents* of a deposit's workspace. As the design put it: you can do whatever you like in the S3 space provided by a deposit. Upload new files, rearrange them; most of the work done on a deposit is in S3, placing files. That is why there is no upload route and no folder-creation route — not an omission, but the boundary.
+
+So anything that assembles deposit content is, in this sense, a third party: a digitisation workflow such as Goobi, which uses a Deposit mainly to acquire a working S3 space to assemble files in; a BitCurator workflow that packages up a bag and uploads it; an operator with the AWS CLI. **`WorkspaceManager` is another one.** It is not a privileged back door into the API — it is a .NET library for being that third party well: it works directly on the workspace, and it understands the METS file that describes it.
+
+<Aside type="caution" title="The API is not the only writer">
+Because of that, a deposit's METS file can be changed by something other than the API — the
+[Preservation UI](../../ui/overview) does exactly this. It is why every API operation that changes
+the METS is guarded by an
+[ETag](../../preservation-api/editing-mets#the-etag-and-why-every-write-needs-one): the guard is
+there to catch a concurrent writer, and concurrent writers are expected.
+</Aside>
+
+### What that means in practice
+
+The API does offer some operations on deposit content, because some of them need the API's own knowledge — adding files to the METS pulls in the tool-output metadata the API has collected, and the diff needs the merged view. But the library's surface is wider, and these operations have no HTTP equivalent at all:
+
+| Only in the library | What it does |
+|---|---|
+| `CreateFolder` | Creates a folder in the workspace and records it in the METS. The UI's **New Folder** button. |
+| `UploadSingleSmallFile` | Puts a file into the workspace. You cannot POST binary content to the API. |
+| `SetModsInformation` | Sets access conditions, a rights statement, rights suppression, record identifiers and file links on a file or folder. Everything on the [access and inheritance](../../ui/deposits) side of the UI. |
+| `SetLogicalStructMap` / `RemoveLogicalStructMap` | Edits logical structure one range at a time. Over HTTP you can only POST a whole IIIF Manifest back, and only behind a feature flag. |
+| `RebuildDepositFileSystem` / `ValidateDepositFileSystem` | Rebuilds the cached view of the workspace, or checks it against storage. |
+
+If you are integrating over HTTP and need one of these, the answer today is to do the equivalent yourself in the workspace and let the API read the result — which is precisely the arrangement the boundary describes.
+
+## The same concepts over HTTP
+
+Where the API *does* cover the ground, that view is documented. If you are trying to understand what the platform does with a deposit and its METS, read these pages rather than the source:
+
+<CardGrid>
+  <LinkCard
+    title="Deposit files"
+    href="../../preservation-api/deposit-files"
+    description="The file system view and the combined view of a Deposit - the HTTP form of what WorkspaceManager produces."
+  />
+  <LinkCard
+    title="Editing METS"
+    href="../../preservation-api/editing-mets"
+    description="Adding files to the METS, deleting from it, normalising it, and the ETag that guards it."
+  />
+  <LinkCard
+    title="Import jobs"
+    href="../../preservation-api/import-jobs"
+    description="The diff between the combined tree and the Archival Group, which is what the merge is for."
+  />
+  <LinkCard
+    title="METS"
+    href="../../mets/overview"
+    description="What the platform puts in a METS file, what it reads from other people's, and how identifiers work."
+  />
+</CardGrid>

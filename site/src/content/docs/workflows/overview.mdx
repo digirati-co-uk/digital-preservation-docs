@@ -1,8 +1,73 @@
 ---
-title: Overview
+title: Workflows
 sidebar:
   label: Overview
   order: 1
 ---
 
-Placeholder; content being ported.
+import { Card, CardGrid, Aside } from '@astrojs/starlight/components';
+
+The [Preservation API](../../preservation-api/overview) pages describe each operation on its own. These pages put them in order: complete walk-throughs of the things people actually do with the platform, each one ending in a runnable Python sample.
+
+They all turn out to be the same five moves in different arrangements:
+
+1. Make a [Deposit](../../preservation-api/deposits) — a working area in S3.
+2. Get the files into it, and a METS file that describes them.
+3. Say where in the repository the object belongs (`archivalGroup`).
+4. Generate and run an [Import Job](../../preservation-api/import-jobs).
+5. Poll the [Import Job result](../../preservation-api/import-job-results) until it has finished.
+
+What varies is where the files come from, who writes the METS, and how much of the existing object you need in front of you.
+
+## Bringing content in
+
+<CardGrid>
+  <Card title="Preserve for the first time" icon="add-document">
+    You have a set of files and your own METS file. The object does not exist in the repository yet; this makes version 1.
+    <br/>[Preserve for the first time →](../preserve-first-time)
+  </Card>
+  <Card title="A deposit the platform manages" icon="pencil">
+    You have files but no METS. The platform scaffolds one, runs tools over your files, and writes what they found into it.
+    <br/>[Managed METS deposit →](../managed-mets-deposit)
+  </Card>
+  <Card title="A BagIt bag" icon="puzzle">
+    Your content arrives as an unpacked BagIt bag, checksums and all.
+    <br/>[BagIt deposit →](../bagit-deposit)
+  </Card>
+</CardGrid>
+
+## Changing something already preserved
+
+<CardGrid>
+  <Card title="With a full export" icon="download">
+    You need the whole object in front of you before you can decide what to change.
+    <br/>[Update with export →](../update-with-export)
+  </Card>
+  <Card title="Without an export" icon="document">
+    You know exactly what you are changing. Only the METS is copied out, and only the changed files go back.
+    <br/>[Update without export →](../update-without-export)
+  </Card>
+  <Card title="A job you wrote yourself" icon="setting">
+    No diff at all: you state the operations, and where each file's bytes are to be found.
+    <br/>[Custom import job →](../custom-import-job)
+  </Card>
+</CardGrid>
+
+## Finding out what changed
+
+<CardGrid>
+  <Card title="Reading the Activity Stream" icon="rss">
+    How a downstream service — a manifest builder, an index, a reporting job — keeps up with everything the platform preserves.
+    <br/>[Reading the Activity Stream →](../reading-the-activity-stream)
+  </Card>
+</CardGrid>
+
+<Aside type="note" title="Two audiences">
+Some of these workflows are for consumers who *manage and supply their own METS file*: they create Deposits, run Import Jobs, browse the repository and export Archival Groups, and use the platform for versioned object storage rather than for generating or managing the content of the objects. Others are for consumers who hand the platform a pile of files and let it do the describing. The [METS overview](../../mets/overview) explains the difference as **unmanaged** and **managed** METS, and it is the single biggest fork in the road here.
+</Aside>
+
+## Before you start
+
+Every sample on these pages assumes you have credentials for a hosted instance of the platform and can write to the S3 bucket its Deposits live in. See [Authentication](../../preservation-api/authentication), and check your connection with `GET /whoami` before anything else.
+
+One more thing worth knowing early, because it shapes every workflow: **a Deposit is good for one successful Import Job.** It is a working area and then a record of what was done with it. To make another change, make another Deposit.

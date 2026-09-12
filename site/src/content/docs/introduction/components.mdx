@@ -28,8 +28,9 @@ The application-facing API, and the one this documentation is mostly about. It:
   written by other systems (Goobi, Archivematica) to find checksums and structure;
 - generates **Import Jobs** by diffing a Deposit against its Archival Group, and executes them by
   sending them to the Storage API;
-- triggers **pipeline** runs (format identification, virus scanning) over deposit files and folds the
-  results into the METS;
+- triggers **pipeline** runs (format identification, virus scanning) over deposit files — the
+  Pipeline API runs the tools and writes the results into the METS itself; the Preservation API
+  records the job and its outcome;
 - publishes an **activity stream** of created and updated Archival Groups;
 - builds IIIF Manifests from Archival Groups and Deposits.
 

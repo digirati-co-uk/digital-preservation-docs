@@ -73,7 +73,7 @@ Three editable fields, saved together with the **Update properties** button at t
 | Field | Notes |
 |---|---|
 | **Archival Group** | The path of the object, below the repository root: `digitised/manuscripts/ms-342`, not a full URL. You can paste a full URL or a `/browse/…` path and the form will tidy it up. Once the object exists this becomes read-only unless you click **Edit** beside it, which you should need only if it was set wrongly. |
-| **Archival Group Name** | The object's title. An import job will not run without one. |
+| **Archival Group Name** | The object's title. Needed when the import job will *create* the object; an update runs without one. |
 | **Deposit Note** | Free text, for you and your colleagues. |
 
 If you type a path that the platform cannot accept, a warning appears beneath the field when the page reloads — the API is asked to validate the path, and its answer is shown verbatim.
@@ -175,7 +175,13 @@ Those two are not the same thing, and the difference survives into the preserved
 
 #### How inheritance works
 
-Access conditions, rights and record identifiers are all inherited, and the file table shows you the result: a value in **bold italics** is set on that item itself, and a value in plain muted text has been inherited from an ancestor. So in the ordinary Leeds arrangement — access set once on `objects/` — every file below it shows that access in muted text, and the one file you have restricted shows its own value in bold.
+Access conditions, rights and record identifiers are all inherited, and the file table shows you the result: a value in **bold italics** is set on that item itself. An *inherited* value is there too, but it is **hidden until you hover over the row** (or move focus into it), when it fades in. So in the ordinary Leeds arrangement — access set once on `objects/` — the one file you have restricted shows its own value in bold at all times, and the rest look blank until you hover.
+
+<Aside type="caution">
+Because an inherited value is invisible at rest, a blank metadata cell does not mean "no value": it
+means "nothing set *here*". Hover the row, or open the item, before concluding that something is
+missing.
+</Aside>
 
 The rules the platform follows are worth knowing, because they are not simply "nearest ancestor wins":
 
