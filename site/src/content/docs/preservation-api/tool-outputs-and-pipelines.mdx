@@ -89,7 +89,7 @@ POST /deposits/e56fb7yg/pipeline
 HTTP/1.1 204 No Content
 ```
 
-There is no request body and no response body. The call queues a job and returns; the work happens elsewhere, and can take minutes to hours depending on how much is in `objects/`. See [How the pipeline works](https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/internals/pipeline-api.md) if you want to know what is on the other end.
+There is no request body and no response body. The call queues a job and returns; the work happens elsewhere, and can take minutes to hours depending on how much is in `objects/`. See [How the pipeline works](https://github.com/digirati-co-uk/digital-preservation/blob/main/docs/internals/pipeline-api.md) if you want to know what is on the other end.
 
 What runs is **Brunnhilde**, which runs **Siegfried** for format identification and **ClamAV** for virus scanning, plus **ExifTool** over the same files, and — for a BagIt deposit — **BagIt** itself, to re-bag the deposit and check the new manifest against the old one.
 

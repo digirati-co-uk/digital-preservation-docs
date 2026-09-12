@@ -7,7 +7,7 @@ sidebar:
 
 import { Aside, LinkCard } from '@astrojs/starlight/components';
 
-The Storage API is the exclusive gateway to Fedora. Nothing else talks to Fedora - not the [Preservation API](../../preservation-api/overview)'s clients, not the [Preservation UI](../../ui/overview), not the iiif-builder. In a deployment it sits on a private network, and the only things that can reach it are the Preservation API and the [Storage API Importer](https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/internals/deployment.md).
+The Storage API is the exclusive gateway to Fedora. Nothing else talks to Fedora - not the [Preservation API](../../preservation-api/overview)'s clients, not the [Preservation UI](../../ui/overview), not the iiif-builder. In a deployment it sits on a private network, and the only things that can reach it are the Preservation API and the [Storage API Importer](https://github.com/digirati-co-uk/digital-preservation/blob/main/docs/internals/deployment.md).
 
 <Aside type="caution" title="You almost certainly do not need this section">
 Most readers of this documentation have no access to the Storage API and never will. Everything a
@@ -83,4 +83,4 @@ Both of the Storage API's write operations are asynchronous, and both report pro
 
 The one exception is `POST /exportMetsOnly`, which runs synchronously because it copies a single small file.
 
-Import processing runs either inside the Storage API process or in the separately deployed Storage API Importer, depending on a feature flag. Which of the two is running makes no difference to a caller. See [Deployment](https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/internals/deployment.md#import-processing).
+Import processing runs either inside the Storage API process or in the separately deployed Storage API Importer, depending on a feature flag. Which of the two is running makes no difference to a caller. See [Deployment](https://github.com/digirati-co-uk/digital-preservation/blob/main/docs/internals/deployment.md#import-processing).

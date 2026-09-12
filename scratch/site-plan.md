@@ -60,8 +60,9 @@ Link form: sibling page `../slug`; other group `../../group/slug`; anchor `#head
 
 ## (not on the site)
 
-`internals/` in the repository root - overview, pipeline-api, deployment - as plain markdown.
-Different audience (people who run the platform, not people who use it) and a different rate of
-change, especially once backends other than S3 arrive. iiif-builder is not documented at all: Leeds
-run their own version now. WorkspaceManager moved onto the site as `preservation-api/libraries.mdx`,
-because an API caller does want it.
+Internals - how the platform is built, configured and run - live in the CODE repository at
+`docs/internals/` (overview, pipeline-api, deployment). Different audience, different rate of
+change, and next to the code they describe. Infrastructure is Terraform in
+uol-dlip/preservation-ops, which is the authority for clusters, hostnames and buckets; nothing here
+restates it. iiif-builder is not documented anywhere: Leeds run their own version. WorkspaceManager
+came onto the site as `preservation-api/libraries.mdx`, because an API caller does want it.

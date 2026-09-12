@@ -12,12 +12,18 @@ Layout:
 - `documentation/` — the ORIGINAL markdown documentation. This is the raw material being ported
   into `site/`. It is out of date in places; do not link to it from the site. Once a page is
   fully ported and verified, its content in `documentation/` is superseded.
-- `internals/` — how the platform is built, deployed and run. CURRENT documentation, deliberately
-  not on the site: a different audience (people who run the platform) and a different rate of
-  change. Plain markdown, not checked by the build.
 - `rfcs/`, `adr/`, `sequence-diagrams/`, `schema/` — design history. Not part of the site
   (may be linked to on GitHub where useful).
 - `playwright/` — older TypeScript API exercises. Useful as evidence of how the API behaves.
+
+Documentation that is NOT here, and why:
+
+- **Internals** — how the platform is built, configured and run — lives in the code repository, at
+  [`docs/internals/`](https://github.com/digirati-co-uk/digital-preservation/tree/main/docs/internals).
+  Different audience, different rate of change, and it belongs next to the code it describes.
+- **Infrastructure** — clusters, hostnames, buckets, environments — is Terraform in
+  [uol-dlip/preservation-ops](https://github.com/uol-dlip/preservation-ops), which is the authority
+  for it. Do not restate infrastructure facts on the site or in the code repository.
 - `scratch/` — notes about features described in the old docs but not (yet) implemented, and
   open questions found while porting. Not published.
 
