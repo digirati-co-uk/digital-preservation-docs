@@ -2,7 +2,7 @@
 title: Components
 sidebar:
   label: Components
-  order: 3
+  order: 4
 ---
 
 import { Aside } from '@astrojs/starlight/components';
@@ -101,11 +101,10 @@ by publishing a message (AWS SNS/SQS); the Pipeline API then runs
 [Brunnhilde](https://github.com/tw4l/brunnhilde) - which wraps Siegfried for PRONOM format
 identification and ClamAV for virus scanning - as an external process against the deposit's
 `objects/` folder, writes the outputs into the deposit's `metadata/` folder, and reports back to the
-Preservation API. It runs on EC2 rather than Fargate because it spawns child processes, and it
-authenticates its own callers with an API key rather than Entra ID.
+Preservation API.
 
 See [Tool outputs and pipelines](../../preservation-api/tool-outputs-and-pipelines) and the
-[Pipeline API internals](../../internals/pipeline-api).
+[Pipeline API internals](https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/internals/pipeline-api.md).
 
 ## iiif-builder
 
@@ -116,7 +115,7 @@ fetches descriptive metadata from the catalogue, builds a IIIF Manifest (structu
 description from the catalogue) and PUTs it to IIIF Cloud Services. It keeps track of what it has
 processed in its own database.
 
-See [iiif-builder internals](../../internals/iiif-builder).
+See iiif-builder internals.
 
 ## IIIF Cloud Services
 

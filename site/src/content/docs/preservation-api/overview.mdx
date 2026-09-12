@@ -7,7 +7,7 @@ sidebar:
 
 import { Card, LinkCard, Aside } from '@astrojs/starlight/components';
 
-The Preservation API is the application-facing API of the platform. It is what the [Preservation UI](../../ui/overview), [iiif-builder](../../internals/iiif-builder), digitisation workflows such as Goobi, and ad hoc scripts all use. If you are integrating with the platform, this is almost certainly the only API you will call.
+The Preservation API is the application-facing API of the platform. It is what the [Preservation UI](../../ui/overview), iiif-builder, digitisation workflows such as Goobi, and ad hoc scripts all use. If you are integrating with the platform, this is almost certainly the only API you will call.
 
 It understands [METS](../../mets/overview), manages [Deposits](../deposits) as working areas for assembling content, generates and runs [Import Jobs](../import-jobs) that turn a Deposit into a new version of an [Archival Group](../repository#-archivalgroup), and publishes an [Activity Stream](../activity-stream) of what has changed. Underneath it, the [Storage API](../../storage-api/overview) writes to Fedora and OCFL; you never talk to that directly.
 

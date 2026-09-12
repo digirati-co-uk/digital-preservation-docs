@@ -43,11 +43,6 @@ export default defineConfig({
 					collapsed: true,
 					autogenerate: { directory: 'storage-api' }
 				},
-				{
-					label: 'Internals',
-					collapsed: true,
-					autogenerate: { directory: 'internals' }
-				},
 			],
 		}),
 	],

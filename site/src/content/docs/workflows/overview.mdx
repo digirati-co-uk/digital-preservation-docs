@@ -5,7 +5,7 @@ sidebar:
   order: 1
 ---
 
-import { Card, CardGrid, Aside } from '@astrojs/starlight/components';
+import { Card, CardGrid, Aside, Steps } from '@astrojs/starlight/components';
 
 The [Preservation API](../../preservation-api/overview) pages describe each operation on its own. These pages put them in order: complete walk-throughs of the things people actually do with the platform, each one ending in a runnable Python sample.
 
@@ -18,6 +18,32 @@ They all turn out to be the same five moves in different arrangements:
 5. Poll the [Import Job result](../../preservation-api/import-job-results) until it has finished.
 
 What varies is where the files come from, who writes the METS, and how much of the existing object you need in front of you.
+
+## If you supply your own METS
+
+Some callers use the Preservation API for **versioned object storage**, rather than for generating or managing the content of the objects. A digitisation system such as Goobi is the clearest case, but anyone in the same position reads the same way.
+
+If that is you, then you *manage and supply your own METS file*. You will create Deposits, create and run Import Jobs, browse the repository, retrieve Archival Groups and export Archival Groups into new Deposits from which new versions can be created. You will not use the API to edit the METS file itself, to run analysis tools, or to have the platform describe your content for you — [template](../../preservation-api/deposits#templates) `None` says exactly that.
+
+Read in this order:
+
+<Steps>
+
+1. **Make somewhere to put things.** Objects live under a Container, and you can [create one](../../preservation-api/repository#creating-a-container) if the part of the tree you want does not exist yet. This is only for structure *outside* preserved objects — you cannot create Containers inside one except by importing a deposit.
+
+2. **[Preserve for the first time](../preserve-first-time).** The whole path from an empty Deposit to version 1, with your own METS supplying the checksums. If your objects are identified in a Leeds catalogue, the same page covers [starting from an identifier](../preserve-first-time#starting-from-an-identifier-instead) instead of a repository path.
+
+3. **Read what you preserved.** The [repository pages](../../preservation-api/repository) cover walking the tree, the `view` and `version` parameters, and fetching an object's METS back out with `?view=mets`.
+
+4. **Make a new version.** [With an export](../update-with-export) when you want the object's existing files in front of you, [without one](../update-without-export) when you already know what is changing — much cheaper for a small change to a large object — or with a [custom Import Job](../custom-import-job) when you want to state the operations yourself rather than have them worked out by comparison.
+
+</Steps>
+
+<Aside type="caution">
+One rule catches everyone eventually: a Deposit is good for exactly **one** Import Job. Once a job
+has run from it, that Deposit is finished — generating another diff from it answers `409`. Each new
+version starts with a new Deposit.
+</Aside>
 
 ## Bringing content in
 

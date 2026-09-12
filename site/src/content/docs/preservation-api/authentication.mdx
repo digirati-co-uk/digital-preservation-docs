@@ -137,7 +137,7 @@ Both are guarded by that short-lived URL token rather than by a bearer token, an
 
 ## Running locally without auth
 
-A developer running the API on their own machine can set `FeatureFlags:DisableAuth` to `true`, which removes authentication entirely: no token is needed or looked at. This is for local development only. It disables the whole filter stack, including the part that resolves a machine caller's name, so work done against such an instance is attributed to `dlipdev` however you identify yourself — while `/whoami`, which resolves the header itself, will happily echo back any `X-Client-Identity` you send as the resolved name.
+A developer running the API on their own machine can set `FeatureFlags:DisableAuth` to `true`, which removes authentication entirely: no token is needed or looked at. This is for local development only. It disables the whole filter stack, including the part that resolves a machine caller's name, so work done against such an instance is attributed to `dlipdev` however you identify yourself.
 
 The Python samples support this with `DISABLE_AUTH=true` in their `.env`, which simply omits the `Authorization` header. Hosted instances always require a token.
 

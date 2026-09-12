@@ -7,7 +7,7 @@ sidebar:
 
 import { Aside, LinkCard } from '@astrojs/starlight/components';
 
-The Storage API is the exclusive gateway to Fedora. Nothing else talks to Fedora - not the [Preservation API](../../preservation-api/overview)'s clients, not the [Preservation UI](../../ui/overview), not the [iiif-builder](../../internals/iiif-builder). In a deployment it sits on a private network, and the only things that can reach it are the Preservation API and the [Storage API Importer](../../internals/deployment).
+The Storage API is the exclusive gateway to Fedora. Nothing else talks to Fedora - not the [Preservation API](../../preservation-api/overview)'s clients, not the [Preservation UI](../../ui/overview), not the iiif-builder. In a deployment it sits on a private network, and the only things that can reach it are the Preservation API and the [Storage API Importer](https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/internals/deployment.md).
 
 <Aside type="caution" title="You almost certainly do not need this section">
 Most readers of this documentation have no access to the Storage API and never will. Everything a
@@ -74,14 +74,6 @@ Authentication works exactly as it does for the Preservation API: a bearer JWT f
 
 In practice the caller is the Preservation API, forwarding the original caller's token where there is one, so that work done in Fedora is attributed to the person or client who asked for it rather than to the Preservation API itself.
 
-<Aside type="danger" title="Check DisableAuth before you deploy">
-`Storage.API/appsettings.Example.json` ships with `FeatureFlags:DisableAuth` set to `"true"`, which
-removes authentication entirely. Anyone who follows the usual "start from the example file" advice
-gets an unauthenticated Storage API - which, since it is the only thing that can write to Fedora, is
-the worst place in the platform for that to happen. See
-[Deployment](../../internals/deployment#feature-flags).
-</Aside>
-
 ## Asynchronous work
 
 Both of the Storage API's write operations are asynchronous, and both report problems in an `errors` list on a result resource rather than as an HTTP error, because the failure happens long after the request returned:
@@ -91,4 +83,4 @@ Both of the Storage API's write operations are asynchronous, and both report pro
 
 The one exception is `POST /exportMetsOnly`, which runs synchronously because it copies a single small file.
 
-Import processing runs either inside the Storage API process or in the separately deployed Storage API Importer, depending on a feature flag. Which of the two is running makes no difference to a caller. See [Deployment](../../internals/deployment#import-processing).
+Import processing runs either inside the Storage API process or in the separately deployed Storage API Importer, depending on a feature flag. Which of the two is running makes no difference to a caller. See [Deployment](https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/internals/deployment.md#import-processing).

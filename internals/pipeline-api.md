@@ -1,15 +1,9 @@
----
-title: Pipeline API
-sidebar:
-  label: Pipeline API
-  order: 3
----
+# Pipeline API
 
-import { Aside, Steps } from '@astrojs/starlight/components';
 
 Pipeline API is the service that actually runs the characterization tools over a Deposit's files. It exists because that work does not fit anywhere else: it spawns external processes, it needs the files on a real file system rather than as S3 objects, and a single large deposit can occupy it for an hour. None of that belongs inside an API that has to answer requests.
 
-This page is about how the service works. What a caller sees — where tool output lives, how to start a run and how to watch it — is on [Tool outputs and pipelines](../../preservation-api/tool-outputs-and-pipelines).
+This page is about how the service works. What a caller sees — where tool output lives, how to start a run and how to watch it — is on [Tool outputs and pipelines](https://digirati-co-uk.github.io/digital-preservation-docs/preservation-api/tool-outputs-and-pipelines/).
 
 ## Shape of the thing
 
@@ -24,7 +18,6 @@ It runs on an **EC2-backed ECS cluster**, not Fargate, because of the mount and 
 
 ## How a job travels
 
-<Steps>
 
 1. Something calls `POST /deposits/{id}/pipeline` on Preservation API. The handler checks the deposit exists, that nobody else holds the lock, and that its workspace is in `AwsStorage:DefaultWorkingBucket`.
 
@@ -38,7 +31,6 @@ It runs on an **EC2-backed ECS cluster**, not Fargate, because of the mount and 
 
 6. It reports `completed` or `completedWithErrors` back to Preservation API, and releases the deposit lock.
 
-</Steps>
 
 Pipeline API also has its own entry point, `POST /pipeline`, which takes a `PipelineJob` body with a `depositName`, mints a job identifier, registers it with Preservation API as `waiting`, and publishes to the same SNS topic. It is a way in for something that cannot call Preservation API, and it is not how the UI or the API do it.
 
@@ -72,7 +64,6 @@ Where there is no plausible time (`MetadataReader.ScanTimeFrom` treats anything 
 
 `ExecutePipelineJob.ExecuteBrunnhilde` is a long method with a lot of early exits. Stripped to its spine:
 
-<Steps>
 
 1. **Check the mount and the objects folder.** No mount, or no `objects/` directory for this deposit, and the job ends `completedWithErrors` with the lock released.
 
@@ -94,13 +85,13 @@ Where there is no plausible time (`MetadataReader.ScanTimeFrom` treats anything 
 
 10. **Clean up** the scratch folders, stop the monitor timer, and force a compacting GC. A daily cron job in the image also sweeps anything older than seven days out of `/usr/process-brunnhilde`.
 
-</Steps>
 
 Between almost every one of those steps the run calls `CheckIfForceComplete`, which fetches the job's own status from Preservation API and looks for `completedWithErrors`. That is how an operator stops a wedged run from outside: set the status, and the job notices at its next checkpoint, releases the lock and gives up. A timer also polls every ten seconds while Brunnhilde is running, so a long scan can be killed mid-flight rather than only at a step boundary.
 
-<Aside type="caution" title="Refresh is expensive; most calls avoid it">
-`GetWorkspaceManager(request, refresh: false)` appears throughout the upload loop. It still fetches a fresh Deposit and METS ETag on every call — it has to, because each write changes the ETag and the next write is guarded by it — but it skips the full S3 walk. That walk was measured at about 40 seconds on a large deposit, repeated twenty-odd times for one job's metadata upload (LPII-135). Only `RefreshCombinedDirectory()` does the real thing.
-</Aside>
+> **Refresh is expensive; most calls avoid it**
+>
+> `GetWorkspaceManager(request, refresh: false)` appears throughout the upload loop. It still fetches a fresh Deposit and METS ETag on every call — it has to, because each write changes the ETag and the next write is guarded by it — but it skips the full S3 walk. That walk was measured at about 40 seconds on a large deposit, repeated twenty-odd times for one job's metadata upload (LPII-135). Only `RefreshCombinedDirectory()` does the real thing.
+
 
 ## The tools, and where they come from
 
@@ -153,11 +144,12 @@ Two environment variables in the image exist because of how .NET behaves in a co
 | `ApiKeyOptions` | `ApiKey`, `ApiHeaderName` | Inbound authentication. |
 | `TokenProvider`, `AzureAd` | | Outbound: the machine credentials used to call Preservation API. |
 
-<Aside type="caution" title="Two things in the config that do nothing">
-`FeatureFlags:UseLocalHostedServiceForPipeline` is present in every `appsettings` file and is read by nothing. `Program.cs` registers `InProcessPipelineQueue` and then `SqsPipelineQueue` as `IPipelineQueue`, so the last registration always wins and the service always goes through SNS/SQS — including locally. `InProcessPipelineQueue` is unreachable.
+> **Two things in the config that do nothing**
+>
+> `FeatureFlags:UseLocalHostedServiceForPipeline` is present in every `appsettings` file and is read by nothing. `Program.cs` registers `InProcessPipelineQueue` and then `SqsPipelineQueue` as `IPipelineQueue`, so the last registration always wins and the service always goes through SNS/SQS — including locally. `InProcessPipelineQueue` is unreachable.
+>
+> `FeatureFlags:DisableAuth` is also present and also read by nothing here. Pipeline API's only gate is the API key, unconditionally. (Preservation API, Storage API and the Importer do honour that flag.)
 
-`FeatureFlags:DisableAuth` is also present and also read by nothing here. Pipeline API's only gate is the API key, unconditionally. (Preservation API, Storage API and the Importer do honour that flag.)
-</Aside>
 
 ## Endpoints
 
@@ -183,7 +175,7 @@ Status reporting is `POST /deposits/pipeline-status`, hidden from the OpenAPI de
 }
 ```
 
-`id` is the job identifier, not the deposit's. `status` is one of the [job states](../../preservation-api/tool-outputs-and-pipelines#job-states); `processing` is the claim described above, `completed` and `completedWithErrors` set `dateFinished`, and `errors` is a single string that Preservation API surfaces as a one-element `errors` array on the `ProcessPipelineResult`.
+`id` is the job identifier, not the deposit's. `status` is one of the [job states](https://digirati-co-uk.github.io/digital-preservation-docs/preservation-api/tool-outputs-and-pipelines#job-states); `processing` is the claim described above, `completed` and `completedWithErrors` set `dateFinished`, and `errors` is a single string that Preservation API surfaces as a one-element `errors` array on the `ProcessPipelineResult`.
 
 ## Failure modes worth knowing
 

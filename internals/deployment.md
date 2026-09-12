@@ -1,11 +1,5 @@
----
-title: Deployment
-sidebar:
-  label: Deployment
-  order: 5
----
+# Deployment
 
-import { Aside, Steps } from '@astrojs/starlight/components';
 
 How the platform is built, what gets deployed, how it is configured, and how to run it on your own machine.
 
@@ -29,7 +23,6 @@ The Pipeline API is the odd one out: it spawns external processes (Python, ClamA
 
 `.github/workflows/build.yml` runs on pushes to `main`, on tags, and on pull requests that touch `src/DigitalPreservation/`, `.github/` or a `Dockerfile.*`. It does three things in sequence:
 
-<Steps>
 
 1. **SonarCloud analysis**, building the solution and collecting coverage.
 
@@ -37,7 +30,6 @@ The Pipeline API is the odd one out: it spawns external processes (Python, ClamA
 
 3. **Build and push images**, one matrix job per Dockerfile, tagged with the commit SHA.
 
-</Steps>
 
 `.github/workflows/build_iiifbuilder.yml` does the same for the Python service, on changes under `src/iiif-builder/`. It is separate because the iiif-builder has no part in the .NET solution and changes on its own rhythm.
 
@@ -49,11 +41,12 @@ A push to `main` deploys to `development` automatically. A pull request deploys 
 
 Cluster and service names come from GitHub environment variables, so the same workflow deploys every environment. The Pipeline API job uses the EC2 cluster variable; every other job uses the Fargate one.
 
-<Aside type="caution">
-The deposit archiver's job re-tags its image but has no step to restart anything, unlike every other
-service. The archiver is a Lambda rather than an ECS service, and re-tagging an image does not update
-a Lambda's code, so do not assume a merge has deployed it.
-</Aside>
+> **Caution**
+>
+> The deposit archiver's job re-tags its image but has no step to restart anything, unlike every other
+> service. The archiver is a Lambda rather than an ECS service, and re-tagging an image does not update
+> a Lambda's code, so do not assume a merge has deployed it.
+
 
 ## Configuration
 
@@ -67,14 +60,14 @@ The sections, and what each is for:
 
 | Section | What it configures |
 |---|---|
-| `ConnectionStrings` | Its own PostgreSQL database, and a read-only connection to Fedora's own database, which the API uses to populate large Containers quickly and to run [search](../../storage-api/activity-and-content#fedora-search). |
+| `ConnectionStrings` | Its own PostgreSQL database, and a read-only connection to Fedora's own database, which the API uses to populate large Containers quickly and to run [search](https://digirati-co-uk.github.io/digital-preservation-docs/storage-api/activity-and-content#fedora-search). |
 | `RunMigrations` | Whether to apply EF Core migrations at startup. |
 | `Fedora` | Fedora's root URI, admin credentials, request timeout, the OCFL bucket and key prefix, and whether a digest is required on every incoming Binary. |
 | `Storage-AWS` | The AWS credential profile and region used for S3. |
 | `AwsStorage` | The default deposit working bucket, and the key used for the S3 health check. |
 | `Converter` | The public root URI the API mints its own resource URIs against. Get this wrong and every `id`, `content` and activity URI it emits points somewhere useless. |
 | `AzureAd` | Identity provider instance, tenant, client id and the audiences accepted on incoming tokens. |
-| `KnownClients` | The allow-list of machine callers keyed by the signed `azp`/`appid` claim, each with a friendly name and optionally its own deposit bucket. See [Authentication](../../preservation-api/authentication#being-a-known-client). |
+| `KnownClients` | The allow-list of machine callers keyed by the signed `azp`/`appid` claim, each with a friendly name and optionally its own deposit bucket. See [Authentication](https://digirati-co-uk.github.io/digital-preservation-docs/preservation-api/authentication#being-a-known-client). |
 | `FeatureFlags` | See below. |
 | `ImportExport` | The SNS topic ARNs the API publishes import and export requests to. |
 
@@ -134,20 +127,22 @@ The same sections as the Storage API, minus everything to do with serving HTTP: 
 | `NormaliseMetsIdsOnWrite` | Anything that writes METS | Normalises identifiers every time a METS file is written, rather than only on request. |
 | `ShowPipeline`, `ShowNormaliseMetsIds` | Preservation UI | Show or hide those actions in the interface. |
 
-<Aside type="danger" title="DisableAuth in the Storage API example">
-`Storage.API/appsettings.Example.json` ships `FeatureFlags:DisableAuth` as `"true"`. Anyone following
-the "start from the example file" advice above gets a Storage API with authentication switched off -
-the flag skips the whole filter stack and the authentication middleware with it. Since the Storage
-API is the only thing that can write to Fedora, this is the worst place in the platform for that to
-be the default. The Preservation API's example correctly ships `"false"`. **Set it explicitly for
-every non-local deployment.**
-</Aside>
+> **DisableAuth in the Storage API example**
+>
+> `Storage.API/appsettings.Example.json` ships `FeatureFlags:DisableAuth` as `"true"`. Anyone following
+> the "start from the example file" advice above gets a Storage API with authentication switched off -
+> the flag skips the whole filter stack and the authentication middleware with it. Since the Storage
+> API is the only thing that can write to Fedora, this is the worst place in the platform for that to
+> be the default. The Preservation API's example correctly ships `"false"`. **Set it explicitly for
+> every non-local deployment.**
 
-<Aside type="note">
-The Pipeline API's settings files carry `DisableAuth` and `UseLocalHostedServiceForPipeline`, and no
-code in that service reads either. It authenticates with `X-API-KEY` unconditionally. Changing them
-has no effect.
-</Aside>
+
+> **Note**
+>
+> The Pipeline API's settings files carry `DisableAuth` and `UseLocalHostedServiceForPipeline`, and no
+> code in that service reads either. It authenticates with `X-API-KEY` unconditionally. Changing them
+> has no effect.
+
 
 ## Databases and migrations
 
@@ -159,14 +154,15 @@ Three PostgreSQL databases, owned separately and never shared:
 | Storage | Storage API (and the Importer, read/write) | Import jobs and their results, exports. |
 | iiif-builder | iiif-builder | One row per activity stream event it has read. |
 
-The two .NET databases use EF Core migrations, applied at startup when `RunMigrations` is `true`. The iiif-builder's table is created by hand; see [iiif-builder](../iiif-builder#its-database).
+The two .NET databases use EF Core migrations, applied at startup when `RunMigrations` is `true`. The iiif-builder's table is created by hand.
 
 Fedora has a database of its own, which the Storage API reads directly - never writes - for search and for some storage-map work.
 
-<Aside type="tip">
-Everything in all of these is working state and history. The preserved content is the OCFL in S3, and
-nothing in any database is needed to recover it.
-</Aside>
+> **Tip**
+>
+> Everything in all of these is working state and history. The preserved content is the OCFL in S3, and
+> nothing in any database is needed to recover it.
+
 
 ## Import processing
 
@@ -183,7 +179,6 @@ Export has the same shape of switch but only one working setting: `UseLocalHoste
 
 The supported local setup runs the databases and the Python service in Docker and the .NET services from your IDE or `dotnet run`.
 
-<Steps>
 
 1. **Start the dependencies.**
 
@@ -202,11 +197,11 @@ The supported local setup runs the databases and the Python service in Docker an
    dotnet test DigitalPreservation.sln --filter 'Category!=Manual'
    ```
 
-</Steps>
 
-<Aside type="caution">
-There is also a `docker-compose.yml` at the repository root that appears to run the whole stack. It
-does not: it defines only the Storage API, Preservation API, UI and a single database, the Storage
-API has no environment file, and there is no Pipeline API or importer. Use
-`docker-compose.local.yml` and run the .NET services yourself.
-</Aside>
+> **Caution**
+>
+> There is also a `docker-compose.yml` at the repository root that appears to run the whole stack. It
+> does not: it defines only the Storage API, Preservation API, UI and a single database, the Storage
+> API has no environment file, and there is no Pipeline API or importer. Use
+> `docker-compose.local.yml` and run the .NET services yourself.
+

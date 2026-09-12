@@ -1,0 +1,147 @@
+---
+title: Recipes
+sidebar:
+  label: Recipes
+  order: 2
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Small answers to specific questions. Each one links to the page that explains it properly, for when the answer is not quite what you needed.
+
+All of these assume the headers from the [Quickstart](../../introduction/quickstart): a bearer token and `X-Client-Identity`.
+
+## Reading
+
+**What is at this path?**
+
+```
+GET /repository/my-collection/my-object
+GET /repository/my-collection/my-object?view=lightweight     # without the file listing
+GET /repository/my-collection/my-object?version=v2           # as it was at v2
+```
+[Repository](../../preservation-api/repository)
+
+**Give me the object's METS.**
+
+```
+GET /repository/my-collection/my-object?view=mets
+```
+Returns the XML. [Repository](../../preservation-api/repository#the-view-and-version-parameters)
+
+**What versions does it have, and what changed in each?**
+
+```
+GET /repository/my-collection/my-object/versions
+GET /repository/my-collection/my-object/ocfl/storagemap
+```
+[Versions and the Storage Map](../../preservation-api/versions-and-storage-map)
+
+**Which deposits have touched this object?**
+
+```
+GET /deposits?archivalGroupPath=my-collection/my-object&showAll=true
+```
+A value containing `/` matches the whole path; one without matches any path ending in it. [Deposits](../../preservation-api/deposits#listing-and-searching-deposits)
+
+**What has changed in the repository lately?**
+
+```
+GET /activity/archivalgroups/collection      # then follow last, and page backwards
+```
+[Activity Stream](../../preservation-api/activity-stream)
+
+**Find an object from a catalogue identifier.**
+
+```
+GET /search?text=MS%202249&pageNumber=0
+```
+Paging is `pageNumber`, from **0**. [Search](../../preservation-api/search)
+
+## Working on a deposit
+
+**Add one file to a large object, without exporting it.**
+
+Create a deposit against the existing object *without* `export`, put just the new file in it, add it to the METS, and run the diff. The deposit's METS arrives from the object, so the diff sees everything else already present and adds only your file.
+
+```
+POST /deposits          {"type":"Deposit","archivalGroup":"…/my-object","template":"RootLevel"}
+# upload objects/new-page.tif to the deposit's files prefix
+GET  /deposits/{id}/filesystem?refresh=true
+POST /deposits/{id}/mets            If-Match: <metsETag>     ["objects/new-page.tif"]
+POST /deposits/{id}/importjobs      {"id":"…/deposits/{id}/importjobs/diff"}
+```
+[Update without an export](../update-without-export)
+
+**See what the import job would do, before doing it.**
+
+```
+GET /deposits/{id}/importjobs/diff
+```
+Generating a diff does not run it, and you can read it as often as you like — until a job *has* run from the deposit, after which both answer `409`. [Import Jobs](../../preservation-api/import-jobs)
+
+**What is actually in my deposit?**
+
+```
+GET /deposits/{id}/filesystem?refresh=true
+```
+`refresh=true` re-reads S3. Without it you get the cached view, which will not show files you have just uploaded. [Deposit files](../../preservation-api/deposit-files)
+
+**What does the platform know about my files?**
+
+Each file in that response carries a `metadata` list — digests, PRONOM identification, EXIF, virus scan results — collected from [tool outputs](../../preservation-api/tool-outputs-and-pipelines) in the deposit.
+
+**Have the platform identify formats and scan for viruses.**
+
+```
+POST /deposits/{id}/pipeline
+GET  /deposits/{id}/pipelinerunjobs
+```
+Then re-add the files to the METS to pull the new metadata in. [Tool outputs and pipelines](../../preservation-api/tool-outputs-and-pipelines)
+
+**Abandon a deposit.**
+
+```
+DELETE /deposits/{id}
+```
+Removes the record and empties its workspace. Does nothing to an object already preserved from it. [Deposits](../../preservation-api/deposits#deleting-a-deposit)
+
+## When something has gone wrong
+
+**My import job failed. What now?**
+
+The deposit goes to status `error` and becomes inactive. Read the errors on the result, then:
+
+```
+PUT /deposits/{id}/activate
+```
+to pick it up again. You cannot run a second import job from a deposit whose first one *succeeded* — that needs a new deposit. [Import Job results](../../preservation-api/import-job-results)
+
+**Show me everything that has failed.**
+
+```
+GET /deposits?status=error&showAll=true
+```
+
+**My `If-Match` keeps being rejected.**
+
+Re-read the deposit and use its `metsETag`. It is null in the response to *creating* a deposit, and it changes on every successful write, so it goes stale between edits. [Editing METS](../../preservation-api/editing-mets#the-etag-and-why-every-write-needs-one)
+
+**I get `409` creating a deposit for an object.**
+
+There is already an active deposit for it. Find it and finish or delete it:
+
+```
+GET /deposits?archivalGroupPath=my-collection/my-object
+```
+
+**I get `409` saying ancestors must exist.**
+
+`PUT /repository/a/b` needs `a` to exist already. Create the parents first, top down. [Creating a Container](../../preservation-api/repository#creating-a-container)
+
+<Aside type="caution" title="Two query parameters that lie">
+`archived` and `active` are ignored unless another filter is present — `?archived=true` on its own
+silently returns the ordinary active list. Pair them with `showAll=true`. And the `createdBy`,
+`preservedBy` and `exportedBy` filters want the agent's **name**, matched exactly, not the Agent URI
+that `GET /agents` returns.
+</Aside>

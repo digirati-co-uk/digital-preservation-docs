@@ -114,4 +114,4 @@ a `500` here. Treat a non-`200` as "the METS was not exported" and retry.
 
 ## Export always runs in this process
 
-Unlike import, export has no separately deployable runner. `FeatureFlags:UseLocalHostedServiceForExport` exists, but setting it to `false` makes the Storage API refuse to start: the separate export service has not been written. Exports are queued on an in-memory channel bounded at ten and drained by a hosted service inside the Storage API, which means a restart loses anything still queued. See [Deployment](../../internals/deployment#import-processing).
+Unlike import, export has no separately deployable runner: it is queued in memory inside the Storage API itself, on a channel bounded at ten. Two consequences for a caller. A restart loses anything still queued — an export that never reaches `dateFinished` may simply have been dropped, so poll with a timeout rather than forever. And with only ten slots, a burst of export requests will block rather than queue indefinitely.

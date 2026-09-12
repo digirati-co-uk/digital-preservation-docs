@@ -2,12 +2,12 @@
 title: The Activity Stream
 sidebar:
   label: Activity Stream
-  order: 11
+  order: 12
 ---
 
 import { Aside, LinkCard, Steps } from '@astrojs/starlight/components';
 
-The Preservation API publishes an [Activity Stream](https://www.w3.org/TR/activitystreams-core/) which other applications can use to learn about new or changed Archival Groups. The particular implementation is modelled on the [IIIF Change Discovery API](https://iiif.io/api/discovery/1.0/), which readers of this documentation can also study. One use of an activity stream might be for a client application to listen for changed digital objects and publish new or updated IIIF Manifests for them — which is exactly what the platform's own [iiif-builder](../../internals/iiif-builder) does.
+The Preservation API publishes an [Activity Stream](https://www.w3.org/TR/activitystreams-core/) which other applications can use to learn about new or changed Archival Groups. The particular implementation is modelled on the [IIIF Change Discovery API](https://iiif.io/api/discovery/1.0/), which readers of this documentation can also study. One use of an activity stream might be for a client application to listen for changed digital objects and publish new or updated IIIF Manifests for them — which is exactly what the platform's own iiif-builder does.
 
 The stream is a pull, not a push: nothing calls you. You poll it on whatever interval suits you, remember how far you got, and next time read back only as far as that point. Consumers should use the [processing algorithm](https://iiif.io/api/discovery/1.0/#activity-streams-processing-algorithm) given in the IIIF Change Discovery specification, which is also spelled out [below](#the-consuming-algorithm).
 

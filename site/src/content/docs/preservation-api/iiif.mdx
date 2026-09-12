@@ -2,7 +2,7 @@
 title: IIIF
 sidebar:
   label: IIIF
-  order: 14
+  order: 15
 ---
 
 import { Aside, LinkCard } from '@astrojs/starlight/components';
@@ -10,7 +10,7 @@ import { Aside, LinkCard } from '@astrojs/starlight/components';
 A preserved object and a [IIIF](https://iiif.io/) Manifest describe overlapping things: an ordered set of files, some of which are images or audio-visual, arranged into a structure that means something to a reader. The Preservation API can present either an [Archival Group](../repository#-archivalgroup) or a [Deposit](../deposits) as a [IIIF Presentation 3](https://iiif.io/api/presentation/3.0/) Manifest, which gives you two things for free: a way to *look* at what you are about to preserve, in any IIIF viewer; and a way to *edit* the logical structure of an object, in any IIIF manifest editor, by sending the manifest back.
 
 <Aside type="note">
-These manifests are a working view of material in the platform. They are not the public manifests an institution publishes — those are built separately by [iiif-builder](../../internals/iiif-builder), which combines the preserved METS with catalogue metadata and serves them from a public IIIF server.
+These manifests are a working view of material in the platform. They are not the public manifests an institution publishes — those are built separately by iiif-builder, which combines the preserved METS with catalogue metadata and serves them from a public IIIF server.
 </Aside>
 
 ## What ends up in a manifest
