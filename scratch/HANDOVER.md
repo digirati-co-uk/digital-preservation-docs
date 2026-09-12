@@ -16,7 +16,7 @@ Done and verified against code:
 |---|---|---|
 | introduction | overview, concepts, components | – |
 | mets | overview, mets-we-write, mets-we-write-descriptive, mets-we-read, identifiers, editability | – |
-| preservation-api | overview, authentication, agents, repository | p01_overview/whoami.py, p02_authentication/get_token.py, p03_repository/*.py |
+| preservation-api | overview, authentication, agents, repository, deposits, deposit-files, editing-mets | p01_overview, p02_authentication, p03_repository, p04_deposits, p05_deposit_files, p06_editing_mets |
 
 Everything else under `site/src/content/docs/` is a placeholder `overview.mdx`.
 `preservation-docs-client/` has the shared helpers (`preservation.py`, `s3_helpers.py`,
@@ -62,7 +62,7 @@ Verify in `Preservation.API/Program.cs`, `DigitalPreservation.Core` (AuthFilterI
 CallerResolver, IClientDirectory, depositBucket profiles from RFC-0001), `appsettings.Example.json`.
 Don't invent roles you can't see.
 
-### 2. preservation-api/deposits, deposit-files, editing-mets (orders 4, 5, 6)
+### 2. preservation-api/deposits, deposit-files, editing-mets (orders 4, 5, 6) — DONE
 Raw: 02 lines ~340–1015. Verify: `Features/Deposits/DepositsController.cs` (every route except
 iiif*, pipeline*, archive-job) and `Requests/*`; `DepositQuery` (exact params incl. newer ones such
 as `Archived`, whose semantics are commented in mets-id-migration's api.py); Common.Model `Deposit`
@@ -123,11 +123,26 @@ docker-compose files, each `appsettings.Example.json` (section names only).
 `internals/workspace-manager` is DEFERRED: short pointer page only (see site-plan.md).
 
 ## Follow-ups noted, not scheduled
+- **A Deposit workspace will not always be S3.** Tom, 2026-09-12: eventually a file share or local
+  drive too, `file:///` as well as `s3://`. Decision for now is to write S3 concretely rather than
+  abstract it; revisit deposits, deposit-files and `s3_helpers.py` when a second backing store lands.
+- **Nothing validates internal links.** `site/package.json` has no link checker, so a link to a page
+  that has not been written yet builds clean and 404s. Several pages already point forward
+  (import-jobs, exports, tool-outputs-and-pipelines, search, iiif, ui/*). Sweep once the section is
+  complete, or add `starlight-links-validator`.
 - Fold `sequence-diagrams/` (Mermaid) into the site; retire the `gh-pages` branch and its Jekyll
   workflow once `docs-site` merges (Pages source is already "GitHub Actions"; last deploy wins).
 - WorkspaceManager and the METS parser/object model will become standalone libraries (.NET and
   Python); document them separately when extracted.
 - Update the code repo's CLAUDE.md about the `DigitalPreservation.Mets` project location.
+
+## Running samples against dev
+`preservation-docs-client/.env` (gitignored) is set up for the **dev** instance, copied from the dev
+block of `src/mets-id-migration/.env` in the code repo. Note the API is behind a PRIVATE load
+balancer (`dlip-pres-mx-private-*`): `preservation-api-dev.library.leeds.ac.uk` resolves publicly but
+times out on 443 without the university VPN, even though the UI host does not. So the samples on the
+deposits/deposit-files/editing-mets pages are written from the code and **have not yet been run**.
+Run them (VPN up) before trusting the exact response shapes, and check the host is dev, never prod.
 
 ## Local stack (for running samples)
 `docker compose -f docker-compose.local.yml up -d db-preservation db-storage` in the code repo,

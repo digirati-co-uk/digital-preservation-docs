@@ -1,0 +1,4 @@
+Tuesday
+------
+
+A tiny text file, used by the documentation samples as something to preserve.

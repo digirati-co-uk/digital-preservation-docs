@@ -1,0 +1,239 @@
+---
+title: Deposit files and folders
+sidebar:
+  label: Deposit files
+  order: 5
+---
+
+import { Aside, LinkCard } from '@astrojs/starlight/components';
+
+The files and folders in a [Deposit](../deposits) are not quite the same as Containers and Binaries. They will *become* Containers and Binaries when imported into an Archival Group, and will have been Containers and Binaries before being exported into a Deposit. But they have different data requirements, especially when tool output metadata is present.
+
+Inside a Deposit, files and folders are represented by a different pair of resource types — `WorkingDirectory` and `WorkingFile`. You never construct these; they are only ever returned by the API when it reports on the contents of a deposit.
+
+## Viewing what's in the Deposit
+
+```
+# the cached view of the deposit's file system
+GET /deposits/e56fb7yg/filesystem
+
+# force a refresh from storage first
+GET /deposits/e56fb7yg/filesystem?refresh=true
+```
+
+This returns a `WorkingDirectory` for the root of the workspace, with recursive child `WorkingDirectory` and `WorkingFile` resources, describing the complete contents of the Deposit workspace. For a BagIt deposit it is the layout **on disk**, so the tree starts with `data/`.
+
+Typical uses for this file system view might be:
+
+* generating a user interface for navigating the Deposit;
+* comparing what's in the Deposit with what's in the METS file.
+
+<Aside type="note" title="Cached, and when it is not">
+The API keeps its view of the workspace in a `__METSlike.json` file in the root of the workspace, because listing and re-reading a large deposit is expensive. Since you put files into S3 yourself, the API cannot know that you have until it looks again. `refresh=true` makes it look. It also refreshes by itself when the cached view is older than the Deposit's own `lastModified`, and when no cached view exists yet.
+</Aside>
+
+<LinkCard
+  title="💻 Example: the file system view"
+  href="https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/preservation-docs-client/p05_deposit_files/filesystem_view.py"
+  description="Walks the deposit's file tree and prints each file with its digest and metadata."
+/>
+
+## WorkingDirectory
+
+| Property | Description |
+|---|---|
+| `type` | `WorkingDirectory` |
+| `localPath` | The path of the directory relative to the root of the Deposit. Examples are `objects`, `objects/images`, or `data/objects` in a BagIt layout. Never has a leading slash. |
+| `name` | The name of the directory, which may be different from the last path element. This is typically used to store the original name of a directory. |
+| `modified` | When the directory was last modified. |
+| `files` | The `WorkingFile` resources in this directory. |
+| `directories` | The `WorkingDirectory` resources in this directory. |
+| `metsExtensions` | Additional metadata relating this directory to specific METS concepts. See [MetsExtensions](#metsextensions). |
+| `metadata` | A list of [Metadata](#metadata) resources for the directory. |
+| `accessRestrictions` | Strings representing access conditions set on this directory itself. They might be derived from METS, or might be waiting to be applied to METS. |
+| `effectiveAccessRestrictions` | The access conditions that actually apply here, after inheritance from ancestors. |
+| `rightsStatement` | A single URI from a controlled vocabulary of rights statements, set on this directory itself. |
+| `effectiveRightsStatement` | The rights statement that actually applies here, after inheritance. |
+| `rightsStatementSuppressed` | True when this resource carries a rights element that asserts no URI — a deliberate stop on inheritance, which is different from carrying no element at all. |
+| `recordInfo` / `effectiveRecordInfo` | Catalogue record identifiers set here, and the ones that apply after inheritance. Each is a list of `recordIdentifiers`, objects with a `source` and a `value`. |
+
+## WorkingFile
+
+| Property | Description |
+|---|---|
+| `type` | `WorkingFile` |
+| `localPath` | The path of the file relative to the root of the Deposit. Examples are `objects/images/image_001.tiff`, `mets.xml`, or `data/mets.xml` in a BagIt layout. Never has a leading slash. |
+| `name` | The name of the file, which may be different from the last path element. This is typically used to store the original name of a file. |
+| `modified` | When the file was last modified. |
+| `contentType` | The internet media type (mime type) of the file. For files in the deposit this is the type supplied at upload time, or determined by the platform, or by S3, in that order. |
+| `digest` | The SHA256 checksum of the file. |
+| `size` | The size in bytes of the file. |
+| `links` | Relationships to other files in the deposit — each a `to` (the other file's path) and a `role` (a [IIIF `provides`](https://iiif.io/api/presentation/3.0/#behavior) URI such as `transcript` or `closedCaptions`). |
+| `metsExtensions` | See [MetsExtensions](#metsextensions). |
+| `metadata` | A list of [Metadata](#metadata) resources for the file. |
+| `accessRestrictions`, `effectiveAccessRestrictions`, `rightsStatement`, `effectiveRightsStatement`, `rightsStatementSuppressed`, `recordInfo`, `effectiveRecordInfo` | As for `WorkingDirectory` above. |
+
+## MetsExtensions
+
+Never supplied by the caller: always generated by the API to reflect the relationship between the working file structure and the METS file.
+
+| Property | Description |
+|---|---|
+| `href` | The path this resource has inside the METS file. |
+| `divId` | The raw `ID` of the `mets:div` this resource came from. |
+| `admId` | The raw `ID` of the `mets:amdSec` for this resource. |
+
+<Aside type="caution" title="Treat the IDs as opaque">
+`divId` and `admId` are identifiers, not addresses. Never parse one, take a substring of one, derive a path from one, or construct one in order to look a `div` up. The platform mints them from paths, but the encoding has changed (see [Identifiers in METS](../../mets/identifiers)) and third-party METS uses entirely different schemes, so one document can carry several forms at once. Round-trip them verbatim, and get paths from `href`.
+</Aside>
+
+## Metadata
+
+Both `WorkingFile` and `WorkingDirectory` carry a `metadata` list. These metadata reflect information the Preservation API can see in [tool outputs](../tool-outputs-and-pipelines) in the `metadata/` folder, and BagIt manifest data it can see in the root of a BagIt-layout Deposit. They are used to add to METS, or reflect what is in METS.
+
+Every entry has these three properties, plus those of its own type:
+
+| Property | Description |
+|---|---|
+| `type` | Which kind of metadata this is — the values in the sections below. |
+| `source` | The tool or process that generated it, e.g. `Siegfried`, `Brunnhilde` or `BagIt`. |
+| `timestamp` | When it was generated. |
+
+A file can carry several entries of the same type from different sources; where the platform needs a single answer — one digest, one format — it coalesces them, and a genuine disagreement between two sources is an error rather than a silent choice.
+
+### DigestMetadata
+
+Typically derived from tool outputs that provide only the checksum. A `source` value might be `BagIt`.
+
+| Property | Description |
+|---|---|
+| `digest` | The SHA256 checksum of the file. |
+
+### FileFormatMetadata
+
+Metadata generated by a tool such as Siegfried that provides PRONOM-based file format identification. `source` might also be `Brunnhilde`, if Siegfried was run by it.
+
+| Property | Description |
+|---|---|
+| `digest` | The SHA256 checksum of the file. |
+| `size` | The size in bytes of the file. |
+| `pronomKey` | The PRONOM key, e.g. `fmt/353`. |
+| `formatName` | The friendly name of the format, e.g. `Tagged Image File Format`. |
+| `contentType` | The internet media type, e.g. `image/tiff`. |
+| `originalName` | The name of the file at the time the tool analysed it. |
+| `storageLocation` | The fully qualified location of the file at the time the tool analysed it. |
+
+### ExifMetadata
+
+Embedded metadata read out of the file itself by ExifTool.
+
+| Property | Description |
+|---|---|
+| `tags` | A list of tag objects, each with a `tagName` and a `tagValue` — the tag names as the tool reports them, not a normalised set. |
+
+### VirusScanMetadata
+
+The outcome of the virus scan for this file.
+
+| Property | Description |
+|---|---|
+| `hasVirus` | Whether the scan found anything. |
+| `virusFound` | What it found, when it did. |
+| `virusDefinition` | The virus definition version the scan ran with — what the check is worth is a function of when the definitions were from. |
+
+### ExtentMetadata
+
+The dimensions of an image, or the duration of a time-based file.
+
+| Property | Description |
+|---|---|
+| `pixelWidth` | Width in pixels. |
+| `pixelHeight` | Height in pixels. |
+| `duration` | Duration in seconds. |
+
+### StorageMetadata
+
+Where a file was, and what it was called, before it arrived here.
+
+| Property | Description |
+|---|---|
+| `originalName` | The name the file had. |
+| `storageLocation` | The fully qualified location it came from. |
+
+### ToolOutput
+
+A tool output that is a document in its own right rather than a set of fields — Brunnhilde's HTML report, for instance.
+
+| Property | Description |
+|---|---|
+| `contentType` | The media type of the content. |
+| `content` | The content itself. |
+
+### An example
+
+A `WorkingFile` in a BagIt deposit, with a digest from the bag's manifest and a format identification from Brunnhilde:
+
+```json
+{
+  "type": "WorkingFile",
+  "metadata": [
+    {
+      "type": "DigestMetadata",
+      "source": "BagIt",
+      "timestamp": "2025-07-30T15:46:31.7401058Z",
+      "digest": "0298a9c0bf853aaaca9e95dc4c0d0d769b66347102dea65ba6ede6fce1548162"
+    },
+    {
+      "type": "FileFormatMetadata",
+      "source": "Brunnhilde",
+      "timestamp": "2025-07-30T15:46:31.7401058Z",
+      "digest": "0298a9c0bf853aaaca9e95dc4c0d0d769b66347102dea65ba6ede6fce1548162",
+      "size": 7686654,
+      "pronomKey": "fmt/1507",
+      "formatName": "Exchangeable Image File Format (Compressed)",
+      "originalName": null,
+      "storageLocation": null,
+      "contentType": "image/jpeg"
+    }
+  ],
+  "localPath": "data/objects/nyc/DSCF1156.JPG",
+  "name": null,
+  "modified": "2025-05-05T13:35:00Z",
+  "accessRestrictions": [],
+  "effectiveAccessRestrictions": [],
+  "rightsStatement": null,
+  "contentType": "image/jpeg",
+  "digest": "0298a9c0bf853aaaca9e95dc4c0d0d769b66347102dea65ba6ede6fce1548162",
+  "size": 7686654
+}
+```
+
+## The combined view
+
+The file system view answers "what is in the workspace?". The METS file answers "what does this object consist of?". Neither on its own is enough to decide what an [Import Job](../import-jobs) should do — for that you need the two side by side, file by file. That merge is the **combined directory**, and it is the structure the platform actually works from: it is what the diff is generated from, and what the [Preservation UI](../../ui/deposits) draws.
+
+Every file in it is a pair — the file as the deposit has it, and the file as the METS describes it — and either half may be missing. That gives each entry a `whereabouts`:
+
+| Value | Meaning |
+|---|---|
+| `Both` | In the deposit and in the METS. The ordinary case. |
+| `Deposit` | In the workspace, but not mentioned in the METS. Newly uploaded, or deliberately not part of the object. |
+| `Mets` | In the METS, but not in the workspace. Normal on an update where you did not export the whole Archival Group. |
+| `Extra` | In the workspace, but outside the part of it this view covers. |
+| `Neither` | Neither — a placeholder rather than a real state. |
+
+Where both halves are present, the platform can also compare them, and it records the disagreements: a digest in METS that differs from the digest a tool computed, a PRONOM identification that has changed, a virus scan recorded in one and not the other.
+
+```
+GET /deposits/e56fb7yg/combined
+```
+
+<Aside type="caution">
+This endpoint exists for debugging and is not part of the documented API surface — it is hidden from the OpenAPI description for a reason. The combined structure is a graph with references running in both directions, and serialising it produces a great deal of JSON for even a modest deposit. Use the [file system view](#viewing-whats-in-the-deposit) and the [parsed METS](../editing-mets#the-parsed-mets) instead, and let the API do the merge where it matters — in the [diff Import Job](../import-jobs).
+</Aside>
+
+<LinkCard
+  title="💻 Example: comparing deposit and METS"
+  href="https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/preservation-docs-client/p05_deposit_files/combined_view.py"
+  description="Works out which files are in the deposit but not the METS, and the other way round, from the two views."
+/>

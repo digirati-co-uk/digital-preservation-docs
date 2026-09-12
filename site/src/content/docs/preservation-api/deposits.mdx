@@ -1,0 +1,397 @@
+---
+title: Deposits
+sidebar:
+  label: Deposits
+  order: 4
+---
+
+import { Aside, LinkCard, Steps } from '@astrojs/starlight/components';
+
+A Deposit is a working set of files in S3, which:
+
+* will become an [Archival Group](../repository#archivalgroup) that doesn't yet exist,
+* or can be used for updating an Archival Group,
+* or can be used to obtain the files in an Archival Group for other purposes (e.g. just to look at them).
+
+The latter two are deposits created by [exports](../exports).
+
+You ask the Preservation API to create a Deposit, and it returns an identifier and a **workspace** in S3 — an S3 key prefix under which to assemble files. The workspace belongs exclusively to one Deposit, but other processes external to the Preservation API can (and must) add and remove files and folders in it.
+
+<Aside type="note">
+A Deposit is a wrapper around a group of files that are intended to become an Archival Group (imported into preservation) or are the content of an Archival Group at a particular version (an export). You create a Deposit to make the initial Archival Group in, then run an [Import Job](../import-jobs) which makes the Archival Group. Later, perhaps to add a file, you export the Archival Group into a new Deposit.
+</Aside>
+
+The Preservation API does not itself offer a direct way to upload the binary content of a file into S3 (or any other Deposit backing storage). You can't POST binary data to an API endpoint. It's assumed that your applications do that independently — assembling files in the workspace allocated to them by the API. Your applications may also provide their own METS file to describe the contents, which the Preservation API can read to look for checksums and other information. The Preservation API can also create and edit METS files for you, and has operations to [add and remove files and folders in the METS file](../editing-mets). It can only modify METS files it has created; you can't introduce a third-party METS file and modify it through the API. You'd have to modify it yourself, updating the METS file in the workspace.
+
+## Creating a Deposit
+
+POST a minimal Deposit body to `/deposits` and the API will create a new Deposit, assigning a URI (the `id` property).
+
+In this example the intended Archival Group URI, the name of the Archival Group, and a note are all provided up front. These three fields are optional — you can also create a Deposit without any information about where it is to go or what it is called, and decide on these later.
+
+```
+POST /deposits
+Content-Type: application/json
+```
+
+```json
+{
+  "type": "Deposit",
+  "template": "BagIt",
+  "archivalGroup": "https://preservation-api.example/repository/library/my-new-archivalgroup",
+  "archivalGroupName": "My new Archival Group",
+  "submissionText": "A note for me and my colleagues later"
+}
+```
+
+```
+HTTP/1.1 201 Created
+Location: /deposits/e56fb7yg
+```
+
+The response body is the created Deposit, which you can also fetch at that location:
+
+```jsonc
+{
+  "id": "https://preservation-api.example/deposits/e56fb7yg",
+  "type": "Deposit",
+  "archivalGroup": "https://preservation-api.example/repository/library/my-new-archivalgroup",
+  "archivalGroupExists": false,
+  "files": "s3://working-bucket/deposits/e56fb7yg/",
+  "status": "new",
+  "submissionText": "A note for me and my colleagues later",
+  "archivalGroupName": "My new Archival Group",
+  "active": true,
+  "preserved": null,
+  "preservedBy": null,
+  "versionPreserved": null,
+  "exported": null,
+  "exportedBy": null,
+  "versionExported": null,
+  "template": "BagIt",
+  "metsETag": "\"hg67fghufp2jiefho875\"",
+  "lockedBy": null,
+  "lockDate": null,
+  "archived": null,
+
+  // the common resource properties:
+  "created": "2024-03-14T14:58:46.102335Z",
+  "createdBy": "https://preservation-api.example/agents/tom",
+  "lastModified": "2024-03-14T14:58:46.102335Z",
+  "lastModifiedBy": "https://preservation-api.example/agents/tom"
+}
+```
+
+| Property | Description |
+|---|---|
+| `id` | URI of the Deposit in the API. This is always assigned by the API. |
+| `type` | `Deposit` |
+| `template` | Write-only, supplied when creating a new Deposit. `None` (the default), `RootLevel` or `BagIt`. See [Templates](#templates). |
+| `archivalGroup` | The URI of the Archival Group in the repository that this deposit will become (or was exported from).<br/>You don't need to provide this up front. You may not know it yet (e.g. you are appraising files). For some users it will be assigned automatically. It may suit you to set it shortly before sending the deposit for preservation. |
+| `archivalGroupExists` | Whether the resource at `archivalGroup` exists — i.e. the Deposit will update it, rather than create it. Worked out afresh each time the Deposit is fetched. |
+| `archivalGroupName` | The name of the Archival Group. If new, this will be given to the Archival Group when it is created by an Import Job generated from this Deposit. It is not required (it can be set on the Import Job directly), but is useful for clarity. |
+| `submissionText` | A space to leave notes for colleagues or your future self. |
+| `files` | An S3 key prefix that represents a parent location. Use the workspace under this key to assemble files for an Import Job. |
+| `status` | `new`, `exporting`, `preserved`, `error` or `archived`. See [The life of a Deposit](#the-life-of-a-deposit). |
+| `active` | Whether the Deposit can still be worked on. Once an Import Job has run for a deposit it is no longer active, but may still be retrieved from the API for a time. |
+| `preserved` | When an Import Job from this deposit resulted in a new Archival Group, or a new version of one. |
+| `preservedBy` | The [Agent](../agents) URI of whoever executed that Import Job. |
+| `versionPreserved` | The OCFL version (`v1`, `v2`, `v3`…) that resulted from this Deposit. |
+| `exported` | If this deposit was created by asking the API to export an Archival Group, when that happened. |
+| `exportedBy` | Who triggered the export. |
+| `versionExported` | …and the version of the Archival Group that was exported. |
+| `metsETag` | The ETag of the deposit's METS file at the moment the Deposit was fetched. You supply it as `If-Match` when [editing the METS](../editing-mets); your changes are rejected if it is no longer current, because someone else has edited the METS file. Null when the deposit has no METS file. |
+| `lockedBy` | The Agent URI holding a [lock](#locking-a-deposit) on the Deposit. Usually null — a lock is not required to edit, only to stop others from editing. |
+| `lockDate` | If `lockedBy` is not null, when that caller acquired the lock. |
+| `archived` | When the deposit's workspace was archived off by the deposit archiver. Null for a live deposit. |
+
+<LinkCard
+  title="💻 Example: create a Deposit"
+  href="https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/preservation-docs-client/p04_deposits/create_deposit.py"
+  description="Creates a RootLevel deposit and prints what came back."
+/>
+
+### What the API checks
+
+If you supply `archivalGroup`, it is validated before anything is created:
+
+| Condition | Response |
+|---|---|
+| The path contains characters not permitted in the repository | `400 Bad Request` |
+| Another **active** Deposit already exists for that Archival Group | `409 Conflict` |
+| Something exists at that path but is not an Archival Group (a Container, say) | `409 Conflict` |
+| Nothing exists at that path | Fine — the Deposit will create it (`archivalGroupExists` is false) |
+
+## Templates
+
+When `template` is `None`, you are in complete control of the file structure of the deposit, and can arrange files how you like. The Preservation API will look for a METS file in the root from which it can derive the necessary SHA256 checksums for the files, and optional additional metadata such as the name of the file. If you then ask the API to [generate an Import Job](../import-jobs) it will use this METS-derived data.
+
+If you create your own Import Job manually, you can supply checksums at that point, and the Deposit content can be anything.
+
+The Preservation API can also read SHA256 checksums from S3 object attributes, but only if the attribute has been set. If you are not providing a checksum via METS and want the Preservation API to create an Import Job for you, you will have to upload files to S3 with the `ChecksumAlgorithm` parameter set to `SHA256` — see [Checking object integrity](https://docs.aws.amazon.com/AmazonS3/latest/userguide/checking-object-integrity.html) in the AWS documentation.
+
+When providing your own METS to supply this information, the METS file must include (at least) SHA256 checksums for the deposit files, as `premis` metadata:
+
+```xml
+<premis:fixity>
+   <premis:messageDigestAlgorithm xsi:type="premis:messageDigestAlgorithm">SHA256</premis:messageDigestAlgorithm>
+   <premis:messageDigest>49ea24a3070c92a393289685ad9d3c3d71e5c23f0ac72e76e63aac658dc3ee59</premis:messageDigest>
+</premis:fixity>
+```
+
+When `template` is `RootLevel`, the Deposit is created like this:
+
+```
+/
+   objects/
+   metadata/
+      ad-hoc/
+   mets.xml
+```
+
+And when `template` is `BagIt`, the same layout is produced one level down, inside a `data` directory:
+
+```
+/
+  data/
+    objects/
+    metadata/
+       ad-hoc/
+    mets.xml
+```
+
+The `objects` folder is where the files you want to preserve go; everything must be in or below it. `metadata` is where [tool outputs](../tool-outputs-and-pipelines) go, and `metadata/ad-hoc` is for metadata files that belong to the object but are not the output of any tool. Both start empty, and both are recorded in the new METS file as well as in S3.
+
+For a deposit made against an Archival Group that already exists, the folders are not scaffolded like this: the Archival Group's own content defines the deposit's, and the platform reconciles the `metadata` folders once that content has arrived.
+
+The BagIt form is ideal for uploading an unpacked BagIt bag into — the Preservation API will read any BagIt manifest file in the root of this structure and use checksums from it.
+
+<Aside type="note">
+The workspace also gets a `__METSlike.json` file in its root. That is the API's own cached view of the file system (see [Deposit files](../deposit-files)), not something you write or preserve.
+</Aside>
+
+## Creating a Deposit from an identifier
+
+The Preservation API has a specific integration with the Leeds identity service, allowing a Deposit to be created for an Archival Group from just an identifier. Instead of POSTing a Deposit body to `/deposits`, you POST a `SchemaAndValue` to `/deposits/from-identifier`:
+
+| Property | Description |
+|---|---|
+| `schema` | Any schema identifier supported by the identity service. `id` (or `pid`) looks the record up directly; anything else — `catirn`, `repositoryuri` — is a query. |
+| `value` | A URI, or for certain schemas, just a single string identifier. |
+| `template` | Same as the Deposit `template` property. |
+
+```
+POST /deposits/from-identifier
+```
+
+```json
+{
+  "schema": "id",
+  "value": "t2sjhy5d",
+  "template": "None"
+}
+```
+
+```
+HTTP/1.1 201 Created
+Location: /deposits/e56fb7yg
+```
+
+The resulting Deposit will have its `archivalGroup` and `archivalGroupName` properties already populated, from the identity record's repository URI and title. This is typically used when all the files, including METS, will be supplied externally and the Preservation API won't manage the METS file.
+
+The identifier must resolve to exactly one record: an unknown identifier gives `404 Not Found`, and an ambiguous one fails rather than guessing.
+
+## Working on a Deposit
+
+You can do whatever you like in the S3 space provided by a deposit. Upload new files to S3, rearrange the files, and so on.
+
+Most clients will also include a METS file, and the Preservation API will use it to obtain, where it can, expected SHA256 digests for each file, original names of files and directories, and content types. This additional information is required for constructing an Import Job. If you are not using a METS file, or are using one the Preservation API does not understand, you must provide digest information another way — by asking AWS to compute a SHA256 checksum when uploading a file, or by supplying digests in an Import Job you write yourself.
+
+Most of the work done on a deposit is in S3, placing files. You can also modify the Deposit itself, providing or updating `archivalGroup`, `archivalGroupName` and `submissionText`. To run an Import Job on a deposit, its `archivalGroup` property must be set, but *when* in the workflow that happens is up to you.
+
+## Fetching a Deposit
+
+Deposits are always at the path `/deposits/<identifier>`.
+
+```
+GET /deposits/e56fb7yg
+```
+
+Fetching a Deposit is not a purely passive operation: the API takes the opportunity to bring it up to date. It re-checks whether the Archival Group exists, reads the current ETag of the METS file, and — if the deposit is still `exporting` — asks the Storage API whether the export has finished, moving the deposit to `new` when it has.
+
+<LinkCard
+  title="💻 Example: fetch and patch a Deposit"
+  href="https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/preservation-docs-client/p04_deposits/get_and_patch.py"
+  description="Fetches a deposit, changes its name and note, and shows what changed."
+/>
+
+## Listing and searching Deposits
+
+The API provides an extensive set of query parameters for retrieving deposits.
+
+```
+# the first page of 100, newest first, active deposits only
+GET /deposits
+
+# page 37 of deposits created by an agent whose name matches "tom"
+GET /deposits?page=37&createdBy=tom
+```
+
+The response is a page object, not a bare list:
+
+```json
+{
+  "deposits": [ /* ... Deposit objects ... */ ],
+  "page": 1,
+  "pageSize": 100,
+  "total": 2417
+}
+```
+
+| Query parameter | Type | Default | Description |
+|---|---|---|---|
+| `page` | integer | `1` | The page of results, from 1 upwards. |
+| `pageSize` | integer | `100` | How many results to return in each response. |
+| `orderBy` | string | `created` | One of `archivalGroupPath`, `status`, `exported`, `exportedBy`, `preserved`, `preservedBy`, `lastModified`, `lastModifiedBy`, `created`, `createdBy`. Anything else falls back to `created`. |
+| `ascending` | boolean | `false` | Direction of `orderBy`. |
+| `createdBy` | string\* | null | Only deposits created by that agent. |
+| `createdAfter` | ISO date | null | Only deposits created at or after that moment. |
+| `createdBefore` | ISO date | null | Only deposits created before that moment. |
+| `lastModifiedBy` | string\* | null | Only deposits last modified by that agent. |
+| `lastModifiedAfter` | ISO date | null | …last modified at or after that moment. |
+| `lastModifiedBefore` | ISO date | null | …last modified before that moment. |
+| `preservedBy` | string\* | null | Only deposits preserved by that agent. |
+| `preservedAfter` | ISO date | null | …preserved at or after that moment. |
+| `preservedBefore` | ISO date | null | …preserved before that moment. |
+| `exportedBy` | string\* | null | Only deposits exported by that agent. |
+| `exportedAfter` | ISO date | null | …exported at or after that moment. |
+| `exportedBefore` | ISO date | null | …exported before that moment. |
+| `archivalGroupPath` | string | null | Deposits for one Archival Group. A value containing `/` matches the whole path; a value without one matches any path ending in it. |
+| `archivalGroupPathParent` | string | null | Deposits for any Archival Group below that path. |
+| `status` | string | null | Only deposits with that `status`. |
+| `active` | boolean | null | `false` returns only inactive deposits. Ignored when `showAll` is true. |
+| `showAll` | boolean | `false` | By default only active deposits are returned; this overrides that. |
+| `archived` | boolean | null | A filter, not an include: `true` returns **only** archived deposits, `false` only unarchived ones. Omit it to get both. |
+
+\* An agent URI or just its last path segment.
+
+<Aside type="caution">
+Sending no query parameters at all is not the same as sending ones that happen to match everything. With no terms, the API returns active deposits ordered by creation date, newest first. To walk every deposit there has ever been, ask for `showAll=true` with `orderBy=created&ascending=true` — ascending order keeps paging stable while other people are still creating deposits, because a new deposit sorts after everything you have already seen.
+</Aside>
+
+<LinkCard
+  title="💻 Example: list and filter Deposits"
+  href="https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/preservation-docs-client/p04_deposits/list_deposits.py"
+  description="Pages through deposits and narrows the list with query parameters."
+/>
+
+## Patching a Deposit
+
+Used to update `archivalGroup`, `archivalGroupName` and `submissionText`. Other properties in the body are ignored.
+
+```
+PATCH /deposits/e56fb7yg
+```
+
+```json
+{
+  "type": "Deposit",
+  "archivalGroupName": "A better name",
+  "submissionText": "I changed my mind about the name."
+}
+```
+
+A property is only changed when you send a value for it, so a patch can carry just the one field you care about. The same validation as on creation applies to a changed `archivalGroup`. A deposit that is currently `exporting`, or locked by somebody else, cannot be patched: both give `409 Conflict`.
+
+## Deleting a Deposit
+
+A Deposit can be deleted at any time, for example to start again on a Deposit, or to abandon one.
+
+```
+DELETE /deposits/e56fb7yg
+```
+
+```
+HTTP/1.1 204 No Content
+```
+
+* Deleting a Deposit has no effect on an Archival Group already created from it.
+* It deletes the workspace contents in S3 as well as the Deposit record.
+* A Deposit locked by someone else cannot be deleted: `409 Conflict`.
+* A Deposit is not a preserved resource like a Container, Binary or Archival Group — it is not in Fedora. So the discussion of [tombstones and purging](../repository#head-requests-and-tombstones) does not apply.
+
+## Locking a Deposit
+
+A lock is more of a marker on a Deposit than something that can prevent all activity. The API expects you to work on files in a Deposit location independently, and can have no visibility of your activity until an explicit refresh of its view of storage is asked for. Access to the working location is an AWS or file system concern, not an API concern.
+
+However, the deposit locking mechanism has two purposes:
+
+* User interfaces built on top of the API, used by people without direct access to the deposit working location, can use the lock status to enforce more constraints on user behaviour.
+* The API can prevent direct actions on a locked deposit where the action is requested by someone other than the lock holder — patches, deletion, modification of METS through the API, and running Import Jobs.
+
+You can work on a Deposit without acquiring a lock on it.
+
+```
+POST /deposits/e56fb7yg/lock
+```
+
+```
+HTTP/1.1 204 No Content
+```
+
+This sets the Deposit's `lockedBy` and `lockDate` properties; the identity of the caller becomes `lockedBy`. If the Deposit is already locked by someone else, this returns `409 Conflict`. You can override that with the `force` query parameter:
+
+```
+POST /deposits/e56fb7yg/lock?force=true
+```
+
+That acquires a lock for the caller whether or not the Deposit is already locked.
+
+Any API caller can remove a lock:
+
+```
+DELETE /deposits/e56fb7yg/lock
+```
+
+If there is no existing lock, the operation is a no-op rather than an error.
+
+<LinkCard
+  title="💻 Example: lock and unlock"
+  href="https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/preservation-docs-client/p04_deposits/lock_unlock.py"
+  description="Takes a lock, sees the conflict a second caller would get, and releases it."
+/>
+
+## The life of a Deposit
+
+<Steps>
+
+1. **`new`** — created, and yours to work on. `active` is true.
+
+2. **`exporting`** — only for a deposit created by an [export](../exports). The files are being copied out of the Archival Group and into the workspace; you can't do anything useful until this finishes. Fetching the deposit is what moves it on to `new` once the export has completed.
+
+3. **`preserved`** — an [Import Job](../import-jobs) from this deposit has run and succeeded. `preserved`, `preservedBy` and `versionPreserved` are filled in, and `active` becomes false: the deposit has done its job and is now a record of it.
+
+4. **`error`** — the Import Job finished but did not succeed. The deposit also becomes inactive.
+
+5. **`archived`** — the workspace has been archived off. See below.
+
+</Steps>
+
+### Active and inactive
+
+`active` is the flag that says whether a deposit is still live work. It starts true, and the API sets it false when an Import Job from the deposit completes — successfully or not. Listings show only active deposits unless you ask otherwise.
+
+Two operations move the flag by hand:
+
+```
+PUT /deposits/e56fb7yg/activate
+PUT /deposits/e56fb7yg/deactivate
+```
+
+Both return `204 No Content`. `activate` is how you pick up a deposit whose Import Job failed and carry on with it. `deactivate` is deliberately narrow: it is refused with `400 Bad Request` unless the deposit's status is `error`, so a deposit cannot be quietly retired out of the middle of a piece of work.
+
+### Archived deposits
+
+A deposit's workspace does not live forever. The deposit archiver packs up the workspace of deposits that are finished with, sets the `archived` timestamp and moves the status to `archived`. The Deposit record itself remains readable through the API, and the [Import Job results](../import-job-results) that record what was preserved are unaffected — as is the Archival Group, which is the point of the whole exercise.
+
+Use the `archived` query parameter to find them, remembering that it is a filter in both directions: `archived=false` excludes archived deposits, `archived=true` returns nothing else.

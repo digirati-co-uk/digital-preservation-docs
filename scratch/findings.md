@@ -16,6 +16,56 @@ documentation error or a code bug.
   and once `docs/rfc-0001-api-caller-identity.md` reaches `main`, link it from the authentication
   page's "transitional arrangement" note (deliberately unlinked for now — it would 404).
 
+- **`MetsExtensions` property names: the old doc says `physDivId`, the code says `divId`.**
+  (deposit-files page) `DigitalPreservation.Common.Model/Transit/Extensions/MetsExtensions.cs`
+  serialises `href`, `divId` and `admId`. The old doc's table names `physDivId` and `admId` and
+  omits `href` entirely. Documentation error; the site uses the real names.
+
+- **The Deposit resource has no `pipelineJobs` property.** (deposits page) The example Deposit in
+  `documentation/02-Preservation-API.md` includes `"pipelineJobs": []`, but nothing in
+  `Common.Model.PreservationApi.Deposit` produces it. Pipeline job results are a separate
+  endpoint, `GET /deposits/{id}/pipelinerunjobs`. Documentation error.
+
+- **Lock conflicts are reported as 401 by some operations and 409 by others.** (editing-mets page)
+  `WorkspaceManager.AddItemsToMets`, `DeleteItems` and `CreateFolder` return
+  `ErrorCodes.Unauthorized` when another caller holds the lock, which `ResultX.ToProblemDetails`
+  maps to **401**. The controller-level checks for the same condition (patch, delete, normalise)
+  return `Conflict` → **409**. Same situation, two status codes, and 401 is misleading: the caller
+  is authenticated and authorised, the deposit is busy. Looks like a code bug; the site documents
+  the behaviour as it is.
+
+- **`DeleteSelection.ContinueIfFail` reads as the opposite of what it does.** (editing-mets page)
+  In `DeleteItems`, a failure is swallowed and the item recorded as deleted when the list is
+  non-empty and does NOT contain that item's path; a failure on a path that IS in the list aborts
+  the whole operation. So the list names the paths whose failure is fatal, while the name says the
+  reverse. Only caller is `ExecutePipelineJob` (pipeline metadata folders). The property is also
+  the only one on `DeleteSelection` without an explicit `JsonPropertyName`. Undocumented on the
+  site deliberately; worth renaming or inverting in code.
+
+- **`ExifTag.mismatchAdded` is serialised to API clients.** (deposit-files page) It is internal
+  bookkeeping for mismatch generation between deposit and METS EXIF, mutated during comparison,
+  but it is a public property with a `JsonPropertyName` and so appears in the file system view.
+  Harmless, confusing; left out of the documented table.
+
+- **`ExifTagComparer.GetHashCode` is inverted.** (deposit-files page)
+  `!string.IsNullOrEmpty(exifTag.TagName) ? 0 : exifTag.TagName?.GetHashCode() ?? 0` returns 0 for
+  every non-empty value, so every tag hashes to 0 and the `Except`/`SequenceEqual` calls that use
+  the comparer degrade to O(n²). Results are still correct because `Equals` is right. Code bug,
+  performance only.
+
+- **`DepositQuery.ShowForm` does nothing.** (deposits page) It is bound from the query string like
+  every other `DepositQuery` property but no handler reads it — `GetDepositsHandler` ignores it and
+  `NoTerms()` does not consider it. Looks like a leftover from the UI. Undocumented on the site.
+
+- **The site assumes S3 as the Deposit backing store, which will not always be true.**
+  (deposits, deposit-files) Tom: S3 is the only valid back end at the moment, but the intention is
+  to support a file share or local drive too — `file:///` URIs alongside `s3://`. There is already
+  a file-system implementation of the METS loader/storage (`DigitalPreservation.Mets/StorageImpl/
+  FileSystemMetsLoader.cs`, `FileSystemMetsStorage.cs`) next to the S3 one. Decision taken for now:
+  write S3 concretely rather than abstracting it. **When a second backing store lands, the
+  deposits and deposit-files pages (and the samples' `s3_helpers.py`) need revisiting** so a
+  workspace on a mounted drive is a first-class case.
+
 - **Binary `content` URI is not served by the Preservation API.** (repository page) The old doc said
   `GET /content/...` on the Preservation API returns 403; there is no `/content` route in
   Preservation.API at all, so it is a 404. Only the Storage API serves it. Either add a proxying

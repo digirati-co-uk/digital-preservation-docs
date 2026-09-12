@@ -1,0 +1,4 @@
+Sample object
+=============
+
+Two files, a folder, and nothing that needs a licence.
