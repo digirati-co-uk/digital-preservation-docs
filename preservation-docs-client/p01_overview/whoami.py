@@ -17,4 +17,7 @@ if problems:
 # The `source` says where that name came from: the token, the X-Client-Identity header,
 # or a signed-in user.
 r = get("/whoami")
-pprint(r.json())
+if r.status_code == 200:
+    pprint(r.json())
+else:
+    print("No identity information from this instance; see the Authentication page.")

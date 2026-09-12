@@ -64,19 +64,30 @@ The same document as the API understands it, as JSON — useful when you want th
 | `agent` | The `mets:agent` name recorded in the document. |
 | `editable` | Whether that agent is the platform's own — that is, whether the operations below will work. |
 | `eTag` | The current ETag of the document. |
+| `xDocument` | Always null here. The XML itself comes from `GET {id}/mets`. |
 
 ## The ETag, and why every write needs one
 
 The METS file is an ordinary file in the workspace. You can edit it yourself, and so can anybody else with access to the bucket — the API is not the only writer. So every operation that changes the METS is guarded by its ETag: you say which version of the document you are changing, and the API refuses if that is no longer the current one.
 
-Get the value from the Deposit's `metsETag` property, or from the `ETag` header of `GET {id}/mets`, and send it back **exactly as you received it**, quotation marks included:
+Get the value from the Deposit's `metsETag` property, or from the `ETag` header of `GET {id}/mets`, and send it back **exactly as you received it**, quotation marks included — it is an S3 ETag, and the quotes are part of it:
 
 ```
 POST /deposits/e56fb7yg/mets
 If-Match: "bfc13a64729c4290ef5b2c2730249c88ca92d82d"
 ```
 
-A mismatch is `409 Conflict`, with the current ETag in the problem's `detail` — re-read the METS and work out what changed rather than retrying with the new value.
+A mismatch is `409 Conflict`, with the current ETag in the problem's `detail` — re-read the METS and work out what changed rather than retrying with the new value:
+
+```json
+{
+  "title": "Conflict: ETag does not match deposit METS",
+  "status": 409,
+  "detail": "\"dac666070460a826b809a3b7846cb01c\""
+}
+```
+
+Every successful write changes the ETag, so a second edit needs a freshly fetched one: the value you used a moment ago is already stale.
 
 | Operation | `If-Match` |
 |---|---|

@@ -6,7 +6,12 @@ through an Import Job.
 import settings
 from preservation import get, put, delete, head
 
-path = f"/repository/{settings.DOCS_CONTAINER_PATH}/docs-temp-container"
+parent = f"/repository/{settings.DOCS_CONTAINER_PATH}"
+path = f"{parent}/docs-temp-container"
+
+# Every ancestor must already be a Container: a PUT below a path that does not exist is refused
+# with 409, naming the missing ancestor. So make the parent first.
+put(parent, {"type": "Container", "name": "Containers made by the docs samples"})
 
 # PUT with a body giving the display name...
 r = put(path, {"type": "Container", "name": "A temporary container made by the docs samples"})
@@ -26,3 +31,6 @@ head(path)
 # DELETE again with purge removes it completely: the path answers 404 and can be reused.
 delete(path + "?purge=true")
 head(path)
+
+# Tidy up the parent we made, leaving the repository as we found it.
+delete(parent + "?purge=true")

@@ -43,4 +43,7 @@ else:
 # `source` says how the API resolved the name: "token" if it recognised the app id above,
 # "header-fallback" if it fell back to the X-Client-Identity header we sent.
 r = get("/whoami")
-pprint(r.json())
+if r.status_code == 200:
+    pprint(r.json())
+else:
+    print("No identity information from this instance; see the Authentication page.")

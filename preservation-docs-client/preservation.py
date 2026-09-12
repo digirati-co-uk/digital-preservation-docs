@@ -83,10 +83,11 @@ def get(path: str, params: dict = None, host: str = None, extra_headers: dict = 
     return r
 
 
-def head(path: str, host: str = None):
+def head(path: str, host: str = None, extra_headers: dict = None):
     uri = normalise_path(path, host)
-    _log("HEAD", uri)
-    r = requests.head(uri, headers=get_auth_headers(), verify=_verify(uri))
+    headers = {**get_auth_headers(), **(extra_headers or {})}
+    _log("HEAD", uri, extra_headers=extra_headers)
+    r = requests.head(uri, headers=headers, verify=_verify(uri))
     print(f"HTTP Status Code: {r.status_code}")
     return r
 
@@ -100,28 +101,29 @@ def post(path: str, body=None, host: str = None, extra_headers: dict = None):
     return r
 
 
-def put(path: str, body=None, host: str = None):
+def put(path: str, body=None, host: str = None, extra_headers: dict = None):
     uri = normalise_path(path, host)
-    headers = {**get_auth_headers(), "Content-Type": "application/json"}
-    _log("PUT", uri, body)
+    headers = {**get_auth_headers(), "Content-Type": "application/json", **(extra_headers or {})}
+    _log("PUT", uri, body, extra_headers)
     r = requests.put(uri, headers=headers, json=body, verify=_verify(uri))
     print(f"HTTP Status Code: {r.status_code}")
     return r
 
 
-def patch(path: str, body=None, host: str = None):
+def patch(path: str, body=None, host: str = None, extra_headers: dict = None):
     uri = normalise_path(path, host)
-    headers = {**get_auth_headers(), "Content-Type": "application/json"}
-    _log("PATCH", uri, body)
+    headers = {**get_auth_headers(), "Content-Type": "application/json", **(extra_headers or {})}
+    _log("PATCH", uri, body, extra_headers)
     r = requests.patch(uri, headers=headers, json=body, verify=_verify(uri))
     print(f"HTTP Status Code: {r.status_code}")
     return r
 
 
-def delete(path: str, host: str = None):
+def delete(path: str, host: str = None, extra_headers: dict = None):
     uri = normalise_path(path, host)
-    _log("DELETE", uri)
-    r = requests.delete(uri, headers=get_auth_headers(), verify=_verify(uri))
+    headers = {**get_auth_headers(), **(extra_headers or {})}
+    _log("DELETE", uri, extra_headers=extra_headers)
+    r = requests.delete(uri, headers=headers, verify=_verify(uri))
     print(f"HTTP Status Code: {r.status_code}")
     return r
 
