@@ -149,8 +149,16 @@ Verified against the code at `src/DigitalPreservation` (branch
   `originUriResolver` that maps each METS file to the Binary's **`id`** (its Preservation API
   repository URI), not to its `origin`, despite the name. Combined with the existing finding that
   the Preservation API does not serve `/content/...`, a IIIF client handed one of these manifests
-  cannot fetch any image. The manifest is useful for its structure; it is not yet viewable.
-  Needs a decision alongside the `content` URI finding in `findings.md`. Documented as a caution.
+  cannot fetch any image.
+
+  **Resolved 2026-09-12, by intent rather than by change.** Tom: these manifests are not meant to
+  be viewed. Their purpose is to scaffold a downstream IIIF builder — structure, ranges, annotations
+  for `smLink`-ed files — which takes the references to the *preserved files* and registers the
+  assets with a delivery platform (IIIF Cloud Services) that serves them publicly. So a body that
+  names the preserved Binary rather than a fetchable image is the correct behaviour, and the
+  `originUriResolver` naming is the only misleading part. The page now says this up front; it no
+  longer reads as a defect. The separate `content` URI finding in `findings.md` still stands on its
+  own terms, for callers who want bytes from the Preservation API.
 
 - **The Archival Group Manifest endpoint is not behind the IIIF feature flag; the deposit ones
   are.** (iiif page) `IiifController` (`GET /iiif/...`) is authenticated and always available.

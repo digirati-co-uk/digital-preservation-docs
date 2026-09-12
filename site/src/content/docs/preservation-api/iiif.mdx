@@ -5,13 +5,42 @@ sidebar:
   order: 15
 ---
 
-import { Aside, LinkCard } from '@astrojs/starlight/components';
+import { Aside, LinkCard, Steps } from '@astrojs/starlight/components';
 
-A preserved object and a [IIIF](https://iiif.io/) Manifest describe overlapping things: an ordered set of files, some of which are images or audio-visual, arranged into a structure that means something to a reader. The Preservation API can present either an [Archival Group](../repository#-archivalgroup) or a [Deposit](../deposits) as a [IIIF Presentation 3](https://iiif.io/api/presentation/3.0/) Manifest, which gives you two things for free: a way to *look* at what you are about to preserve, in any IIIF viewer; and a way to *edit* the logical structure of an object, in any IIIF manifest editor, by sending the manifest back.
+A preserved object and a [IIIF](https://iiif.io/) Manifest describe overlapping things: an ordered set of files, some of which are images or audio-visual, arranged into a structure that means something to a reader. The Preservation API can present either an [Archival Group](../repository#-archivalgroup) or a [Deposit](../deposits) as a [IIIF Presentation 3](https://iiif.io/api/presentation/3.0/) Manifest.
 
-<Aside type="note">
-These manifests are a working view of material in the platform. They are not the public manifests an institution publishes — those are built separately by iiif-builder, which combines the preserved METS with catalogue metadata and serves them from a public IIIF server.
+<Aside type="caution" title="Read this before using these manifests">
+This is **experimental and half implemented**. What is here today is enough to be useful, and
+narrower than it looks.
 </Aside>
+
+## What this is for
+
+These manifests are **not** IIIF representations of your objects that you can put on the web. They are not intended to be viewed by the public, served from a public address, or treated as the institution's published IIIF.
+
+What they are for is **scaffolding a downstream IIIF builder**. The platform already knows things such a builder would otherwise have to work out for itself from the METS: which files are the object's content and which are derivatives of other files, what order they go in, their dimensions and durations, how the logical structure nests, and what access conditions apply to each part. Emitting that as a Manifest — canvases, ranges, annotations for `smLink`-ed files — means a builder can start from a structure rather than from a pile of XML.
+
+The expected arrangement is:
+
+<Steps>
+
+1. The Preservation API produces the scaffolding: structure, relationships, extents, and references to the preserved files.
+
+2. A downstream builder takes those references and **registers the assets with a IIIF delivery platform** — for Leeds, Digirati's IIIF Cloud Services — which is what actually serves image tiles, audio and video to the public.
+
+3. That platform publishes the public Manifest, with the descriptive metadata the builder adds from the catalogue.
+
+</Steps>
+
+So a reference in one of these manifests is an instruction to a builder about where the bytes live in the repository, not a URL for a viewer to load.
+
+### Where this is going
+
+**The IIIF Cloud Services extended model.** The intention is to support `paintedResources`, the compact representation that platform uses to say [which assets paint which canvases](https://dlcs.github.io/public-docs/api-doc/iiif-manifests/), so that the scaffolding can be handed over more directly rather than being translated on the way. Each entry pairs a `canvasPainting` — order, labels, dimensions — with the `asset` itself, and the platform generates the canvases and painting annotations from them. Nothing in the API emits `paintedResources` today.
+
+**Access conditions as access control.** [Access conditions](../vocabularies) are declared in METS and already travel into a manifest's Ranges as `metadata` and `rights`. The aim is for them to be expressed in a form a delivery platform can act on — turning a preservation-level statement about who may see something into the roles and configuration that control access to the published assets. How that is expressed is not settled, and none of it is built.
+
+**Editing structure with ordinary IIIF tools.** The Deposit manifest and the ability to POST one back, below, are a demonstration rather than a finished feature: they show that richer range editing can be done in existing IIIF software — Digirati's Manifest Editor, for instance — instead of everything having to be built into the [Preservation UI](../../ui/deposits). Treat it as a proof that the door is open, not as the recommended way to work.
 
 ## What ends up in a manifest
 
@@ -33,8 +62,14 @@ The path after `/iiif/` is the Archival Group's path under `/repository`. The re
 
 This endpoint needs the same bearer token as the rest of the API; there is no anonymous variant.
 
-<Aside type="caution">
-The painting annotations in an Archival Group's manifest point at the Binaries' `/repository/...` URIs. Those URIs return JSON descriptions of the Binaries, not image bytes, because the Preservation API does not currently serve file content (see [Fetching file content](../repository#fetching-file-content)). The manifest is therefore useful for its *structure* — what the object contains, and how it is arranged — but a viewer will not be able to display it. Use the Deposit manifest below when you want to see the images.
+<Aside type="note" title="These references are not for a viewer">
+The painting annotations point at the Binaries' `/repository/...` URIs, and those return JSON
+descriptions of the Binaries rather than image bytes — the Preservation API does not serve file
+content (see [Fetching file content](../repository#fetching-file-content)). That is the point rather
+than a gap: the reference tells a downstream builder *which preserved file* paints the canvas, and
+it is that builder's job to register the asset with a delivery platform that can serve it. Do not
+point a viewer at one of these and expect pictures. If you want to *look* at content, use the
+Deposit manifest below, which does serve its files.
 </Aside>
 
 <LinkCard
