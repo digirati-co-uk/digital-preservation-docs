@@ -1,79 +1,79 @@
-# Findings from the verification pass
+# Findings F: METS section (mets/ pages)
 
-A checking agent re-read twenty-three committed pages against the code and found seventeen errors.
-All of them have been corrected on the site. What follows is the residue: the things that are wrong
-in the **code**, or that a reader should know, rather than things that were wrong in the prose.
+Discrepancies found while porting `documentation/02a`–`02e` into `site/src/content/docs/mets/`,
+checked against `digital-preservation` `main` (f8ccd55) on 2026-09-11. Each entry says what the old
+page claimed, what the code does, and how the site page was phrased.
 
-Four were confirmed against the running dev instance, marked **[live]**.
+## Open
 
-## Code bugs the verification turned up
+### F1. Virus-scan events are recognised by `premis:eventType`, not by ID prefix (02c stale)
+- 02c "Virus-scan events" says the parser takes "the last `mets:digiprovMD` whose ID starts with
+  `digiprovMD_ClamAV_`".
+- Code: `MetsParser.IsVirusCheckEvent` matches `premis:eventType == "virus check"`
+  (`Constants.VirusCheckEventType`, case-insensitive); the `digiprovMD_ClamAV_` prefix is only used
+  by the conventional-key *fallback* (`LatestByConventionalKey`). A digiprovMD wrapping several
+  events yields the last one typed `virus check`.
+- Site: `mets-we-read.mdx` and `mets-we-write.mdx` describe the eventType rule. Docs error (stale
+  after the #221/#188 follow-ups); no code bug.
 
-- **`ErrorCodes.PreconditionFailed` maps to 500.** `ResultX.ToProblemDetails`
-  (`DigitalPreservation.Core/Web/ResultX.cs:11-34`) has cases for NotFound, Unauthorized,
-  BadRequest, Conflict, Unprocessable and Tombstone, and a `default` of 500. `PreconditionFailed` is
-  defined in `ErrorCodes` but has no case, so an ETag failure raised down in storage
-  (`S3MetsStorage.cs:50,94`) reaches the caller as **500**, not 412. The controller-level `If-Match`
-  checks answer 409 and are unaffected. The site now documents 409 and no longer mentions 412.
+### F2. The editability judge (PR #238) is still open
+- 02e reads as if the judge exists ("is implemented as a runnable check").
+- Code: PR #238 (`feat/223-editability-judge`) is OPEN as of 2026-09-11; there is no
+  `DigitalPreservation.Mets.Conformance` project on `main`. The shipped rule remains
+  `mets.Editable = mets.Agent == Constants.MetsCreatorAgent` (`MetsParser.cs` lines 254/270).
+- Site: `editability.mdx` says the judge "is designed as" a runnable check and states explicitly
+  that it is not yet part of the platform, linking PR #238. **Revisit when #238 merges.**
 
-- **`archived` and `active` are ignored unless another query term is present. [live]**
-  `DepositQuery.NoTerms()` does not consider either property, so `GET /deposits?archived=true` takes
-  the no-terms branch in `GetDeposits.cs:30-37` and returns `Where(d => d.Active)` — the default
-  listing. Measured against dev: `?archived=true` returned 223 deposits whose first row had
-  `archived: null` and status `new`; `?archived=true&showAll=true` returned 4,713, correctly
-  archived. No error, no indication the filter was dropped. The page now carries a danger note.
+### F3. 02d "Status" is stale on the migration campaigns
+- 02d says the campaigns "have been surveyed and sized but not yet run".
+- The development campaign has since run (early September 2026); production is pending platform
+  release. This is operational state, not code, so the site page avoids dating it: "operational runs
+  of the tool rather than code changes; until they have completed in every environment…".
+  Update the wording once the production campaign completes (mixed-form rules then stop being
+  load-bearing, and the two legacy fallbacks named on the identifiers page become removable).
 
-- **The `createdBy`/`preservedBy`/`exportedBy` filters reject the very URIs `GET /agents` hands
-  out. [live]** `GetDeposits.cs` compares with `==` against a column holding the bare caller name.
-  `ResourceMutator.GetCallerIdentity(Uri)` exists at `:147` to convert a URI back to a name and is
-  **never called**. Measured against dev: filtering by the full Agent URI returned 0, by the bare
-  name returned 1, and by a prefix of the name returned 0. `agents.mdx` had been telling readers to
-  use the `/agents` list for exactly this; both pages are corrected.
+### F4. Feature flag names not in the old docs
+- 02b/02d refer to "the migration feature flag" without naming it.
+- Code: `FeatureFlags:NormaliseMetsIdsOnWrite` (`MetsManagerOptions`, read in
+  `MetsManager.NormaliseOnWrite`) controls normalise-on-write; the UI action is separately gated by
+  `FeatureFlags:ShowNormaliseMetsIds` (`Deposit.cshtml.cs`). Site names the first; the second is a
+  UI concern for the `ui/` section.
 
-- **The Deposit `template` is never echoed back. [live]** It is not persisted and
-  `ResourceMutator.MutateDeposit` never sets it, so every response says `"template": "None"`.
-  Confirmed on a deposit created as `RootLevel`. Harmless but confusing; noted in the example.
+### F5. Normaliser refuses documents with duplicate IDs (not in 02d)
+- Code: `MetsIdNormaliser.PlanRewrites` refuses (returns a report with `DuplicateIds`) before
+  touching anything when two elements share an ID; `MetsManager.NormaliseIds` surfaces this as a
+  failure. Added to `identifiers.mdx` step 3. Docs omission, not a bug.
 
-- **Inherited metadata in the deposit file table is invisible until hover.**
-  `wwwroot/css/site.css:334-343` gives `.dep-meta-inherited` `opacity: 0`, revealed only on
-  `.deposit-row:hover` / `:focus-within`. So a blank metadata cell means "nothing set *here*", not
-  "no value" — and the value cannot be seen by anyone not using a pointer. Worth treating as an
-  accessibility bug as well as a usability one. The UI pages now say so.
+### F6. Code location: `DigitalPreservation.Mets`, not `Storage.Repository.Common/Mets`
+- The porting brief (and the code repo's own `CLAUDE.md`) place `MetsManager`/`MetsParser` under
+  `Storage.Repository.Common/Mets/`. On `main` they live in
+  `src/DigitalPreservation/DigitalPreservation.Mets/` (with `MetsIds.cs`, `MetsIdNormaliser.cs`,
+  `MetsCache.cs`, `PremisEventManager.cs`, etc.). 02b/02c already say `DigitalPreservation.Mets`;
+  the site links to that path. The code repo's `CLAUDE.md` is what is stale.
 
-- **`ImportJobResult.importJob` points at the Storage API host.** `MutateStorageBaseUris` rewrites
-  `Id`, `CreatedBy` and `LastModifiedBy` but not `ImportJob`. Same family as the `seeAlso` problem
-  in `findings-C.md` and the `content` URI problem in `findings.md`: Storage URIs leaking into
-  Preservation API responses that most callers cannot dereference.
+## Verified (no discrepancy)
 
-- **"You can only export the HEAD version" returns 500.** `CreateDepositBase.cs` uses
-  `ErrorCodes.UnknownError` for what is a caller error; it should be 400 or 409.
+- ID prefixes `PHYS_`/`FILE_`/`ADM_`/`TECH_`/`DMD_`, `DMD_PHYS_ROOT`, `PHYS_ROOT`/`__ROOT`,
+  `digiprovMD_ClamAV_` and the between-prefix-and-identifier occurrence number
+  (`Constants.NumberedVirusProvEventId`), `XmlConvert.EncodeLocalName` encoding via `ToMetsId()`,
+  `MetsIds.Normalise` leaving legal IDs untouched — all as documented.
+- Agent name `University of Leeds Digital Library Infrastructure Project`; root title fallback
+  `[Untitled]`; children sorted by lower-cased label (`MetsManager` line 461).
+- Caller-supplied logical range IDs are validated with `XmlConvert.VerifyNCName` and rejected
+  (`MetsManager.SetStructMap`), not encoded.
+- Parser structMap selection: `TYPE="physical"` case-insensitive first, else first not-`logical`.
+  Editing stack (`MetsCache.Build`, `MetsManager` line 781) requires the exact string `PHYSICAL`
+  (`Constants.Physical`), so the "parseable but not navigable" gap in 02c/02e is real.
+- Parser reads one `premis:contentLocation` via `SingleOrDefault` (throws on two), matching 02e's
+  EPrints `file://` quirk note. Goobi access condition read from `type="status"`; record identifiers
+  read only from `mods:recordIdentifier`; name = first `mods:title` else `mods:name`.
+- `Bitrate` significant property comes from the Exif `AvgBitrate` tag; video dimensions prefer
+  `ImageSize`, then `SourceImageWidth/Height`, then `ImageWidth/Height` (`PremisManagerExif`).
+- Link targets exist on `main`: `docs/issues/223/issue-223-editability-plan.md`,
+  `src/mets-id-migration/`, `DigitalPreservation.Mets/{MetsIds,MetsManager,MetsParser}.cs`.
 
-- **`ArchiveJobResult` has no `id` and no `status`** — `MutateDepositArchiveJob` sets neither. The
-  only API resource without an `id`.
+## Cross-links that depend on other sections
 
-## Corrected in the prose, no code change needed
-
-- `ImportJob` and `ImportJobResult` **do** carry `lastModified`/`lastModifiedBy`: both extend
-  `Resource`, and both are populated on write. The overview page had claimed otherwise.
-- The Storage API is not wholly innocent of METS: `POST /exportmetsonly` selects files with
-  `MetsUtils.IsMetsFile`, and `CreateDepositBase` relies on it. It recognises a METS file by name; it
-  does not parse one.
-- The Pipeline API, not the Preservation API, writes tool results into the METS.
-- The Storage API talks to the Fedora database directly, read-only
-  (`GetPopulatedContainer`, `GetSimpleSearch`, `GetSearchCount`), for containment listings and
-  search. The architecture diagrams omitted this edge.
-- An Archival Group Name is needed only when the import job *creates* the object, and it is the
-  Storage API that refuses at execution — so the job reports `completedWithErrors` rather than
-  failing up front.
-- There is no Export resource on the Preservation API; you poll the Deposit, and polling is what
-  moves it from `exporting` to `new`.
-
-## Still uncertain
-
-- Whether Fedora's `simple_search` half of the search is case-insensitive (the Deposit half
-  demonstrably is). `Storage.API/Fedora/FedoraDB.cs:142` would settle it.
-- Several BagIt edge cases in the UI look wrong for a `data/`-rooted deposit — the METS-row
-  exemption in `_RenderCombinedDirectoryAsTableRows.cshtml:104`, `PathIsKnownFirstLevelDirectory`
-  matching only bare `objects`/`metadata`, and `PhysicalFilePathsJson` filtering on
-  `StartsWith("objects/")`. These read as code bugs; a real BagIt deposit would confirm.
-- `Browse.cshtml.cs:83` only looks for not-yet-existing objects when the path has more than two
-  segments, so they never appear at or just below the root. Unclear whether that is deliberate.
+`mets/` pages link to `../../preservation-api/deposits#templates`, `../../preservation-api/editing-mets`
+and `../../preservation-api/vocabularies`. Only `preservation-api/overview.mdx` exists at the time of
+writing; the build will report broken links until those pages land.

@@ -16,10 +16,11 @@ import os
 
 import s3_helpers
 import settings
+from p10_exports.find_archival_group import preserved_archival_group
 from preservation import post, pprint, wait_for_value
 
-path = os.environ.get("DOCS_ARCHIVAL_GROUP", f"{settings.DOCS_CONTAINER_PATH}/import-job-example")
-archival_group = f"{settings.PRESERVATION_API_HOST}/repository/{path}"
+archival_group = preserved_archival_group()
+print(f"Exporting {archival_group}")
 
 r = post("/deposits/export", {
     "type": "Deposit",
