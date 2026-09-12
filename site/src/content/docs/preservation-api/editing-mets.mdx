@@ -70,7 +70,7 @@ The same document as the API understands it, as JSON — useful when you want th
 
 The METS file is an ordinary file in the workspace. You can edit it yourself, and so can anybody else with access to the bucket — the API is not the only writer. So every operation that changes the METS is guarded by its ETag: you say which version of the document you are changing, and the API refuses if that is no longer the current one.
 
-Get the value from the Deposit's `metsETag` property, or from the `ETag` header of `GET {id}/mets`, and send it back **exactly as you received it**, quotation marks included — it is an S3 ETag, and the quotes are part of it:
+Get the value from the `ETag` header of `GET {id}/mets`, or from the `metsETag` property of a Deposit you fetched **by its own id** — the listing does not carry one, and neither does the response to creating a deposit. Send it back **exactly as you received it**, quotation marks included: it is an S3 ETag, and the quotes are part of it.
 
 ```
 POST /deposits/e56fb7yg/mets

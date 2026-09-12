@@ -85,6 +85,9 @@ for path in sorted(paths_in(filesystem)):
 
 to_add = [relative_path for _, relative_path in PAYLOAD]      # no data/ prefix
 print(f"\nAdding to the METS: {to_add}")
+# Fetch the deposit for its metsETag. Neither the response to creating a deposit nor the deposit
+# listing carries one - only GET /deposits/{id} does.
+deposit = get(f"/deposits/{slug}").json()
 r = post(f"/deposits/{slug}/mets", to_add, extra_headers={"If-Match": deposit["metsETag"]})
 if r.status_code >= 400:
     pprint(r.json())

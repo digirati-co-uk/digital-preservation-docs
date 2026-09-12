@@ -100,7 +100,7 @@ The response body is the created Deposit, which you can also fetch at that locat
 | `exported` | If this deposit was created by asking the API to export an Archival Group, when that happened. |
 | `exportedBy` | Who triggered the export. |
 | `versionExported` | …and the version of the Archival Group that was exported. |
-| `metsETag` | The ETag of the deposit's METS file at the moment the Deposit was fetched. You supply it as `If-Match` when [editing the METS](../editing-mets); your changes are rejected if it is no longer current, because someone else has edited the METS file. Null when the deposit has no METS file — and also null in the response to creating one, even when a METS file was created, so fetch the Deposit before your first edit. |
+| `metsETag` | The ETag of the deposit's METS file at the moment the Deposit was fetched. You supply it as `If-Match` when [editing the METS](../editing-mets); your changes are rejected if it is no longer current, because someone else has edited the METS file. Only populated by `GET /deposits/{id}`. It is null in the response to *creating* a deposit even when a METS file was created, and null on every deposit in a listing, so fetch the individual Deposit before your first edit. |
 | `lockedBy` | The Agent URI holding a [lock](#locking-a-deposit) on the Deposit. Usually null — a lock is not required to edit, only to stop others from editing. |
 | `lockDate` | If `lockedBy` is not null, when that caller acquired the lock. |
 | `archived` | When the deposit's workspace was archived off by the deposit archiver. Null for a live deposit. |

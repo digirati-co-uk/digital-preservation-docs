@@ -29,8 +29,7 @@ def preserved_archival_group() -> str:
     }).json()
     if not page["deposits"]:
         raise SystemExit(
-            "No Archival Group to export: these samples have not preserved one yet.
-"
+            "No Archival Group to export: these samples have not preserved one yet. "
             "Run python -m workflows.w02_preserve_first_time, or set DOCS_ARCHIVAL_GROUP to the "
             "path of an object you may export.")
     return page["deposits"][0]["archivalGroup"]

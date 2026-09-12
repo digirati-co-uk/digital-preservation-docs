@@ -17,7 +17,7 @@ import os
 import s3_helpers
 import settings
 from p10_exports.find_archival_group import preserved_archival_group
-from preservation import post, pprint, wait_for_value
+from preservation import delete, post, pprint, wait_for_value
 
 archival_group = preserved_archival_group()
 print(f"Exporting {archival_group}")
@@ -51,3 +51,8 @@ print("\nThe deposit is now an ordinary working area: change the files, update t
 print("an Import Job to preserve the next version. If you only wanted to read the files, DELETE")
 print("the deposit when you have finished - an abandoned export blocks anyone else from making")
 print("a deposit for the same Archival Group.")
+
+# Tidy up. Only one ACTIVE deposit may exist for an Archival Group at a time, so a sample that
+# leaves its export lying around blocks the next person (and the next sample). Deleting the deposit
+# does nothing to the preserved object - that is the point of an export being a copy.
+delete(f"/deposits/{slug}")

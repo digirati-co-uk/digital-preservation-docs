@@ -50,6 +50,11 @@ def ready_deposit() -> dict:
     archival_group = archival_group_uri()
 
     deposit = active_deposit_for(archival_group)
+    if deposit and deposit.get("preserved"):
+        # A Deposit is good for exactly one Import Job. Once it has preserved something, asking it
+        # for another diff is a 409, so start a new one rather than reuse this.
+        print(f"The deposit for {archival_group} has already been preserved; making a new one")
+        deposit = None
     if deposit:
         print(f"Reusing the active deposit for {archival_group}")
     else:
@@ -65,6 +70,10 @@ def ready_deposit() -> dict:
         deposit = r.json()
 
     slug = deposit_slug(deposit)
+
+    # Always fetch the deposit by id before using its metsETag. The listing does not carry one -
+    # only GET /deposits/{id} populates it - and nor does the response to creating one.
+    deposit = get(f"/deposits/{slug}").json()
 
     # Bring the METS into line with the workspace. Only paths in or below objects/ or metadata/
     # are added; anything in the deposit but not in the METS would fail the diff.
