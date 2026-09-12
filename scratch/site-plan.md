@@ -29,14 +29,14 @@ Link form: sibling page `../slug`; other group `../../group/slug`; anchor `#head
 
 ## workflows/
 1 overview.mdx
-2 recipes.mdx          - Small answers to specific questions
-2 preserve-first-time.mdx        - own METS, first version (from 06 quickstart)
-3 update-with-export.mdx
-4 update-without-export.mdx
-5 custom-import-job.mdx
-6 managed-mets-deposit.mdx       - RootLevel template, upload files, run pipeline, add to METS, import
-7 bagit-deposit.mdx
-8 reading-the-activity-stream.mdx
+2 recipes.mdx                     - small answers to specific questions
+3 preserve-first-time.mdx        - own METS, first version (from 06 quickstart; the Goobi case)
+4 update-with-export.mdx
+5 update-without-export.mdx
+6 custom-import-job.mdx
+7 managed-mets-deposit.mdx       - RootLevel template, upload files, run pipeline, add to METS, import
+8 bagit-deposit.mdx
+9 reading-the-activity-stream.mdx
 
 ## mets/
 1 overview.mdx           - the platform's use of METS; map of the four pages (from 02a + intro material)
