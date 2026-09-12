@@ -6,6 +6,8 @@ sidebar:
 ---
 
 import { Aside, Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+import { Image } from 'astro:assets';
+import imgBrowseRoot from '../../../assets/ui/browse-root.jpg';
 
 The Preservation UI is the web application library staff use to work with the platform: to look at what has been preserved, to assemble files into a [Deposit](../../preservation-api/deposits), to describe them, and to preserve them as a new version of an [Archival Group](../../preservation-api/repository#archivalgroup).
 
@@ -13,7 +15,7 @@ It is a client of the [Preservation API](../../preservation-api/overview) and no
 
 Throughout this documentation the UI is assumed to be at `https://preservation.example`. Your institution's instance will be on its own hostname.
 
-{/* screenshot: the Browse page at the repository root, showing the sidebar and header */}
+<Image src={imgBrowseRoot} alt="The Browse page at the repository root: the sidebar on the left, the search box across the top, and a listing of containers and Archival Groups." />
 
 ## Signing in
 

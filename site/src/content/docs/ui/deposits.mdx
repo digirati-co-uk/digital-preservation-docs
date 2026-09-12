@@ -6,6 +6,9 @@ sidebar:
 ---
 
 import { Aside, Steps } from '@astrojs/starlight/components';
+import { Image } from 'astro:assets';
+import imgDepositsAdvancedSearch from '../../../assets/ui/deposits-advanced-search.jpg';
+import imgDepositPage from '../../../assets/ui/deposit-page.jpg';
 
 A [Deposit](../../preservation-api/deposits) is a working area: a set of files on their way into the repository, plus the [METS](../../mets/overview) file that describes them. The Deposit page is where most of the work in this application happens — uploading files, arranging them, describing them, running tools over them, and finally turning them into a new version of an Archival Group.
 
@@ -22,7 +25,7 @@ Every column heading is a sort link; clicking the one you are already sorted by 
 
 The advanced search panel filters on the archival group path, the status, and on who did what and when — created, last modified, preserved and exported each have an agent dropdown and a pair of date boxes. The agent dropdowns are populated with the agents the platform actually knows about, so you are choosing from real names rather than typing one. These map onto the [deposit query parameters](../../preservation-api/deposits#listing-and-searching-deposits).
 
-{/* screenshot: the deposits list with the advanced search panel open */}
+<Image src={imgDepositsAdvancedSearch} alt="The deposits list with the advanced search panel open, filtered to deposits created by one agent." />
 
 ## Creating a deposit
 
@@ -59,7 +62,7 @@ Exporting a large object takes time. While it is happening the deposit's status 
 
 ## The Deposit page
 
-{/* screenshot: the Deposit page with a few files, the file table and the side panel */}
+<Image src={imgDepositPage} alt="The Deposit page: the file table with a Both label on each row, and the side panel showing status, who created it and whether it has been preserved." />
 
 The page has four parts down the middle — the deposit's properties, the file table, the import jobs, and the pipeline jobs — with a summary panel on the right and an **Actions** menu at the top.
 

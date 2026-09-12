@@ -6,6 +6,9 @@ sidebar:
 ---
 
 import { Aside, Steps } from '@astrojs/starlight/components';
+import { Image } from 'astro:assets';
+import imgImportJobDiff from '../../../assets/ui/import-job-diff.jpg';
+import imgImportJobResult from '../../../assets/ui/import-job-result.jpg';
 
 An [import job](../../preservation-api/import-jobs) is the thing that turns a [deposit](../deposits) into a new version of an Archival Group. Nothing else writes to the repository. In the UI you do not write one: you ask the platform to work out the difference between the deposit and the object as it stands, look at what it proposes, and run it.
 
@@ -38,7 +41,7 @@ The button takes you to a page showing what the platform proposes to do, under t
 
 Read it as the answer to "what would preserving this deposit actually change?". For a first version everything is an addition. For an update, the interesting lists are the deletions and patches: a file you did not mean to touch appearing under **Binaries to Delete** is the thing this page exists to catch, and usually means a file was removed from the workspace when only the METS entry should have gone.
 
-{/* screenshot: the diff page for an update, showing additions and one patched binary */}
+<Image src={imgImportJobDiff} alt="A diff import job, listing the containers and binaries to add and leaving the patch, delete and rename sections empty." />
 
 <Aside type="note">
 Generating the diff changes nothing. You can do it as often as you like, go back to the deposit, fix something, and generate it again.
@@ -90,7 +93,7 @@ Then the facts of the run: the deposit and Archival Group it was for (both links
 
 Finally the same seven lists as the diff, but in the past tense — containers and binaries added, patched, deleted and renamed — with each item a link into [Browse](../browsing). This is what actually happened, which is not always identical to what was proposed.
 
-{/* screenshot: a completed import job result showing a new version and the binaries added */}
+<Image src={imgImportJobResult} alt="A completed import job result, showing the new version v1 and the containers and binaries that were added." />
 
 ## The jobs for a deposit
 

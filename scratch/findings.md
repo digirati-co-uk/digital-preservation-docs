@@ -53,9 +53,13 @@ documentation error or a code bug.
   the comparer degrade to O(n²). Results are still correct because `Equals` is right. Code bug,
   performance only.
 
-- **`DepositQuery.ShowForm` does nothing.** (deposits page) It is bound from the query string like
-  every other `DepositQuery` property but no handler reads it — `GetDepositsHandler` ignores it and
-  `NoTerms()` does not consider it. Looks like a leftover from the UI. Undocumented on the site.
+- **`DepositQuery.ShowForm` is a UI property on a shared API class.** (deposits page) No API
+  handler reads it — `GetDepositsHandler` ignores it and `NoTerms()` does not consider it — so as an
+  API query parameter it does nothing. It is not dead, though: `DigitalPreservation.UI`
+  `Pages/Deposits/Index.cshtml:14` reads `Model.Query.ShowForm` to remember whether the advanced
+  search panel is open, which is why `/deposits?showForm=true` appears in UI URLs. Confirmed in the
+  running dev UI. Deliberately undocumented as an API parameter; noted here so it is not mistaken
+  for dead code and removed.
 
 - **The site assumes S3 as the Deposit backing store, which will not always be true.**
   (deposits, deposit-files) Tom: S3 is the only valid back end at the moment, but the intention is

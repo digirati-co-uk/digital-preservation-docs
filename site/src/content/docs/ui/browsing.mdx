@@ -6,12 +6,14 @@ sidebar:
 ---
 
 import { Aside } from '@astrojs/starlight/components';
+import { Image } from 'astro:assets';
+import imgBrowseArchivalGroup from '../../../assets/ui/browse-archival-group.jpg';
 
 **Browse** shows the preserved repository as a tree you can walk: folders (Containers) holding more folders, and eventually [Archival Groups](../../preservation-api/repository#archivalgroup) — the preserved objects — each holding its own folders and files. It starts at `/browse` and every row is a link one level down.
 
 Nothing here can be edited. The contents of an Archival Group only ever change by running an [import job](../import-jobs) from a [deposit](../deposits). The two exceptions are organisational folders *above* Archival Groups, which you can create and delete from this page.
 
-{/* screenshot: the Browse page part-way down the tree, showing the breadcrumb and a mixed listing */}
+<Image src={imgBrowseArchivalGroup} alt="An Archival Group in Browse, showing the breadcrumb, its two versions, the deposits that made them, and the access and rights metadata inherited down the tree." />
 
 ## The listing
 

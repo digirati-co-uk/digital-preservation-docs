@@ -6,6 +6,9 @@ sidebar:
 ---
 
 import { Aside } from '@astrojs/starlight/components';
+import { Image } from 'astro:assets';
+import imgSearchDepositTab from '../../../assets/ui/search-deposit-tab.jpg';
+import imgStatus from '../../../assets/ui/status.jpg';
 
 Three pages that are about the platform as a whole rather than about one object: finding something when you do not know where it is, seeing what has changed recently, and checking that the parts of the platform can reach each other.
 
@@ -13,7 +16,7 @@ Three pages that are about the platform as a whole rather than about one object:
 
 The search box sits in the dark header on every page. Type a term and press Enter; the results page has four tabs, and opens on the first one that found anything.
 
-{/* screenshot: the search results page with the Deposit tab selected */}
+<Image src={imgSearchDepositTab} alt="Search results with the Deposit tab selected; each tab carries the number of matches from that source." />
 
 ### Fedora
 
@@ -87,4 +90,4 @@ Below are the checks themselves, each a card with a name, whether it succeeded, 
 
 The checks run when you load the page, so reloading re-runs them. Between them they cover most of "is it me, or is it broken?" — worth a look before reporting a fault.
 
-{/* screenshot: the status page with all five checks passing */}
+<Image src={imgStatus} alt="The status page, listing the configured API root and working bucket above a card for each connectivity check." />
