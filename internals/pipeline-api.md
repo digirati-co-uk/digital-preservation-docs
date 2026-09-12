@@ -170,7 +170,7 @@ Status reporting is `POST /deposits/pipeline-status`, hidden from the OpenAPI de
   "id": "hkbgyzjh9sep",
   "depositId": "e56fb7yg",
   "status": "processing",
-  "runUser": "test00005@leeds.ac.uk",
+  "runUser": "user@example.ac.uk",
   "errors": null
 }
 ```
