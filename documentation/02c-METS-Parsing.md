@@ -1,3 +1,12 @@
+> [!WARNING]
+> **Superseded.** This page has been ported to the documentation site, checked against the
+> code as it actually behaves: **https://digirati-co-uk.github.io/digital-preservation-docs/mets/mets-we-read/**
+> 
+> It is kept for history. Where the two disagree, the site is right - the porting pass
+> corrected a number of things here that no longer matched the code.
+> 
+> In particular, the rule for finding virus-scan events is stale here. This page says the parser takes the last `mets:digiprovMD` whose **ID starts with `digiprovMD_ClamAV_`**. It does not: it matches a `premis:event` whose `premis:eventType` is `virus check`, and the ID prefix is only a fallback. Third-party provenance that declares itself a virus check is therefore in scope, which the rule below implies it is not.
+
 # What the METS parser can read
 
 The platform's `MetsParser` (in the `DigitalPreservation.Mets` library) reads METS files from many sources — not just the files the platform writes itself. Deposits can arrive with METS produced by Archivematica, EPrints, Goobi, or by hand, and the parser extracts a common model from all of them:

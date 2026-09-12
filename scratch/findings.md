@@ -1,106 +1,88 @@
-# Findings while porting the documentation
+# Findings
 
-Discrepancies between the old documentation, the site, and the code, found while porting.
-Each entry says where it was found, what the code actually does, and whether it looks like a
-documentation error or a code bug.
+What the documentation port turned up. Around 150 individual findings were recorded across the
+`findings-*.md` files while the site was written; this page is the index and the priority order.
 
-## Open
+Everything here was checked against the code. Items marked **[live]** were also measured against the
+development instance.
 
-- **The site documents RFC-0001 Phase 0 code that is not yet on `main`.** (overview, authentication)
-  `/whoami`, `CallerResolver`, `WhoAmIResult`, `IClientDirectory`/`KnownClients` and the per-caller
-  `depositBucket` routing exist only on the code repo's `feature/multiple-deposit-buckets` branch;
-  `origin/main` has just `AuthFilterIdentifier` and `ClaimsPrincipalX`. The overview page (previous
-  session) and the authentication page both describe the branch. That matches the handover's
-  instruction to verify against the working tree, and Tom has confirmed the direction, but the site
-  must not go live describing endpoints a deployed instance does not have. Check before publishing;
-  and once `docs/rfc-0001-api-caller-identity.md` reaches `main`, link it from the authentication
-  page's "transitional arrangement" note (deliberately unlinked for now — it would 404).
+## Where the detail is
 
-- **`MetsExtensions` property names: the old doc says `physDivId`, the code says `divId`.**
-  (deposit-files page) `DigitalPreservation.Common.Model/Transit/Extensions/MetsExtensions.cs`
-  serialises `href`, `divId` and `admId`. The old doc's table names `physDivId` and `admId` and
-  omits `href` entirely. Documentation error; the site uses the real names.
+| File | What it covers |
+|---|---|
+| `findings-original-list.md` | The first entries, from porting the overview and repository pages |
+| `findings-A.md` | Import jobs, results, exports, the workflow pages |
+| `findings-B.md` | Tool outputs and the Pipeline API |
+| `findings-C.md` | Activity stream, versions, search, IIIF, vocabularies |
+| `findings-D.md` | The Preservation UI |
+| `findings-E.md` | Storage API and the internals pages |
+| `findings-F.md` | METS (the 02a-02e port), from the first session |
+| `findings-V-verification.md` | The two verification passes over the finished pages |
 
-- **The Deposit resource has no `pipelineJobs` property.** (deposits page) The example Deposit in
-  `documentation/02-Preservation-API.md` includes `"pipelineJobs": []`, but nothing in
-  `Common.Model.PreservationApi.Deposit` produces it. Pipeline job results are a separate
-  endpoint, `GET /deposits/{id}/pipelinerunjobs`. Documentation error.
+## Raised as issues
 
-- **Lock conflicts are reported as 401 by some operations and 409 by others.** (editing-mets page)
-  `WorkspaceManager.AddItemsToMets`, `DeleteItems` and `CreateFolder` return
-  `ErrorCodes.Unauthorized` when another caller holds the lock, which `ResultX.ToProblemDetails`
-  maps to **401**. The controller-level checks for the same condition (patch, delete, normalise)
-  return `Conflict` → **409**. Same situation, two status codes, and 401 is misleading: the caller
-  is authenticated and authorised, the deposit is busy. Looks like a code bug; the site documents
-  the behaviour as it is.
+All filed on the code repository. None of these is outstanding in the documentation: each is
+described on the site as the platform currently behaves, with a note that comes out when the issue
+is closed.
 
-- **`DeleteSelection.ContinueIfFail` reads as the opposite of what it does.** (editing-mets page)
-  In `DeleteItems`, a failure is swallowed and the item recorded as deleted when the list is
-  non-empty and does NOT contain that item's path; a failure on a path that IS in the list aborts
-  the whole operation. So the list names the paths whose failure is fatal, while the name says the
-  reverse. Only caller is `ExecutePipelineJob` (pipeline metadata folders). The property is also
-  the only one on `DeleteSelection` without an explicit `JsonPropertyName`. Undocumented on the
-  site deliberately; worth renaming or inverting in code.
+| # | What | Why it matters |
+|---|---|---|
+| [#258](https://github.com/digirati-co-uk/digital-preservation/issues/258) | Lock conflicts answer 401 from some operations and 409 from others | 401 makes a client refresh its token and retry forever |
+| [#259](https://github.com/digirati-co-uk/digital-preservation/issues/259) | `DeleteSelection.ContinueIfFail` has inverted logic | A tolerated failure is reported as a deletion; the pipeline's own clean-up may be half-failing |
+| [#260](https://github.com/digirati-co-uk/digital-preservation/issues/260) | Import jobs accept renames and never perform them | The job reports `completed` having changed nothing |
+| [#262](https://github.com/digirati-co-uk/digital-preservation/issues/262) | Storage API `/content` returns HTTP 200 with a body saying 404 | The one endpoint serving raw bytes, where a wrong status is hardest to notice |
+| [#263](https://github.com/digirati-co-uk/digital-preservation/issues/263) | `archived`/`active` silently ignored; agent filters reject Agent URIs **[live]** | `?archived=true` returns the ordinary active list; `GET /agents` output does not work as a filter |
+| [#264](https://github.com/digirati-co-uk/digital-preservation/issues/264) | `metsETag` absent from the create response and from listings **[live]** | Four sample programs hit this independently; the resulting 409 points at the wrong thing |
+| [#265](https://github.com/digirati-co-uk/digital-preservation/issues/265) | Storage API URIs leak into Preservation responses (`seeAlso`, `importJob`, `content`) | Callers are handed hosts they cannot reach |
+| [#266](https://github.com/digirati-co-uk/digital-preservation/issues/266) | Caller errors surfacing as HTTP 500 (`PreconditionFailed`, non-head export) | |
+| [#267](https://github.com/digirati-co-uk/digital-preservation/issues/267) | A hand-written Import Job can name a different Archival Group, and runs against it | Content lands in the wrong object and reports success |
+| [#268](https://github.com/digirati-co-uk/digital-preservation/issues/268) | UI: agent links 404, a display helper throws on third-party METS, inherited metadata invisible until hover, a GET performs writes | |
 
-- **`ExifTag.mismatchAdded` is serialised to API clients.** (deposit-files page) It is internal
-  bookkeeping for mismatch generation between deposit and METS EXIF, mutated during comparison,
-  but it is a public property with a `JsonPropertyName` and so appears in the file system view.
-  Harmless, confusing; left out of the documented table.
+## Needs a decision, not a patch
 
-- **`ExifTagComparer.GetHashCode` is inverted.** (deposit-files page)
-  `!string.IsNullOrEmpty(exifTag.TagName) ? 0 : exifTag.TagName?.GetHashCode() ?? 0` returns 0 for
-  every non-empty value, so every tag hashes to 0 and the `Except`/`SequenceEqual` calls that use
-  the comparer degrade to O(n²). Results are still correct because `Equals` is right. Code bug,
-  performance only.
+- **The `content` URI on a Binary.** Either the Preservation API proxies content, with
+  authorisation, or it stops emitting a URI on its own host that it does not serve. Part of #265;
+  the other two in that issue are mechanical, this one is not.
+- **Whether the documented-but-unenforced Import Job requirements should be enforced** -
+  `contentType` and slug validity, whose checks exist but are called only by the UI (#267).
+- **`FeatureFlags:DisableAuth` ships as `"true"` in `Storage.API/appsettings.Example.json`.** Anyone
+  following "start from the example file" gets an unauthenticated Storage API - the one service that
+  can write to Fedora. Not filed separately because the fix is a one-character config change.
 
-- **`DepositQuery.ShowForm` is a UI property on a shared API class.** (deposits page) No API
-  handler reads it — `GetDepositsHandler` ignores it and `NoTerms()` does not consider it — so as an
-  API query parameter it does nothing. It is not dead, though: `DigitalPreservation.UI`
-  `Pages/Deposits/Index.cshtml:14` reads `Model.Query.ShowForm` to remember whether the advanced
-  search panel is open, which is why `/deposits?showForm=true` appears in UI URLs. Confirmed in the
-  running dev UI. Deliberately undocumented as an API parameter; noted here so it is not mistaken
-  for dead code and removed.
+## Dead or misleading code, not worth an issue each
 
-- **The site assumes S3 as the Deposit backing store, which will not always be true.**
-  (deposits, deposit-files) Tom: S3 is the only valid back end at the moment, but the intention is
-  to support a file share or local drive too — `file:///` URIs alongside `s3://`. There is already
-  a file-system implementation of the METS loader/storage (`DigitalPreservation.Mets/StorageImpl/
-  FileSystemMetsLoader.cs`, `FileSystemMetsStorage.cs`) next to the S3 one. Decision taken for now:
-  write S3 concretely rather than abstracting it. **When a second backing store lands, the
-  deposits and deposit-files pages (and the samples' `s3_helpers.py`) need revisiting** so a
-  workspace on a mounted drive is a first-class case.
+- `FeatureFlags:UseLocalHostedServiceForPipeline` is read by nothing: `Program.cs` registers
+  `SqsPipelineQueue` last, so it always wins and `InProcessPipelineQueue` is unreachable.
+- `FeatureFlags:DisableAuth` is set in four `Pipeline.API` settings files and read by none of them.
+- `ProcessPipelineResult.virusDefinition` and `cleanupProcessJob` are serialised but never populated.
+- `ArchiveJobResult` always has `id` and `status` null - the only API resource with no `id`.
+- `ExifTagComparer.GetHashCode` is inverted, so every tag hashes to 0 and the comparisons that use it
+  degrade to O(n squared). Results stay correct.
+- `ExifTag.mismatchAdded` is internal bookkeeping but is serialised to API clients.
+- `DepositQuery.ShowForm` does nothing in the API - but it is **not** dead: the UI reads it to
+  remember whether the advanced search panel is open.
+- `Pages/Deposits/_RenderDirectory.cshtml` is referenced only by itself.
+- The first published activity is a seed row pointing at `example.com`, because `PreservationContext`
+  seeds it without `Suppressed = true`.
+- The Deposit `template` is never persisted, so every response says `"template": "None"` whatever was
+  asked for.
 
-- **Binary `content` URI is not served by the Preservation API.** (repository page) The old doc said
-  `GET /content/...` on the Preservation API returns 403; there is no `/content` route in
-  Preservation.API at all, so it is a 404. Only the Storage API serves it. Either add a proxying
-  endpoint (with authorisation) or stop emitting a Preservation-API-hosted `content` URI on
-  Binaries. Needs a decision.
+## The originals are still misleading, and Leeds may read them
 
-- **`Storage.API/appsettings.Example.json` ships `FeatureFlags:DisableAuth` as `"true"`.**
-  (authentication page) Anyone following the documented "start from `appsettings.Example.json`"
-  advice for the Storage API gets an API with authentication switched off — the flag skips the
-  whole filter stack (`AuthorizeFilter` and `AuthFilterIdentifier`) and `UseAuthentication()`.
-  `Preservation.API`'s example ships `"false"`, correctly. Already noted in RFC-0001 §7 and still
-  true. Looks like a code/config bug: the example should default to secure.
+Each file in `documentation/` now carries a banner pointing at its replacement. The three worth
+knowing about:
 
-- **`FeatureFlags:DisableAuth` does nothing in Pipeline API.** (authentication page, internals)
-  `Pipeline.API/appsettings.json`, `.Development.json`, `.Example.json` and `.Testing.json` all set
-  it to `"true"`, but no code in `Pipeline.API` reads it — only Preservation API, Storage API and
-  the Importer do. Pipeline API authenticates with `X-API-KEY` unconditionally. Harmless but
-  misleading dead config; the code repo's CLAUDE.md also says the flag "disables all auth for local
-  development", which is not true of Pipeline API.
+- **02c's virus-scan rule is stale.** It says the parser takes the last `digiprovMD` whose ID starts
+  with `digiprovMD_ClamAV_`. It matches `premis:eventType` = `virus check`; the prefix is only a
+  fallback. Third-party provenance declaring itself a virus check is in scope, where the old rule
+  implies it is not.
+- **02e reads as though the editability judge exists.** PR #238 is still open; the shipped rule is
+  the `mets:agent` name check.
+- **02d says the migration campaigns have not run.** Development has since completed.
 
-- **Old doc: client credentials with "Refresh Tokens".** (authentication page)
-  `documentation/02-Preservation-API.md` §Authentication says the API implements the client
-  credentials flow "with Refresh Tokens to ensure that access tokens are short lived and can be
-  revoked". The client-credentials grant does not issue refresh tokens (RFC 6749 §4.4.3): a client
-  simply requests a new token when the old one expires. Documentation error; the site keeps the
-  intent (short-lived, revocable) without the refresh-token claim.
+## One for whoever writes here next
 
-- **The Python samples could not be run as documented.** (samples)
-  `preservation-docs-client/README.md` said `python p02_repository/browse_repository.py` — wrong
-  directory number, and that form fails with `ModuleNotFoundError: No module named 'settings'`,
-  because Python puts the *script's* directory on `sys.path`, not the client root. Fixed in the
-  README: run them as modules from the client root (`python -m p03_repository.browse_repository`).
-
-## Resolved
+Three of the four broken sequences the verification pass found were in `workflows/recipes.mdx`,
+written quickly from memory rather than checked against the code - including a
+`GET /repository/{path}/versions` route that has never existed. Short snippets need the same
+verification as long ones, and arguably more, because they are what people copy.

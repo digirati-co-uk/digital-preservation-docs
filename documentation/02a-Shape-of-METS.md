@@ -1,3 +1,10 @@
+> [!WARNING]
+> **Superseded.** This page has been ported to the documentation site, checked against the
+> code as it actually behaves: **https://digirati-co-uk.github.io/digital-preservation-docs/mets/overview/**
+> 
+> It is kept for history. Where the two disagree, the site is right - the porting pass
+> corrected a number of things here that no longer matched the code.
+
 # The Preservation API's use of METS files
 
 > [!WARNING]

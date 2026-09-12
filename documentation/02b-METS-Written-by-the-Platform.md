@@ -1,3 +1,10 @@
+> [!WARNING]
+> **Superseded.** This page has been ported to the documentation site, checked against the
+> code as it actually behaves: **https://digirati-co-uk.github.io/digital-preservation-docs/mets/mets-we-write/**
+> 
+> It is kept for history. Where the two disagree, the site is right - the porting pass
+> corrected a number of things here that no longer matched the code.
+
 # The METS files we write
 
 This page is a specification of the METS files that the platform itself creates and maintains. It describes what the `MetsManager` (in the `DigitalPreservation.Mets` library) writes when a Deposit has a *managed* METS file: one created from a Deposit template (`RootLevel` or `BagIt`) rather than supplied by a third party.
