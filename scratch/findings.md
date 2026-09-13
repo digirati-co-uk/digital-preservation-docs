@@ -55,6 +55,7 @@ is closed.
   to `"false"`. Anyone following "start from the example file" otherwise gets an unauthenticated
   Storage API - the one service that can write to Fedora - in a public repository whose docs tell
   people to start from the example file. One character; needs a PR, not a discussion.
+  **Done: [PR #270](https://github.com/digirati-co-uk/digital-preservation/pull/270).**
 
 ## Dead or misleading code, not worth an issue each
 
