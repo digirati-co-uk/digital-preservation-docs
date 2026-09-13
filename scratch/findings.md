@@ -35,8 +35,9 @@ is closed.
 | [#264](https://github.com/digirati-co-uk/digital-preservation/issues/264) | `metsETag` absent from the create response and from listings **[live]** | Four sample programs hit this independently; the resulting 409 points at the wrong thing |
 | [#265](https://github.com/digirati-co-uk/digital-preservation/issues/265) | Storage API URIs leak into Preservation responses (`seeAlso`, `importJob`, `content`) | Callers are handed hosts they cannot reach |
 | [#266](https://github.com/digirati-co-uk/digital-preservation/issues/266) | Caller errors surfacing as HTTP 500 (`PreconditionFailed`, non-head export) | |
-| [#267](https://github.com/digirati-co-uk/digital-preservation/issues/267) | A hand-written Import Job can name a different Archival Group, and runs against it | Content lands in the wrong object and reports success |
+| [#267](https://github.com/digirati-co-uk/digital-preservation/issues/267) | A hand-written Import Job can name a different Archival Group, and runs against it | Content lands in the wrong object and reports success. Becomes a security boundary once RFC-0001's per-caller roles land - see the comment on the issue |
 | [#268](https://github.com/digirati-co-uk/digital-preservation/issues/268) | UI: agent links 404, a display helper throws on third-party METS, inherited metadata invisible until hover, a GET performs writes | |
+| [#269](https://github.com/digirati-co-uk/digital-preservation/issues/269) | The first published activity is an unsuppressed seed row pointing at `example.com` | Every unattended consumer of the stream trips on page 1 |
 
 ## Needs a decision, not a patch
 
@@ -45,9 +46,15 @@ is closed.
   the other two in that issue are mechanical, this one is not.
 - **Whether the documented-but-unenforced Import Job requirements should be enforced** -
   `contentType` and slug validity, whose checks exist but are called only by the UI (#267).
-- **`FeatureFlags:DisableAuth` ships as `"true"` in `Storage.API/appsettings.Example.json`.** Anyone
-  following "start from the example file" gets an unauthenticated Storage API - the one service that
-  can write to Fedora. Not filed separately because the fix is a one-character config change.
+- ~~`FeatureFlags:DisableAuth` in `Storage.API/appsettings.Example.json`~~ - moved to "just fix it"
+  below; it was never a decision.
+
+## Just fix it
+
+- **`Storage.API/appsettings.Example.json` ships `FeatureFlags:DisableAuth` as `"true"`.** Change it
+  to `"false"`. Anyone following "start from the example file" otherwise gets an unauthenticated
+  Storage API - the one service that can write to Fedora - in a public repository whose docs tell
+  people to start from the example file. One character; needs a PR, not a discussion.
 
 ## Dead or misleading code, not worth an issue each
 
@@ -62,8 +69,6 @@ is closed.
 - `DepositQuery.ShowForm` does nothing in the API - but it is **not** dead: the UI reads it to
   remember whether the advanced search panel is open.
 - `Pages/Deposits/_RenderDirectory.cshtml` is referenced only by itself.
-- The first published activity is a seed row pointing at `example.com`, because `PreservationContext`
-  seeds it without `Suppressed = true`.
 - The Deposit `template` is never persisted, so every response says `"template": "None"` whatever was
   asked for.
 

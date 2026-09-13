@@ -63,8 +63,11 @@ The exclusive gateway to Fedora. Nothing else talks to Fedora. The Storage API:
   in S3;
 - publishes its own activity stream of completed Import Jobs, which the Preservation API consumes.
 
-It has no idea what the files it stores are; a METS file is just another Binary. It has its own
-PostgreSQL database. Import processing can run inside the Storage API or in a separately deployed
+It does not parse or understand the files it stores; a METS file is just another Binary to it,
+with one exception - `exportMetsOnly` picks the METS file out *by name* so it can be copied on its
+own, without reading it. It has its own PostgreSQL database, and it also reads Fedora's own
+database directly (read-only, for containment listings and search) as well as talking to Fedora
+over HTTP. Import processing can run inside the Storage API or in a separately deployed
 **Storage API Importer** service that takes jobs from an SQS queue, so that large imports can be
 scaled independently.
 

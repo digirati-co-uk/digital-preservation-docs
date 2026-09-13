@@ -22,7 +22,7 @@ X-Client-Identity: my-integration
 | A **person**, through the [Preservation UI](../../ui/overview) | Signs in interactively (OpenID Connect). The UI then calls the API with a token acquired *on behalf of* that user. Nothing to configure; you just sign in. |
 | A **machine client** — a digitisation workflow, an integration service, a script | Obtains its own token with the OAuth2 client-credentials grant and calls the API directly. This is what the rest of this page is about. |
 
-For human users presenting credentials to the UI, their display name persists when calls on their behalf are delegated to the Preservation API. But direct API callers, like iiif-builder, migration scripts and Goobi, don't present a principal from which a distinct identity can be extracted — which is what the `X-Client-Identity` header and the allow-list of known clients, both below, are for. The API can tell the two kinds of caller apart from the claims in the token, and records them differently; see [How the API decides who you are](#how-the-api-decides-who-you-are).
+For human users presenting credentials to the UI, their display name persists when calls on their behalf are delegated to the Preservation API. But direct API callers, like iiif-builder, migration scripts and Goobi, don't present a principal from which a distinct identity can be extracted — which is what the `X-Client-Identity` header and the list of known clients, both below, are for. The API can tell the two kinds of caller apart from the claims in the token, and records them differently; see [How the API decides who you are](#how-the-api-decides-who-you-are).
 
 ## Getting a token
 
@@ -70,7 +70,7 @@ We ask API callers to supply an `X-Client-Identity` HTTP header to identify them
 Send it on every request. Use one stable name per client — not a per-run or per-machine name — because it is what someone reading a resource's history months later will see.
 
 <Aside type="note" title="A transitional arrangement">
-The header is how a machine caller is identified today, but it is on its way out. As each caller is given its own registration with the identity provider and added to the allow-list below, its identity comes from the signed token instead — you will see `/whoami` flip from `header-fallback` to `token` — and once every caller has moved, the header will be dropped altogether. So send it today, but don't build anything that depends on it.
+The header is how a machine caller is identified today, but it is on its way out. As each caller is given its own registration with the identity provider and added to the known-clients list below, its identity comes from the signed token instead — you will see `/whoami` flip from `header-fallback` to `token` — and once every caller has moved, the header is expected to be dropped altogether. So send it today, but don't build anything that depends on it.
 </Aside>
 
 <Aside type="caution" title="Attribution, not authorisation">
@@ -82,8 +82,8 @@ The header is a convenience for supplying the human-readable label the token lac
 For each request, the API resolves one name and one `source` in this order:
 
 1. **A signed-in person.** If the token carries a user-identifying claim (`preferred_username`, or `upn`/`unique_name` in older token formats), the caller is a human and their user name is used. Source: `user`.
-2. **A known machine client.** Otherwise the API takes the application id from the token's `azp` (or `appid`) claim and looks it up in its allow-list of known clients. If it is there, the friendly name configured for you is used, and `X-Client-Identity` is ignored. Source: `token`.
-3. **An unrecognised machine client.** If the app id is not in the allow-list, the API falls back to the `X-Client-Identity` header as sent. Source: `header-fallback`.
+2. **A known machine client.** Otherwise the API takes the application id from the token's `azp` (or `appid`) claim and looks it up in its list of known clients. If it is there, the friendly name configured for you is used, and `X-Client-Identity` is ignored. Source: `token`.
+3. **An unrecognised machine client.** If the app id is not on the list, the API falls back to the `X-Client-Identity` header as sent. Source: `header-fallback`.
 4. **Neither.** A machine caller with an unrecognised app id *and* no `X-Client-Identity` header is rejected with `401 Unauthorized` — the token is valid, but the API will not record work it cannot attribute. Source: `unknown` (only ever seen on `/whoami`, which does not reject).
 
 `GET /whoami` reports exactly this decision, and is the first call to make with new credentials:
@@ -101,13 +101,13 @@ GET /whoami
 }
 ```
 
-The `source` value is worth checking whenever your credentials change: a client that expects to be recognised from its token but reports `header-fallback` has not (yet) been added to the allow-list. The properties are described in the [Overview](../overview#checking-your-connection).
+The `source` value is worth checking whenever your credentials change: a client that expects to be recognised from its token but reports `header-fallback` has not (yet) been added to the list. The properties are described in the [Overview](../overview#checking-your-connection).
 
 ## Being a known client
 
-An app-only token does identify *which client application is calling* — verifiably, inside the signed token, as the `azp` (or `appid`) claim. What it doesn't give you is a human-readable name for that app: the token carries the application's GUID, and providers deliberately won't emit its display name. So the API keeps a small map of known client ids to service names, which doubles as an allow-list of permitted callers.
+An app-only token does identify *which client application is calling* — verifiably, inside the signed token, as the `azp` (or `appid`) claim. What it doesn't give you is a human-readable name for that app: the token carries the application's GUID, and providers deliberately won't emit its display name. So the API keeps a small map of known client ids to service names. In time that map is meant to double as an allow-list of permitted callers; today it does not exclude anyone - an app id that is not on it is attributed from its `X-Client-Identity` header instead (step 3 above), not refused.
 
-That allow-list is configuration on the API, keyed by the app id in your token. Each entry gives:
+That list is configuration on the API, keyed by the app id in your token. Each entry gives:
 
 | Setting | Effect |
 |---|---|
@@ -146,6 +146,6 @@ The Python samples support this with `DISABLE_AUTH=true` in their `.env`, which 
 | Symptom | Likely cause |
 |---|---|
 | `401` with a `WWW-Authenticate: Bearer` header | No token, an expired token, or a token whose signature, issuer or audience the API does not accept. Check that the scope you requested matches the audience this instance validates. |
-| `401` with the body `Unauthorized: No valid user name or machine header` | The token was accepted, but the API could not work out who you are: your app id is not in the allow-list and you sent no `X-Client-Identity`. Add the header, and ask to be added to the allow-list. |
-| `/whoami` reports `"source": "header-fallback"` | Authenticated, but not recognised from your token — attribution is coming from the header you sent. Works, but ask to be added to the allow-list. |
+| `401` with the body `Unauthorized: No valid user name or machine header` | The token was accepted, but the API could not work out who you are: your app id is not on the known-clients list and you sent no `X-Client-Identity`. Add the header, and ask to be added to the list. |
+| `/whoami` reports `"source": "header-fallback"` | Authenticated, but not recognised from your token — attribution is coming from the header you sent. Works, but ask to be added to the list. |
 | Your Deposits are not in the bucket you expected | Only clients resolved from their token are routed to a per-client bucket; check `depositBucket` on `/whoami`. |

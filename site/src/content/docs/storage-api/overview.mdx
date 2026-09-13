@@ -7,7 +7,7 @@ sidebar:
 
 import { Aside, LinkCard } from '@astrojs/starlight/components';
 
-The Storage API is the exclusive gateway to Fedora. Nothing else talks to Fedora - not the [Preservation API](../../preservation-api/overview)'s clients, not the [Preservation UI](../../ui/overview), not the iiif-builder. In a deployment it sits on a private network, and the only things that can reach it are the Preservation API and the [Storage API Importer](https://github.com/digirati-co-uk/digital-preservation/blob/main/docs/internals/deployment.md).
+The Storage API is the exclusive gateway to Fedora. Nothing else talks to Fedora - not the [Preservation API](../../preservation-api/overview)'s clients, not the [Preservation UI](../../ui/overview), not the iiif-builder. It is designed to sit on a private network, reachable only from the Preservation API and the [Storage API Importer](https://github.com/digirati-co-uk/digital-preservation/blob/main/docs/internals/deployment.md).
 
 <Aside type="caution" title="You almost certainly do not need this section">
 Most readers of this documentation have no access to the Storage API and never will. Everything a
@@ -18,7 +18,7 @@ and for the small number of applications that are trusted with direct access to 
 
 ## What it is for
 
-The Storage API hides the specifics of Fedora behind an interface that is only concerned with Containers, Binaries, Archival Groups and Import Jobs. It has no idea what the files it stores are. A METS file is just another Binary to it; so is a TIFF, a spreadsheet or a disk image.
+The Storage API hides the specifics of Fedora behind an interface that is only concerned with Containers, Binaries, Archival Groups and Import Jobs. It does not parse or understand the files it stores. A METS file is just another Binary to it; so is a TIFF, a spreadsheet or a disk image. The one place it acknowledges METS at all is `POST /exportMetsOnly`, which picks the file out by name so that it can be exported alone - it never reads it.
 
 Its job is to:
 
@@ -38,7 +38,7 @@ The resource types are the same, and so is most of the browsing. What is missing
 |---|---|
 | [Container, Binary, ArchivalGroup](../../preservation-api/repository#resource-types) | The same JSON shapes, with `id` and related URIs on the Storage API host. The Preservation API rewrites `id`, `partOf`, `createdBy` and `lastModifiedBy` to its own host when it passes a resource through - but not a Binary's `content`, which stays as the Storage API minted it. |
 | [Browsing the repository](../../preservation-api/repository#walking-the-tree) | The same. `GET /repository/...`, the same `view=lightweight` and `version` parameters, the same `HEAD` behaviour and `X-Preservation-Resource-Type` header, the same `PUT`/`DELETE` for organisational Containers with `?purge=true`. |
-| [`view=mets` and `view=parsed-mets`](../../preservation-api/repository#the-view-and-version-parameters) | Not supported - the Storage API has no concept of METS. Any `view` other than `lightweight` is a `400`. |
+| [`view=mets` and `view=parsed-mets`](../../preservation-api/repository#the-view-and-version-parameters) | Not supported - the Storage API never parses a METS file. Any `view` other than `lightweight` is a `400`. |
 | [Fetching file content](../../preservation-api/repository#fetching-file-content) | This is where the `/content/...` path is actually served. See [Activity and content](../activity-and-content#fetching-file-content). |
 | [Deposits](../../preservation-api/deposits) | Do not exist. The Storage API takes file locations, not workspaces. |
 | [METS](../../mets/overview) and [editing METS](../../preservation-api/editing-mets) | Do not exist. |

@@ -21,14 +21,11 @@ You then end up with, in the Deposit:
 
 Ask for the [file system view](../deposit-files) of the Deposit and you'd see not just the file and folder layout but also the detailed metadata for each file, collated from the various tool outputs. All this metadata is information that should be stored as part of the preserved digital object, in METS form.
 
-However, the METS file is still the original, unpopulated one — nothing has happened to push the metadata present in the tool output files into the XML of the METS.
+What has happened to the METS file depends on which of those workflows you took.
 
-There are two reasons for this:
+In the first, where the analysis was performed externally, the METS file is still the original, unpopulated one — nothing has happened to push the metadata present in the tool output files into the XML of the METS, because there has been no interaction with the Preservation API at all in the construction of a fully populated Deposit. Synchronising the Deposit contents with the METS file is a separate operation, and it is the one this page describes.
 
-* In the first workflow, where the analysis is performed externally, there has been no interaction with the Preservation API at all in the construction of a fully populated Deposit.
-* Even in the second, where the Preservation API ran the tools, you might not want all the files to be part of the eventual preserved object.
-
-For these reasons the synchronisation of the Deposit contents with the METS file is a separate operation.
+In the second, where the Preservation API ran the tools, the pipeline has already done that work: once the tools finish it adds every file under `objects/` to the METS, with what they found, and adds its own output files as it uploads them. The operations below are then how you *top up* — pick up files added since, or reflect a change — and how you take things out again, since a pipeline run adds everything it looked at whether or not it all belongs in the eventual preserved object.
 
 <Aside type="note" title="Only METS the platform wrote">
 Every operation on this page needs a METS file the platform may edit — one whose `mets:agent` says the platform created it. A third-party METS (from Archivematica, EPrints, Goobi) is read, understood and preserved, but not written to: you edit it yourself in the workspace. See [METS editability](../../mets/editability).
