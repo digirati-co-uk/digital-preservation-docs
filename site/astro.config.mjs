@@ -26,6 +26,8 @@ export default defineConfig({
 			// Several pages describe work in flight. The originals carried "as of August 2026"
 			// style anchors; this dates every page from its last commit instead.
 			lastUpdated: true,
+			// Teal accent to go with the logo; see the file for what it recolours.
+			customCss: ['./src/styles/custom.css'],
 			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/digirati-co-uk/digital-preservation' }],
 			sidebar: [
 				{
