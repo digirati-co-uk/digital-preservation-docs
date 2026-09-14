@@ -8,7 +8,7 @@ sidebar:
 import { Image } from 'astro:assets';
 import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
 import stack from '../../../assets/preservation-stack.png';
-import hardDrive from '../../../assets/hard-drive.webp';
+import ocflLogo from '../../../assets/ocfl-hand-drive.png';
 
 The Digital Preservation platform takes sets of files - a digitised book, a manuscript, a born-digital
 collection - and stores them as **versioned digital objects** in AWS S3, in the
@@ -45,7 +45,13 @@ The [Components](../components) page describes each of these in more detail, and
 
 ## Recoverable from OCFL alone
 
-<Image src={hardDrive} alt="A hard drive" width="200" />
+<figure style="margin: 0 0 1.5rem 0; width: 200px;">
+  <Image src={ocflLogo} alt="The OCFL logo: a hand holding a hard drive aloft" width="200" />
+  <figcaption style="font-size: var(--sl-text-xs); color: var(--sl-color-gray-3); margin-top: 0.5rem;">
+    <a href="https://ocfl.io/">OCFL</a> logo: "hand-drive" by <a href="https://orcid.org/0000-0001-8390-6171">Patrick Hochstenbach</a>,
+    licensed under <a href="https://creativecommons.org/licenses/by/2.0/">CC BY 2.0</a>.
+  </figcaption>
+</figure>
 
 A design principle of the platform is that the running systems are not needed for the preserved content
 to be usable. Given a copy of the S3 bucket (or a hard drive containing the same file layout) and the
