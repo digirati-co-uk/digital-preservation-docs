@@ -7,7 +7,6 @@ sidebar:
 
 import { Image } from 'astro:assets';
 import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
-import stack from '../../../assets/preservation-stack.png';
 import ocflLogo from '../../../assets/ocfl-hand-drive.png';
 
 The Digital Preservation platform takes sets of files - a digitised book, a manuscript, a born-digital
@@ -28,7 +27,47 @@ This documentation explains how to _use_ the platform. It is written for:
 
 ## The preservation stack
 
-<Image src={stack} alt="Diagram of the preservation stack: OCFL in S3 at the bottom, then Fedora, the Storage API, the Preservation API, and the Preservation UI and other clients on top" />
+```mermaid
+flowchart TB
+    accTitle: The preservation stack
+    accDescr: Five layers, top to bottom. The Preservation UI, and other clients such as Goobi, iiif-builder and scripts, call the Preservation API. The Preservation API calls the Storage API; a few trusted API clients may call it directly too. The Storage API is the only thing that talks to Fedora. Fedora writes OCFL objects into S3. From the OCFL objects alone the content can be replicated, restored, or carried forward to whatever comes next, and very trusted readers may read the S3 origin directly.
+
+    UI["`**Preservation UI**
+    used by staff and external contributors`"]
+    Clients["`Goobi, iiif-builder,
+    ad hoc scripts`"]
+    PAPI["`**Preservation API**
+    understands METS; provides Deposits,
+    generates Import Jobs, runs pipelines,
+    publishes an activity stream`"]
+    Trusted["`Trusted API clients`"]
+    SAPI["`**Storage API**
+    Containers, Binaries, Archival Groups;
+    a METS file is just another binary`"]
+    Fedora["`**Fedora**
+    not accessed by anything
+    except the Storage API`"]
+    OCFL["`**OCFL in S3**
+    one versioned object per digital object`"]
+    Future["`Replication, restoration,
+    whatever comes next`"]
+    Readers["`Direct origin access for
+    (very) trusted readers`"]
+
+    UI --> PAPI
+    Clients --> PAPI
+    PAPI --> SAPI
+    Trusted --> SAPI
+    SAPI --> Fedora
+    Fedora --> OCFL
+    OCFL --> Future
+    OCFL --> Readers
+
+    classDef layer stroke-width:2px;
+    classDef edge stroke-dasharray:4 3;
+    class UI,PAPI,SAPI,Fedora,OCFL layer;
+    class Clients,Trusted,Future,Readers edge;
+```
 
 Reading the diagram from the bottom up:
 
