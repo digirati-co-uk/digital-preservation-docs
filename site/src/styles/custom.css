@@ -1,0 +1,45 @@
+/*
+ * Accent palette: teal, to match the logo (#0d9488 / #115e59) rather than Starlight's default blue.
+ * Starlight derives everything accent-coloured - links, the hero button, the current-page lozenge in
+ * the sidebar, the selected search result, the active tab - from these three shades per theme.
+ * The shades are Tailwind's teal scale, chosen so text on the accent keeps AA contrast.
+ */
+
+/* Dark mode (Starlight's default theme) */
+:root {
+	--sl-color-accent-low: #042f2e;
+	--sl-color-accent: #0d9488;
+	--sl-color-accent-high: #99f6e4;
+}
+
+/* Light mode */
+:root[data-theme='light'] {
+	--sl-color-accent-low: #ccfbf1;
+	--sl-color-accent: #0f766e;
+	--sl-color-accent-high: #134e4a;
+}
+
+/*
+ * Mermaid diagrams: take the node colours from the accent palette instead of Mermaid's default
+ * lavender, so they follow the site's theme in both modes. The SVG is inline in the page, so page
+ * CSS reaches it; !important is needed because Mermaid ships its own <style> inside the SVG.
+ * Stroke width and dashes set by classDef in the diagram source are inline styles and survive.
+ */
+.mermaid svg .node rect,
+.mermaid svg .node polygon,
+.mermaid svg .node path {
+	fill: var(--sl-color-accent-low) !important;
+	stroke: var(--sl-color-accent) !important;
+}
+.mermaid svg .nodeLabel,
+.mermaid svg .label {
+	color: var(--sl-color-white) !important;
+}
+.mermaid svg .edgePath path,
+.mermaid svg .flowchart-link {
+	stroke: var(--sl-color-gray-3) !important;
+}
+.mermaid svg .marker {
+	fill: var(--sl-color-gray-3) !important;
+	stroke: var(--sl-color-gray-3) !important;
+}
