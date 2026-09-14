@@ -1,0 +1,85 @@
+---
+title: METS in the platform
+sidebar:
+  label: Overview
+  order: 1
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+The platform's job is to create versioned [OCFL](https://ocfl.io/) objects in S3. An OCFL object holds
+bitstreams and an inventory of their checksums, and nothing else. Everything the platform knows *about*
+those bitstreams — which files they are, what format they are in, whether they have been virus-scanned,
+what access conditions apply, how they are arranged into an intellectual structure for presentation —
+has to live in a file alongside them. That file is `mets.xml`.
+
+METS is used as the **object model**, not merely as an export format. The design principle is that the
+METS file is the canonical record of everything we know about the object, and the entire preservation
+state must be recoverable from the OCFL object alone. So:
+
+- fixity (SHA256), size and PRONOM format for every file are held as PREMIS objects in the METS;
+- tool output from the pipeline (format identification, virus scanning, Exif extraction) is written back
+  into it;
+- descriptive metadata — titles, access restrictions, rights statements, catalogue record identifiers —
+  is held as small MODS records attached to directories, files and logical divisions;
+- logical structure (the arrangement of files into items, ranges, time segments and image regions) is
+  expressed as logical structMaps, from which the iiif-builder generates IIIF manifests.
+
+An import job, a diff between a deposit and the preserved Archival Group, and a IIIF manifest are all
+derived from the METS file rather than from a database. The Preservation API's database is a convenience,
+not a source of truth.
+
+## Managed and unmanaged METS
+
+A [Deposit](../../preservation-api/deposits) either has a METS file that the platform manages, or it does
+not:
+
+- **Managed** — the deposit was created from a [template](../../preservation-api/deposits#templates)
+  (`RootLevel` or `BagIt`). The platform writes the skeleton `mets.xml`, and every change to the deposit
+  — adding or deleting files, running the pipeline, setting metadata, editing logical structure — is
+  reflected in it automatically through the [METS editing](../../preservation-api/editing-mets)
+  endpoints. This METS is written and read exclusively by the platform.
+- **Unmanaged** — the deposit was created with template `None` and the client supplies its own METS,
+  produced by Archivematica, EPrints, Goobi, or by hand. The platform reads it (it must yield SHA256
+  digests and file paths for the import job), diffs it, and preserves it, but never modifies it.
+
+The distinction matters because the platform's METS *writer* and METS *reader* are deliberately different
+things. The writer produces one precise, schema-valid shape. The reader is tolerant and accepts a much
+wider set of documents. Which documents the platform may go on to *edit* is a third question, with its own
+rules.
+
+## The four pages
+
+<CardGrid>
+  <Card title="The METS files we write" icon="document">
+    The normative profile of the platform's own output: the document skeleton, ID conventions, the
+    physical structMap and fileSec, PREMIS technical metadata and virus-scan events, MODS descriptive
+    metadata, logical structMaps, and file-to-file links. Every document the platform edits ends up in
+    this shape. [Read →](../mets-we-write)
+  </Card>
+  <Card title="What the METS parser can read" icon="magnifier">
+    The much wider set of third-party METS the platform understands — Archivematica, EPrints and Goobi
+    output, with worked examples — and the common model it extracts: physical structure, technical and
+    descriptive metadata, logical structure, file links, and effective (inherited) metadata.
+    [Read →](../mets-we-read)
+  </Card>
+  <Card title="METS identifiers" icon="setting">
+    How element IDs are minted from paths, why they were once not valid `xs:ID` values, how that was
+    fixed without breaking a single existing document, and the rules to follow if you consume or produce
+    this METS: treat IDs as opaque. [Read →](../identifiers)
+  </Card>
+  <Card title="METS editability" icon="pencil">
+    Which METS files the platform may edit, and what editing does to a document it did not write. The
+    parseable / navigable / editable distinction, the tier classification per source, and the contract
+    for the first platform save of an EPrints-migrated document. [Read →](../editability)
+  </Card>
+</CardGrid>
+
+## Where the code is
+
+The writer (`MetsManager`), the reader (`MetsParser`) and their helpers live in the
+[`DigitalPreservation.Mets`](https://github.com/digirati-co-uk/digital-preservation/tree/main/src/DigitalPreservation/DigitalPreservation.Mets)
+library. The two are deliberately separate: `MetsParser` reads with `XDocument`/LINQ and no schema
+binding, so unpredictable third-party structure cannot break it; `MetsManager` writes through generated,
+schema-typed classes, because the platform only ever writes documents it created itself, and there strong
+typing and schema correctness matter.

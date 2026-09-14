@@ -1,0 +1,151 @@
+---
+title: Authentication
+sidebar:
+  label: Authentication
+  order: 2
+---
+
+import { Aside, LinkCard, Steps } from '@astrojs/starlight/components';
+
+Every request to the Preservation API carries two things: a **bearer token**, which proves you are allowed to call the API at all, and an **`X-Client-Identity` header**, which says who you are for the record. They do different jobs, and a machine client sends both.
+
+```
+GET /repository/my-collection
+Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIs...
+X-Client-Identity: my-integration
+```
+
+## Two kinds of caller
+
+| Caller | How it authenticates |
+|---|---|
+| A **person**, through the [Preservation UI](../../ui/overview) | Signs in interactively (OpenID Connect). The UI then calls the API with a token acquired *on behalf of* that user. Nothing to configure; you just sign in. |
+| A **machine client** — a digitisation workflow, an integration service, a script | Obtains its own token with the OAuth2 client-credentials grant and calls the API directly. This is what the rest of this page is about. |
+
+For human users presenting credentials to the UI, their display name persists when calls on their behalf are delegated to the Preservation API. But direct API callers, like iiif-builder, migration scripts and Goobi, don't present a principal from which a distinct identity can be extracted — which is what the `X-Client-Identity` header and the list of known clients, both below, are for. The API can tell the two kinds of caller apart from the claims in the token, and records them differently; see [How the API decides who you are](#how-the-api-decides-who-you-are).
+
+## Getting a token
+
+The API accepts a bearer JWT issued by whichever identity provider your platform instance is configured with, for the audience that instance validates. For machine-to-machine access it implements a standard OAuth2 [Client Credentials Flow](https://datatracker.ietf.org/doc/html/rfc6749#section-4.4), so that access tokens are short lived and can be revoked: POST your client id and secret to the provider's token endpoint, get back an `access_token` and an `expires_in`.
+
+<Steps>
+
+1. **Ask your platform operator to register you.** You will be given a client id and a secret (or a certificate), told the token endpoint and the scope to request, and — see [Being a known client](#being-a-known-client) — asked for the app id of your registration, so that the API can recognise your calls from the token itself.
+
+2. **Request a token**, form-encoded:
+
+   ```
+   POST https://login.identity-provider.example/<tenant>/oauth2/v2.0/token
+   Content-Type: application/x-www-form-urlencoded
+
+   grant_type=client_credentials
+   &client_id=<your client id>
+   &client_secret=<your client secret>
+   &scope=<the scope you were given>
+   ```
+
+3. **Send it on every request** as `Authorization: Bearer <access_token>`, alongside `X-Client-Identity`. Cache the token until shortly before it expires rather than requesting one per call.
+
+</Steps>
+
+<Aside type="note" title="Microsoft Entra ID, the current concrete example">
+Deployments today use Microsoft Entra ID as the identity provider. That is a deployment choice, not part of the design — the API only requires a validly signed JWT for its configured audience. With Entra, the values take these forms:
+
+* Token endpoint: `https://login.microsoftonline.com/<tenant-id>/oauth2/v2.0/token`
+* Scope: `api://<preservation-api-app-id>/.default`
+
+A general-purpose OAuth2 or MSAL client library will do; the samples use neither, just an HTTP POST, to keep the exchange visible.
+</Aside>
+
+<LinkCard
+  title="💻 Example: getting a token and inspecting it"
+  href="https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/preservation-docs-client/p02_authentication/get_token.py"
+  description="Runs the client-credentials grant, prints the token's claims, then calls /whoami."
+/>
+
+## The `X-Client-Identity` header
+
+We ask API callers to supply an `X-Client-Identity` HTTP header to identify themselves: a short name for your client — `goobi`, `eprints-migration`, `my-integration`. This is not used as a credential in any way; all clients must authenticate and present a valid bearer token. It just allows us to audit calls — who created what. The name becomes your [Agent](../agents) name, and turns up in `createdBy`, `lastModifiedBy`, `preservedBy` and `exportedBy` on everything you touch, and in the platform's logs.
+
+Send it on every request. Use one stable name per client — not a per-run or per-machine name — because it is what someone reading a resource's history months later will see.
+
+<Aside type="note" title="A transitional arrangement">
+The header is how a machine caller is identified today, but it is on its way out. As each caller is given its own registration with the identity provider and added to the known-clients list below, its identity comes from the signed token instead — you will see `/whoami` flip from `header-fallback` to `token` — and once every caller has moved, the header is expected to be dropped altogether. So send it today, but don't build anything that depends on it.
+</Aside>
+
+<Aside type="caution" title="Attribution, not authorisation">
+The header is a convenience for supplying the human-readable label the token lacks, but it is self-asserted and unauthenticated: the API does not verify it, and it never grants access to anything. It is not an alternative to a bearer token — a request without a valid token is rejected whatever the header says. Where the API can establish a verifiable name from the signed token, it prefers that over the header (below).
+</Aside>
+
+## How the API decides who you are
+
+For each request, the API resolves one name and one `source` in this order:
+
+1. **A signed-in person.** If the token carries a user-identifying claim (`preferred_username`, or `upn`/`unique_name` in older token formats), the caller is a human and their user name is used. Source: `user`.
+2. **A known machine client.** Otherwise the API takes the application id from the token's `azp` (or `appid`) claim and looks it up in its list of known clients. If it is there, the friendly name configured for you is used, and `X-Client-Identity` is ignored. Source: `token`.
+3. **An unrecognised machine client.** If the app id is not on the list, the API falls back to the `X-Client-Identity` header as sent. Source: `header-fallback`.
+4. **Neither.** A machine caller with an unrecognised app id *and* no `X-Client-Identity` header is rejected with `401 Unauthorized` — the token is valid, but the API will not record work it cannot attribute. Source: `unknown` (only ever seen on `/whoami`, which does not reject).
+
+`GET /whoami` reports exactly this decision, and is the first call to make with new credentials:
+
+```
+GET /whoami
+```
+
+```json
+{
+  "name": "my-integration",
+  "source": "token",
+  "appId": "5f1c...e2a9",
+  "depositBucket": "working-bucket"
+}
+```
+
+The `source` value is worth checking whenever your credentials change: a client that expects to be recognised from its token but reports `header-fallback` has not (yet) been added to the list. The properties are described in the [Overview](../overview#checking-your-connection).
+
+## Being a known client
+
+An app-only token does identify *which client application is calling* — verifiably, inside the signed token, as the `azp` (or `appid`) claim. What it doesn't give you is a human-readable name for that app: the token carries the application's GUID, and providers deliberately won't emit its display name. So the API keeps a small map of known client ids to service names. In time that map is meant to double as an allow-list of permitted callers; today it does not exclude anyone - an app id that is not on it is attributed from its `X-Client-Identity` header instead (step 3 above), not refused.
+
+That list is configuration on the API, keyed by the app id in your token. Each entry gives:
+
+| Setting | Effect |
+|---|---|
+| `name` | The friendly name your actions are attributed to, in preference to whatever `X-Client-Identity` you send. |
+| `depositBucket` | Optional. An S3 bucket of your own in which your [Deposits](../deposits) are created, instead of the platform's default working bucket. |
+
+Being listed is what makes your attribution trustworthy rather than self-asserted, so it is worth asking for. You supply your app id (the client id of your registration); the operator supplies the name.
+
+Deposit routing follows the same trust rule as attribution: **only** a client resolved from its signed token is routed to its own bucket. A signed-in person, or a client identified only by the `X-Client-Identity` header, always gets the default working bucket — the spoofable header can never steer deposits somewhere else. Whichever bucket is used, the deposit's own `files` URI is authoritative from then on; you do not need to work the location out yourself.
+
+<Aside type="caution">
+A Deposit created in a per-client bucket cannot run the [pipeline](../tool-outputs-and-pipelines): the Pipeline API reaches deposit files through a filesystem mount of the default working bucket only, so `POST /deposits/{id}/pipeline` for a deposit elsewhere is refused with `400 Bad Request`. Everything else about such a deposit works normally.
+</Aside>
+
+## What you are allowed to do
+
+Authentication is currently the whole of the access decision: any caller holding a valid token for the API's audience may call any of its operations. Which clients can obtain such a token at all is controlled at the identity provider, by assigning them to the API's registration — so the list of callers is managed there rather than in the API. Finer-grained, per-caller authorisation is the subject of ongoing work.
+
+## Endpoints that do not need a token
+
+Two groups of routes are anonymous by design, because they are read by a IIIF viewer in a browser that has no token of its own:
+
+* `GET`/`POST /deposits/{id}/iiif-token/{token}` — a Deposit as a IIIF Manifest, reached by first calling `GET /deposits/{id}/iiif` *with* your token, which redirects to a one-off tokenised URL.
+* `GET /media/{token}/...` — the images referenced by such a Manifest.
+
+Both are guarded by that short-lived URL token rather than by a bearer token, and both are behind the `EnableIiifMediaEndpoints` feature flag, so they may not be switched on in your instance. See [IIIF](../iiif). Every other operation requires a bearer token.
+
+## Running locally without auth
+
+A developer running the API on their own machine can set `FeatureFlags:DisableAuth` to `true`, which removes authentication entirely: no token is needed or looked at. This is for local development only. It disables the whole filter stack, including the part that resolves a machine caller's name, so work done against such an instance is attributed to `dlipdev` however you identify yourself.
+
+The Python samples support this with `DISABLE_AUTH=true` in their `.env`, which simply omits the `Authorization` header. Hosted instances always require a token.
+
+## When it goes wrong
+
+| Symptom | Likely cause |
+|---|---|
+| `401` with a `WWW-Authenticate: Bearer` header | No token, an expired token, or a token whose signature, issuer or audience the API does not accept. Check that the scope you requested matches the audience this instance validates. |
+| `401` with the body `Unauthorized: No valid user name or machine header` | The token was accepted, but the API could not work out who you are: your app id is not on the known-clients list and you sent no `X-Client-Identity`. Add the header, and ask to be added to the list. |
+| `/whoami` reports `"source": "header-fallback"` | Authenticated, but not recognised from your token — attribution is coming from the header you sent. Works, but ask to be added to the list. |
+| Your Deposits are not in the bucket you expected | Only clients resolved from their token are routed to a per-client bucket; check `depositBucket` on `/whoami`. |

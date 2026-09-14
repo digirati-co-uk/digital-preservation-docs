@@ -1,0 +1,166 @@
+---
+title: A deposit whose METS the platform manages
+sidebar:
+  label: Managed METS deposit
+  order: 7
+---
+
+import { Aside, LinkCard, Steps } from '@astrojs/starlight/components';
+
+Use case: you have files to preserve and no METS file, and you would like the platform to describe them — to identify their formats, scan them for viruses, and record all of that as the object's metadata.
+
+This is the other side of the fork from [preserving your own METS](../preserve-first-time). Here you create the Deposit from a **template**, which gives you a `mets.xml` the platform wrote and may therefore edit, and you drive it through the API rather than writing XML.
+
+<Aside type="note" title="Only METS the platform wrote">
+Every METS-editing step below needs a METS file whose `mets:agent` says the platform created it. A third-party METS — from Archivematica, EPrints, Goobi — is read, understood and preserved, but never written to. See [METS editability](../../mets/editability).
+</Aside>
+
+<Steps>
+
+1. ### Create a Deposit from the `RootLevel` template
+
+   ```
+   POST /deposits
+   ```
+
+   ```json
+   {
+     "type": "Deposit",
+     "template": "RootLevel",
+     "archivalGroup": "https://preservation-api.example/repository/library/born-digital/hard-drive-14",
+     "archivalGroupName": "Hard drive 14",
+     "submissionText": "Accession 2025/112"
+   }
+   ```
+
+   The workspace is scaffolded for you:
+
+   ```
+   /
+      objects/
+      metadata/
+         ad-hoc/
+      mets.xml
+   ```
+
+   `objects/` is for the files you want to preserve; everything must be in or below it. `metadata/` is where [tool outputs](../../preservation-api/tool-outputs-and-pipelines) go, and `metadata/ad-hoc/` is for metadata files that belong to the object but are not the output of any tool. All three are recorded in the new METS file as well as in S3.
+
+2. ### Upload the files
+
+   Into `objects/`, with the S3 API, exactly as in the other workflows. Arrange them in whatever folder structure the material calls for.
+
+   You don't need checksums this time: the pipeline will produce them.
+
+3. ### Run the pipeline over them
+
+   ```
+   POST /deposits/e56fb7yg/pipeline
+   ```
+
+   ```
+   HTTP/1.1 204 No Content
+   ```
+
+   This queues a job that runs the platform's characterisation tools against the Deposit's `objects/` folder — format identification, virus scanning, and the rest — and writes what they find back into the Deposit's `metadata/` folder.
+
+   It is refused with `409 Conflict` if somebody else holds a [lock](../../preservation-api/deposits#locking-a-deposit) on the Deposit.
+
+4. ### Wait for the pipeline to finish
+
+   ```
+   GET /deposits/e56fb7yg/pipelinerunjobs
+   ```
+
+   A list of results, newest run last. Each carries a `status`, which moves through `waiting` → `processing` → `metadataCreated` → `completed` (or `completedWithErrors`). `metadataCreated` means the tools have run but their output has not yet been uploaded back into the Deposit; wait for `completed`.
+
+   The individual job is at `GET /deposits/e56fb7yg/pipelinerunjobs/<jobId>`.
+
+5. ### Look at what the platform now knows
+
+   ```
+   GET /deposits/e56fb7yg/filesystem?refresh=true
+   ```
+
+   The [file system view](../../preservation-api/deposit-files) shows not just the layout but the metadata collected for each file from the tool outputs: digests, PRONOM format identifications, virus scan results.
+
+   If you ran the pipeline in the previous step, the METS is **already populated**: once the tools finish, the run adds every file under `objects/` to the METS, and adds its own output files as it uploads them. The next step is then a top-up rather than a necessity.
+
+   If the tool output arrived some other way — analysis run outside the platform and uploaded with the files — nothing has pushed it into the XML, and the next step is what does it. Synchronising a Deposit with its METS is a separate, explicit step precisely because the platform may not have been the one that looked at the files, and because not every file you analysed necessarily belongs in the preserved object.
+
+6. ### Add the files to the METS
+
+   ```
+   POST /deposits/e56fb7yg/mets
+   If-Match: "bfc13a64729c4290ef5b2c2730249c88ca92d82d"
+   ```
+
+   ```json
+   [
+     "objects/image_001.tif",
+     "objects/image_002.tif",
+     "objects/docs/notes.txt",
+     "metadata/brunnhilde/siegfried.csv",
+     "metadata/brunnhilde/logs/viruscheck-log.txt"
+   ]
+   ```
+
+   A list of paths relative to the root of the Deposit. Parent folders are created for you; folders are not expanded, so list every file you want. The `If-Match` is the Deposit's `metsETag` — **fetch the Deposit again to get it**. It is null in the response to creating one, and a pipeline run will have changed it since, so an ETag held from earlier in this walk-through is stale and will be refused with a `409`.
+
+   The platform adds each file to the METS *with all the metadata it has collected for it* — which is why this step comes after the pipeline and not before. See [Editing the METS](../../preservation-api/editing-mets) for the rules and the response.
+
+   You can call it again at any time; entries already present are updated rather than duplicated.
+
+7. ### Remove anything that shouldn't be preserved
+
+   ```
+   POST /deposits/e56fb7yg/mets/delete
+   If-Match: "…"
+   ```
+
+   ```json
+   {
+     "deleteFromMets": true,
+     "deleteFromDepositFiles": true,
+     "items": [
+       { "path": "objects/thumbs.db", "isDir": false }
+     ]
+   }
+   ```
+
+   This takes the file out of the workspace and out of the METS together. A file you simply don't add to the METS is not preserved either, so deletion is only for things you want gone from the Deposit as well.
+
+8. ### Check the two agree
+
+   ```
+   GET /deposits/e56fb7yg/combined
+   ```
+
+   The combined view is the Deposit's file tree and the METS structure merged, which is exactly what the diff Import Job is computed from. Anything sitting in the Deposit but not the METS will stop the diff.
+
+   That endpoint is a debugging aid, though, and hidden from the API description for a reason: the structure holds references in both directions, so the JSON grows alarmingly with the size of the deposit. In normal use compare `GET /deposits/{id}/filesystem` with `GET /deposits/{id}/parsed-mets`, or simply ask for the diff and read its `422`.
+
+9. ### Generate and run the Import Job
+
+   ```
+   POST /deposits/e56fb7yg/importjobs
+   ```
+
+   ```json
+   {
+     "id": "/deposits/e56fb7yg/importjobs/diff"
+   }
+   ```
+
+   And poll the [ImportJobResult](../../preservation-api/import-job-results) until it reaches `completed`. The object is preserved as `v1`, with its characterisation metadata inside its METS, where a future reader of the OCFL object can find it without the platform.
+
+</Steps>
+
+## Going round again
+
+To add more files later, upload them, run the pipeline again, and POST the same paths to `.../mets` once more: the entries are updated with whatever the tools found the second time. Do all of that before the Import Job — once a Deposit's job has run successfully, the Deposit is finished, and a further change means a new Deposit against the now-existing Archival Group, as in [Update without export](../update-without-export).
+
+<LinkCard
+  title="💻 End-to-end example: a managed METS deposit"
+  href="https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/preservation-docs-client/workflows/w06_managed_mets_deposit.py"
+  description="RootLevel template, upload, run the pipeline, add the files to METS, preserve."
+/>

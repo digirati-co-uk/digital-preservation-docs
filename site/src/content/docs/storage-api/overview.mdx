@@ -1,0 +1,86 @@
+---
+title: Storage API overview
+sidebar:
+  label: Overview
+  order: 1
+---
+
+import { Aside, LinkCard } from '@astrojs/starlight/components';
+
+The Storage API is the exclusive gateway to Fedora. Nothing else talks to Fedora - not the [Preservation API](../../preservation-api/overview)'s clients, not the [Preservation UI](../../ui/overview), not the iiif-builder. It is designed to sit on a private network, reachable only from the Preservation API and the [Storage API Importer](https://github.com/digirati-co-uk/digital-preservation/blob/main/docs/internals/deployment.md).
+
+<Aside type="caution" title="You almost certainly do not need this section">
+Most readers of this documentation have no access to the Storage API and never will. Everything a
+normal integration does - creating content, updating it, getting it back out - is done through the
+Preservation API. These four pages exist so that the behaviour of the Preservation API makes sense,
+and for the small number of applications that are trusted with direct access to preserved content.
+</Aside>
+
+## What it is for
+
+The Storage API hides the specifics of Fedora behind an interface that is only concerned with Containers, Binaries, Archival Groups and Import Jobs. It does not parse or understand the files it stores. A METS file is just another Binary to it; so is a TIFF, a spreadsheet or a disk image. The one place it acknowledges METS at all is `POST /exportMetsOnly`, which picks the file out by name so that it can be exported alone - it never reads it.
+
+Its job is to:
+
+* present the repository as a navigable hierarchy of Containers, Archival Groups and Binaries;
+* execute [Import Jobs](../import) - JSON documents describing files and folders somewhere outside Fedora that should be ingested into it - inside a Fedora transaction, however many files are involved, producing a new OCFL version;
+* [export](../export) an Archival Group, at any version, to a location in S3;
+* [stream the bytes](../activity-and-content#fetching-file-content) of a preserved Binary, and report where each Binary actually lives in S3;
+* publish an [activity stream](../activity-and-content) of completed Import Jobs, which the Preservation API consumes to produce its own stream of Archival Groups.
+
+It can store anything you can describe in an Import Job, as long as it has access to the origin locations of the binaries. It offers no modelling capability beyond the file system layout.
+
+## Where it differs from the Preservation API
+
+The resource types are the same, and so is most of the browsing. What is missing is everything to do with *application* concerns - METS, Deposits, tool outputs, IIIF. The table below says, for each concept introduced in the Preservation API section, what the Storage API does with it.
+
+| Concept | In the Storage API |
+|---|---|
+| [Container, Binary, ArchivalGroup](../../preservation-api/repository#resource-types) | The same JSON shapes, with `id` and related URIs on the Storage API host. The Preservation API rewrites `id`, `partOf`, `createdBy` and `lastModifiedBy` to its own host when it passes a resource through - but not a Binary's `content`, which stays as the Storage API minted it. |
+| [Browsing the repository](../../preservation-api/repository#walking-the-tree) | The same. `GET /repository/...`, the same `view=lightweight` and `version` parameters, the same `HEAD` behaviour and `X-Preservation-Resource-Type` header, the same `PUT`/`DELETE` for organisational Containers with `?purge=true`. |
+| [`view=mets` and `view=parsed-mets`](../../preservation-api/repository#the-view-and-version-parameters) | Not supported - the Storage API never parses a METS file. Any `view` other than `lightweight` is a `400`. |
+| [Fetching file content](../../preservation-api/repository#fetching-file-content) | This is where the `/content/...` path is actually served. See [Activity and content](../activity-and-content#fetching-file-content). |
+| [Deposits](../../preservation-api/deposits) | Do not exist. The Storage API takes file locations, not workspaces. |
+| [METS](../../mets/overview) and [editing METS](../../preservation-api/editing-mets) | Do not exist. |
+| [Import Jobs](../../preservation-api/import-jobs) | The Storage API cannot generate one for you - there is no diff. It only executes jobs you construct and send. See [Import](../import). |
+| [Import Job Results](../../preservation-api/import-job-results) | The same resource, polled in the same way, at a different path. |
+| [Exports](../../preservation-api/exports) | Work differently: you `POST` an Export resource naming an Archival Group and an S3 destination. See [Export](../export). |
+| [Activity Stream](../../preservation-api/activity-stream) | Reports Import Jobs, not Archival Groups. Same IIIF Change Discovery shape, different subject. |
+| [Versions and the Storage Map](../../preservation-api/versions-and-storage-map) | The same, at the same path. The Preservation API passes it straight through. |
+| [Search](../../preservation-api/search) | A different thing entirely: a substring match over repository paths, read out of Fedora's own database. See [Activity and content](../activity-and-content#fedora-search). |
+| [Tool outputs and pipelines](../../preservation-api/tool-outputs-and-pipelines) | Do not exist. |
+| [IIIF](../../preservation-api/iiif) | Does not exist. |
+| [Agents](../../preservation-api/agents) | The Storage API mints agent URIs on its own host and records them on resources, but does not serve them - there is no `/agents` route. Resolve agents through the Preservation API. |
+
+## The API root
+
+Throughout this documentation the Storage API is assumed to be at `https://storage-api.example`. The entry points are:
+
+| Path | What it is |
+|---|---|
+| `/repository` | The root of the preserved repository. Identical in shape to the Preservation API's. |
+| `/content/...` | The bytes of a preserved Binary. |
+| `/import` | Submit an Import Job; poll its result under `/import/results/...`. |
+| `/export`, `/exportMetsOnly` | Copy an Archival Group, or just its METS file, out to S3. |
+| `/activity/importjobs/collection` | The activity stream of completed Import Jobs. |
+| `/ocfl/storagemap/...` | Where an Archival Group's files are in OCFL, for any version. |
+| `/FedoraSearch` | Substring search over repository paths. |
+| `/whoami` | Who the API thinks you are. |
+| `/health`, `/fedora`, `/storagecheck` | Connectivity checks: the service itself, its Fedora connection, and its S3 access. |
+
+## Authentication
+
+Authentication works exactly as it does for the Preservation API: a bearer JWT for the audience this instance validates, plus an `X-Client-Identity` header naming the caller. `GET /whoami` reports the identity the API resolved, with the same `name`, `source`, `appId` and `depositBucket` properties. See [Authentication](../../preservation-api/authentication).
+
+In practice the caller is the Preservation API, forwarding the original caller's token where there is one, so that work done in Fedora is attributed to the person or client who asked for it rather than to the Preservation API itself.
+
+## Asynchronous work
+
+Both of the Storage API's write operations are asynchronous, and both report problems in an `errors` list on a result resource rather than as an HTTP error, because the failure happens long after the request returned:
+
+* an **Import Job** is queued and acknowledged with `201 Created`; you poll its Import Job Result;
+* an **Export** is queued and acknowledged with `201 Created`; you poll the Export resource.
+
+The one exception is `POST /exportMetsOnly`, which runs synchronously because it copies a single small file.
+
+Import processing runs either inside the Storage API process or in the separately deployed Storage API Importer, depending on a feature flag. Which of the two is running makes no difference to a caller. See [Deployment](https://github.com/digirati-co-uk/digital-preservation/blob/main/docs/internals/deployment.md#import-processing).

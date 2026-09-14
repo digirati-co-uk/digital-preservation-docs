@@ -1,0 +1,186 @@
+---
+title: Browsing the repository
+sidebar:
+  label: Repository
+  order: 3
+---
+
+import { Aside, LinkCard } from '@astrojs/starlight/components';
+
+The repository is the preserved content, presented as a tree. Starting at `/repository` you follow `id` links down through **Containers** (folders used to organise the repository), into **Archival Groups** (the preserved objects, each an OCFL object and the unit of versioning), and within those into further Containers and **Binaries** (the preserved files).
+
+Everything here is read-only, with one exception: you can create and delete organisational Containers *outside* Archival Groups. Everything inside an Archival Group is created by running an [Import Job](../import-jobs) from a [Deposit](../deposits).
+
+## Resource types
+
+### 📁 Container
+
+```jsonc
+{
+    "id": "https://preservation-api.example/repository/example-objects/ArchivalGroup1/my-directory",
+    "type": "Container",
+    "name": "my-dírèçtóry",    // the original name of the directory
+    "containers": [],
+    "binaries": [
+        // ... Binary resources, see below
+    ],
+    "partOf": "https://preservation-api.example/repository/example-objects/ArchivalGroup1"
+}
+```
+
+| Property | Description |
+|---|---|
+| `id` | URI of the Container. The path may only contain the [permitted characters](../overview#paths-and-names). |
+| `type` | `Container`, or `RepositoryRoot` for the root at `/repository`. |
+| `name` | The original name, any UTF-8. Often the same as the last path segment of `id`, but not necessarily. |
+| `containers` | The immediate child Containers. Outside an Archival Group these may be `Container` or `ArchivalGroup` resources; inside one they are always `Container`. |
+| `binaries` | The immediate child Binaries. Always empty outside an Archival Group, because Binaries can only exist inside one. |
+| `partOf` | The `id` of the Archival Group this Container is in. Absent outside an Archival Group. |
+
+Plus the [common properties](../overview#common-properties).
+
+### 📄 Binary
+
+```json
+{
+    "id": "https://preservation-api.example/repository/example-objects/ArchivalGroup1/my-directory/My_File.pdf",
+    "type": "Binary",
+    "name": "My File.pdf",
+    "contentType": "application/pdf",
+    "digest": "b6aa90e47d5853bc1b84915f2194ce9f56779bc96bcf48d122931f003d62a33c",
+    "origin": "s3://fedora-bucket/initial/aed/7d3/4c4/aed7d34c.../v2/content/my-directory/My_File.pdf",
+    "size": 15986,
+    "content": "https://preservation-api.example/content/example-objects/ArchivalGroup1/my-directory/My_File.pdf?version=v2",
+    "partOf": "https://preservation-api.example/repository/example-objects/ArchivalGroup1"
+}
+```
+
+| Property | Description |
+|---|---|
+| `id` | URI of the Binary. The path may only contain the permitted characters. |
+| `name` | The original file name, any UTF-8. |
+| `contentType` | The media type, e.g. `application/pdf`. Usually deduced by the platform at import. |
+| `digest` | The SHA-256 checksum. Always present. |
+| `origin` | Where the bytes actually are: for a preserved Binary, its location in the underlying OCFL storage. |
+| `size` | Size in bytes. |
+| `content` | A URI from which the bytes can be fetched, subject to authorisation. |
+| `partOf` | The `id` of the Archival Group this Binary is in. |
+
+<Aside type="note">
+`origin` deliberately exposes the real storage location rather than hiding it. Few callers have access to that bucket, but those that do (for example, something serving the content at runtime) can go straight to the file. The `content` URI streams the same bytes over HTTP for callers that cannot.
+</Aside>
+
+### 📦 ArchivalGroup
+
+An Archival Group is a Container with versions. It might be one file or thousands, with any depth of internal structure. Files within it cannot be versioned separately; the group is versioned as a whole (v1, v2, v3 ...).
+
+```jsonc
+{
+    "id": "https://preservation-api.example/repository/example-objects/ArchivalGroup1",
+    "type": "ArchivalGroup",
+    "name": "My Archival Group",
+    "version": {
+       "ocflVersion": "v2",
+       "mementoDateTime": "2024-03-14T14:58:58",
+       "mementoTimestamp": "20240314145858"
+    },
+    "versions": [
+      { "ocflVersion": "v1", "mementoDateTime": "2024-03-12T12:00:00", "mementoTimestamp": "20240312120000" },
+      { "ocflVersion": "v2", "mementoDateTime": "2024-03-14T14:58:58", "mementoTimestamp": "20240314145858" }
+    ],
+    "storageMap": { },  // see Versions and the Storage Map
+    "containers": [],
+    "binaries": []
+}
+```
+
+`version` is the version being shown (the latest, unless you asked otherwise), `versions` lists them all, and `storageMap` describes the underlying OCFL layout. See [Versions and the Storage Map](../versions-and-storage-map).
+
+## Walking the tree
+
+```
+GET /repository                                   // the root
+GET /repository/library                           // a Container from the root's "containers"
+GET /repository/library/manuscripts               // a deeper Container
+GET /repository/library/manuscripts/ms-342        // an Archival Group
+GET /repository/library/manuscripts/ms-342/objects          // a Container inside it
+GET /repository/library/manuscripts/ms-342/objects/34r.tiff // a Binary inside that
+```
+
+* A Container response includes only its **immediate** children in `containers` and `binaries`.
+* An Archival Group response includes **all** its descendants, however deep, in one JSON payload. It is a complete representation of the preserved object.
+* All of these return the latest version.
+
+<LinkCard
+  title="💻 Example: browse the repository"
+  href="https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/preservation-docs-client/p03_repository/browse_repository.py"
+  description="Walks from the root to the first Archival Group and fetches it in full."
+/>
+
+## The view and version parameters
+
+| Parameter | Values |
+|---|---|
+| `view` | `lightweight`: a Container or Archival Group *without* its children (`containers` and `binaries` are empty). `mets`: on an Archival Group only, returns the XML of its METS file. `parsed-mets`: on an Archival Group only, returns the platform's parsed JSON view of that METS. |
+| `version` | Only allowed together with `view=lightweight`; any other combination is a `400`. For an Archival Group, either an OCFL version label (`v1`, `v2` ...) or a Memento timestamp (`20250311111913`). For other resources, only the Memento form is currently supported. |
+
+```
+GET /repository/library/manuscripts/ms-342?view=lightweight
+GET /repository/library/manuscripts/ms-342?view=lightweight&version=v2
+GET /repository/library/manuscripts/ms-342?view=mets
+```
+
+<Aside type="caution">
+The Memento timestamp form reflects the underlying Fedora API and is expected to be retired in favour of OCFL version labels everywhere. To see an older version's files, use the [Storage Map](../versions-and-storage-map) rather than the browse endpoint.
+</Aside>
+
+## HEAD requests and tombstones
+
+A `HEAD` request to any repository path tells you cheaply whether something is there and what it is. The status is `200`, `404`, `401`, or `410`. A `410 Gone` is a **tombstone**: a resource used to exist at this path and has been deleted but not purged, and nothing new can be created there until it is. This is the same concept as in Fedora.
+
+On a `200`, the response carries the header `X-Preservation-Resource-Type` with the value `Container`, `ArchivalGroup` or `Binary`.
+
+<LinkCard
+  title="💻 Example: HEAD a resource"
+  href="https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/preservation-docs-client/p03_repository/head_resource.py"
+  description="Shows the type header on a hit and the 404 on a miss."
+/>
+
+## Creating a Container
+
+Only outside an Archival Group, to build organisational structure. The body is optional: give one to set the display `name`, or omit it and the name is taken from the last path segment.
+
+```
+PUT /repository/library/c20-printed-books
+{
+  "type": "Container",
+  "name": "20th Century Printed Books"
+}
+```
+
+The response is `201 Created` with the new Container as the body and its `id` in the `Location` header. Only some API users are permitted to create Containers; most are given an existing Container to create Archival Groups in.
+
+## Deleting a Container
+
+A Container can only be deleted when it is empty.
+
+```
+DELETE /repository/library/c20-printed-books
+DELETE /repository/library/c20-printed-books?purge=true
+```
+
+Without `purge`, the Container is deleted but leaves a tombstone: the path returns `410` and cannot be reused. With `purge=true` it is removed completely, the path returns `404`, and a new Container can be created there. You can do this in two steps, deleting first and purging later.
+
+<LinkCard
+  title="💻 Example: create, delete and purge a Container"
+  href="https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/preservation-docs-client/p03_repository/create_and_delete_container.py"
+  description="PUT a container, GET it, DELETE it (tombstone), then DELETE with purge."
+/>
+
+## Fetching file content
+
+A Binary's `content` property is a URI on the `/content/...` path, mirroring its `/repository/...` path, with a `version` parameter naming the version whose bytes you want.
+
+<Aside type="caution">
+The Preservation API does not currently serve the `/content/...` path: that URI is only honoured by the [Storage API](../../storage-api/activity-and-content), which most clients cannot reach. API clients that need the files should [export](../exports) the Archival Group into a Deposit.
+</Aside>

@@ -1,0 +1,323 @@
+---
+title: Descriptive metadata, logical structure and links
+sidebar:
+  label: Descriptive metadata and structure
+  order: 2.1
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+This is the second half of the specification of [the METS files we write](../mets-we-write). The first
+half covers the document skeleton, ID conventions, the physical structMap, the fileSec and technical
+metadata. This page covers the MODS descriptive metadata, logical structMaps, file-to-file links, the
+BagIt variant, and a complete example.
+
+As on the first page, the XML examples write IDs in the unencoded form for readability; real documents
+carry the encoding described under [ID conventions](../mets-we-write#id-conventions).
+
+## Descriptive metadata: dmdSec / MODS
+
+All descriptive metadata is MODS, wrapped in `mets:dmdSec` with `MDTYPE="MODS"`, and always attached to a
+`mets:div` (physical or logical) via `DMDID` — never to a `mets:file`.
+
+We deliberately use a *small* MODS vocabulary. The platform is not a catalogue; rich descriptive metadata
+lives in external systems and is referenced by identifier.
+
+### Title
+
+```xml
+<mods:titleInfo>
+  <mods:title>Women of Westminster</mods:title>
+</mods:titleInfo>
+```
+
+The root div's title is the name of the Archival Group. Logical structMap divs get titles too (see
+below).
+
+### Access restrictions
+
+Zero or more `mods:accessCondition` elements with `type="restriction on access"`. The values are
+access-control tokens meaningful to downstream delivery systems (not to the preservation platform
+itself); see the [access-conditions vocabulary](../../preservation-api/vocabularies):
+
+```xml
+<mods:accessCondition type="restriction on access" xlink:type="simple">Level1</mods:accessCondition>
+```
+
+Setting access restrictions replaces all existing `restriction on access` elements for that div; setting
+an empty list clears them.
+
+### Rights statement
+
+At most one `mods:accessCondition` with `type="use and reproduction"`, whose value is a rights URI:
+
+```xml
+<mods:accessCondition type="use and reproduction" xlink:type="simple">https://rightsstatements.org/vocab/NoC-NC/1.0/</mods:accessCondition>
+```
+
+There are three distinct states, because rights are *inherited* down the physical tree when read back
+(see [effective metadata inheritance](../mets-we-read#effective-metadata-inheritance)):
+
+1. **Set** — the element holds a rights URI.
+2. **Absent** — no element; the resource inherits its parent's rights.
+3. **Explicitly none** — the element is present with the non-URI sentinel value `null`. This *suppresses
+   inheritance*: the resource is positively asserted to have no rights statement, and does not pick up its
+   parent's.
+
+```xml
+<!-- state 3: this file must NOT inherit the parent's rights statement -->
+<mods:accessCondition type="use and reproduction" xlink:type="simple">null</mods:accessCondition>
+```
+
+### Catalogue record identifiers
+
+`mods:recordInfo` holds one or more `mods:recordIdentifier` elements, each with a `source` attribute
+naming the identifying system:
+
+```xml
+<mods:recordInfo>
+  <mods:recordIdentifier source="identity-service">b6n9e4c2</mods:recordIdentifier>
+  <mods:recordIdentifier source="EMu">MS 2249</mods:recordIdentifier>
+</mods:recordInfo>
+```
+
+This is how a deposit (or a logical range within it — an individual interview, say) is linked to catalogue
+records and to the Leeds Identity Service PID. Setting record info replaces the whole `recordInfo`;
+setting one with an empty identifier list clears it.
+
+### Lazy creation and pruning
+
+dmdSecs are created only when metadata is first set on a div — which is why the skeleton has dangling
+`DMDID` references. Symmetrically, when clearing metadata leaves a MODS record completely empty, the
+wrapping dmdSec is removed and the `DMDID` reference dropped — *unless* the dmdSec carries anything beyond
+the MODS we manage (an `mdRef`, `GROUPID`, `STATUS`, `ADMID` or extension attributes), in which case it is
+left intact.
+
+## Logical structMaps
+
+Logical structure — the intellectual arrangement of the content, as distinct from its file layout — is
+expressed as one or more `<mets:structMap TYPE="LOGICAL">` elements. Each logical structMap has a single
+root div and represents an independent structure (the platform supports several per METS, and their
+document order is significant and settable).
+
+Each div in a logical structMap:
+
+- has an `ID` (stable, caller-supplied), a `TYPE` (freeform: `Collection`, `Item`, `Range`…) and a
+  `LABEL`;
+- may have a `DMDID` pointing at a MODS dmdSec carrying its title, record identifiers, access restrictions
+  and rights, exactly as described above (the dmdSec ID is `DMD_{divId}`);
+- contains child divs and/or `mets:fptr` file pointers.
+
+```xml
+<mets:structMap TYPE="LOGICAL">
+  <mets:div ID="LOG_0000" LABEL="Women of Westminster" TYPE="Collection" DMDID="DMD_LOG_0000">
+    <mets:div ID="LOG_0001" LABEL="Amber Rudd" TYPE="Item" DMDID="DMD_LOG_0001">
+      <mets:fptr FILEID="FILE_objects/amber-rudd.m4a" />
+      <mets:fptr FILEID="FILE_objects/amber-rudd.docx" />
+    </mets:div>
+    <mets:div ID="LOG_0002" LABEL="Angela Eagle" TYPE="Item" DMDID="DMD_LOG_0002">
+      <mets:fptr FILEID="FILE_objects/angela-eagle-redacted.m4a" />
+      <mets:fptr FILEID="FILE_objects/angela-eagle-transcript.docx" />
+    </mets:div>
+  </mets:div>
+</mets:structMap>
+```
+
+Replacing a logical structMap (matched by root div ID) removes the old one *and* the dmdSecs it
+referenced, then writes the new tree; removing one cleans up its dmdSecs the same way. The physical
+structMap is never affected.
+
+### File pointers: whole files, time segments, image regions
+
+A logical div can point at content in four ways:
+
+**Whole file** — a plain fptr:
+
+```xml
+<mets:fptr FILEID="FILE_objects/amber-rudd.m4a" />
+```
+
+**Time segment** — for AV content, a `mets:area` with `BETYPE="TIME"`. `BEGIN`/`END` are `HH:MM:SS` or
+`HH:MM:SS.sss` time codes. This is how, for example, one side of an oral-history tape is divided into
+individual interviews:
+
+```xml
+<mets:div ID="LOG_0002" LABEL="AITCHISON, BERTRAM STEWART" TYPE="Item" DMDID="DMD_LOG_0002">
+  <mets:fptr>
+    <mets:area FILEID="FILE_objects/tape1side1.wav" BETYPE="TIME" BEGIN="00:36:40" END="00:45:00" />
+  </mets:fptr>
+  <mets:fptr>
+    <mets:area FILEID="FILE_objects/tape1side2.wav" BETYPE="TIME" BEGIN="00:00:09.2" END="00:20:09" />
+  </mets:fptr>
+</mets:div>
+```
+
+(A single logical item spanning two physical files — the interview continues on the other side of the
+tape.)
+
+**Image region** — a `mets:area` with `SHAPE="RECT"` and `COORDS="x1,y1,x2,y2"` (top-left and
+bottom-right corners in pixels):
+
+```xml
+<mets:fptr>
+  <mets:area FILEID="FILE_objects/map.tif" SHAPE="RECT" COORDS="0,2000,6000,4000" />
+</mets:fptr>
+```
+
+**Combined** — one area may carry both temporal and spatial attributes (a region of a video for a time
+window):
+
+```xml
+<mets:fptr>
+  <mets:area FILEID="FILE_objects/video.mp4" SHAPE="RECT" COORDS="10,20,100,200"
+             BEGIN="00:03:57" END="00:04:10" BETYPE="TIME" />
+</mets:fptr>
+```
+
+`RECT` is the only shape we write; `CIRCLE` and `POLY` are not supported. Area attributes we read from an
+existing METS but don't model (an unrecognised `BETYPE` such as `BYTE`, or an unsupported shape) are
+preserved verbatim and written back unchanged on round-trip, so we never destroy a third party's area
+semantics by editing.
+
+## File-to-file links: structLink
+
+Relationships between files — this transcript belongs to that audio recording — are `mets:smLink`
+elements in the `mets:structLink` section. `xlink:from` and `xlink:to` are `FILE_` IDs, and
+`xlink:arcrole` is a URI describing the relationship. We use the IIIF Presentation 3 motivation/`provides`
+vocabulary:
+
+```xml
+<mets:structLink>
+  <mets:smLink xlink:from="FILE_objects/amber-rudd.m4a"
+               xlink:to="FILE_objects/amber-rudd.docx"
+               xlink:arcrole="http://iiif.io/api/presentation/3#transcript" />
+</mets:structLink>
+```
+
+Known roles (all in the `http://iiif.io/api/presentation/3#` namespace): `transcript`, `translation`,
+`closedCaptions`, `alternativeText`, `longDescription`, `highContrastAudio`, `highContrastDisplay`, and
+the generic fallback `supplementing`.
+
+The iiif-builder uses these links to attach supplementing annotations to the right canvases. The
+`structLink` section only exists once the first link is written.
+
+<Aside type="note">
+`mets:smLink` is also the mechanism Goobi uses to join its *logical* divs to its *physical* divs. We can
+read that style (see [the parsing page](../mets-we-read#style-2-structlink-smlinks-goobis-style)) but
+never write it — in our METS, logical divs point at files directly with `mets:fptr`, and `structLink` is
+reserved for file-to-file relationships carrying an `arcrole`.
+</Aside>
+
+## BagIt deposits
+
+For a Deposit created with the `BagIt` template, the layout on disk/S3 is a BagIt bag: payload under
+`data/`, tag files (`bagit.txt`, `manifest-sha256.txt`, …) at the root. The managed METS file lives at
+`data/mets.xml`, and everything in this specification applies *relative to the `data/` directory*:
+`xlink:href` values, `premis:originalName` values and path-derived IDs never include the `data/` prefix.
+The `objects/`, `metadata/` and `metadata/ad-hoc/` folders sit inside `data/`.
+
+## A complete example
+
+Putting it all together — an oral-history collection with audio, transcripts, per-file access overrides,
+logical structure and file links (abbreviated; every file has an amdSec like those shown on the
+[first page](../mets-we-write#technical-metadata-amdsec--techmd--premis-object)):
+
+```xml
+<mets:mets xmlns:mets="http://www.loc.gov/METS/" xmlns:mods="http://www.loc.gov/mods/v3"
+           xmlns:premis="http://www.loc.gov/premis/v3" xmlns:xlink="http://www.w3.org/1999/xlink"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <mets:metsHdr CREATEDATE="2025-11-10T11:28:24+00:00">
+    <mets:agent ROLE="CREATOR" TYPE="OTHER" OTHERTYPE="SOFTWARE">
+      <mets:name>University of Leeds Digital Library Infrastructure Project</mets:name>
+    </mets:agent>
+  </mets:metsHdr>
+
+  <!-- Title of the whole Archival Group -->
+  <mets:dmdSec ID="DMD_PHYS_ROOT">
+    <mets:mdWrap MDTYPE="MODS"><mets:xmlData><mods:mods>
+      <mods:titleInfo><mods:title>Women of Westminster</mods:title></mods:titleInfo>
+    </mods:mods></mets:xmlData></mets:mdWrap>
+  </mets:dmdSec>
+
+  <!-- Access policy and identifiers for the content, set on objects/ so all files inherit -->
+  <mets:dmdSec ID="DMD_objects">
+    <mets:mdWrap MDTYPE="MODS"><mets:xmlData><mods:mods>
+      <mods:accessCondition type="restriction on access" xlink:type="simple">Level1</mods:accessCondition>
+      <mods:accessCondition type="use and reproduction" xlink:type="simple">http://rightsstatements.org/vocab/InC/1.0/</mods:accessCondition>
+      <mods:recordInfo>
+        <mods:recordIdentifier source="identity-service">b6n9e4c2</mods:recordIdentifier>
+        <mods:recordIdentifier source="EMu">MS 2249</mods:recordIdentifier>
+      </mods:recordInfo>
+    </mods:mods></mets:xmlData></mets:mdWrap>
+  </mets:dmdSec>
+
+  <!-- Descriptive metadata for a logical range: one interview -->
+  <mets:dmdSec ID="DMD_LOG_0001">
+    <mets:mdWrap MDTYPE="MODS"><mets:xmlData><mods:mods>
+      <mods:titleInfo><mods:title>Interview with Amber Rudd</mods:title></mods:titleInfo>
+      <mods:recordInfo>
+        <mods:recordIdentifier source="identity-service">mg56cva7</mods:recordIdentifier>
+        <mods:recordIdentifier source="EMu">MS 2249/1</mods:recordIdentifier>
+      </mods:recordInfo>
+    </mods:mods></mets:xmlData></mets:mdWrap>
+  </mets:dmdSec>
+
+  <!-- A file-level override: closed, and explicitly no rights statement -->
+  <mets:dmdSec ID="DMD_objects/angela-eagle.m4a">
+    <mets:mdWrap MDTYPE="MODS"><mets:xmlData><mods:mods>
+      <mods:accessCondition type="restriction on access" xlink:type="simple">Closed</mods:accessCondition>
+      <mods:accessCondition type="use and reproduction" xlink:type="simple">null</mods:accessCondition>
+    </mods:mods></mets:xmlData></mets:mdWrap>
+  </mets:dmdSec>
+
+  <!-- amdSecs: one per directory and per file (fixity, size, PRONOM format, originalName) ... -->
+
+  <mets:fileSec>
+    <mets:fileGrp USE="OBJECTS">
+      <mets:file ID="FILE_objects/amber-rudd.m4a" MIMETYPE="audio/m4a" ADMID="ADM_objects/amber-rudd.m4a">
+        <mets:FLocat LOCTYPE="URL" xlink:type="simple" xlink:href="objects/amber-rudd.m4a" />
+      </mets:file>
+      <mets:file ID="FILE_objects/amber-rudd.docx" MIMETYPE="application/msword" ADMID="ADM_objects/amber-rudd.docx">
+        <mets:FLocat LOCTYPE="URL" xlink:type="simple" xlink:href="objects/amber-rudd.docx" />
+      </mets:file>
+      <!-- ... -->
+    </mets:fileGrp>
+  </mets:fileSec>
+
+  <mets:structMap TYPE="PHYSICAL">
+    <mets:div ID="PHYS_ROOT" LABEL="__ROOT" DMDID="DMD_PHYS_ROOT" TYPE="Directory">
+      <mets:div ID="PHYS_metadata" LABEL="metadata" DMDID="DMD_metadata" ADMID="ADM_metadata" TYPE="Directory" />
+      <mets:div ID="PHYS_objects" LABEL="objects" DMDID="DMD_objects" ADMID="ADM_objects" TYPE="Directory">
+        <mets:div ID="PHYS_objects/amber-rudd.m4a" LABEL="Amber Rudd.m4a" TYPE="Item">
+          <mets:fptr FILEID="FILE_objects/amber-rudd.m4a" />
+        </mets:div>
+        <mets:div ID="PHYS_objects/angela-eagle.m4a" LABEL="Angela Eagle.m4a" TYPE="Item"
+                  DMDID="DMD_objects/angela-eagle.m4a">
+          <mets:fptr FILEID="FILE_objects/angela-eagle.m4a" />
+        </mets:div>
+        <!-- ... -->
+      </mets:div>
+    </mets:div>
+  </mets:structMap>
+
+  <mets:structMap TYPE="LOGICAL">
+    <mets:div ID="LOG_0000" LABEL="Women of Westminster" TYPE="Collection" DMDID="DMD_LOG_0000">
+      <mets:div ID="LOG_0001" LABEL="Amber Rudd" TYPE="Item" DMDID="DMD_LOG_0001">
+        <mets:fptr FILEID="FILE_objects/amber-rudd.m4a" />
+        <mets:fptr FILEID="FILE_objects/amber-rudd.docx" />
+      </mets:div>
+      <!-- ... -->
+    </mets:div>
+  </mets:structMap>
+
+  <mets:structLink>
+    <mets:smLink xlink:from="FILE_objects/amber-rudd.m4a" xlink:to="FILE_objects/amber-rudd.docx"
+                 xlink:arcrole="http://iiif.io/api/presentation/3#supplementing" />
+  </mets:structLink>
+</mets:mets>
+```
+
+From this single file the iiif-builder can construct a IIIF manifest with ranges (from the logical
+structMap), canvases (from files or time segments), supplementing annotations (from structLink), labels
+and metadata (from MODS), and access/rights information — and the Preservation API can validate the
+deposit's completeness and generate diff import jobs (from fixity, size and paths).

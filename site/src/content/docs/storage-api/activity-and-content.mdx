@@ -1,0 +1,191 @@
+---
+title: Activity, content and search
+sidebar:
+  label: Activity and content
+  order: 4
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+The read-only parts of the Storage API: what has changed, the bytes of a preserved file, where those bytes really are, and a crude path search.
+
+## The activity stream of Import Jobs
+
+The Storage API publishes an activity stream in the same [IIIF Change Discovery](https://iiif.io/api/discovery/1.0/) shape as the [Preservation API's](../../preservation-api/activity-stream), but about a different subject: it is a record of the Storage API's own Import Job activity, not of Archival Groups. The Preservation API consumes it and, from it, produces the stream of created and updated Archival Groups that everything else reads.
+
+```
+GET /activity/importjobs/collection
+```
+
+```json
+{
+  "@context": "http://iiif.io/api/discovery/1/context.json",
+  "id": "https://storage-api.example/activity/importjobs/collection",
+  "type": "OrderedCollection",
+  "totalItems": 3914,
+  "first": {
+    "id": "https://storage-api.example/activity/importjobs/pages/1",
+    "type": "OrderedCollectionPage"
+  },
+  "last": {
+    "id": "https://storage-api.example/activity/importjobs/pages/40",
+    "type": "OrderedCollectionPage"
+  }
+}
+```
+
+Pages hold 100 entries and are numbered from 1. A client wanting the events since it last read would load the `last` page:
+
+```
+GET /activity/importjobs/pages/40
+```
+
+```jsonc
+{
+  "@context": "http://iiif.io/api/discovery/1/context.json",
+  "id": "https://storage-api.example/activity/importjobs/pages/40",
+  "type": "OrderedCollectionPage",
+  "startIndex": 3900,
+  "partOf": {
+    "id": "https://storage-api.example/activity/importjobs/collection",
+    "type": "OrderedCollection"
+  },
+  "prev": {
+    "id": "https://storage-api.example/activity/importjobs/pages/39",
+    "type": "OrderedCollectionPage"
+  },
+  "orderedItems": [
+    {
+      "type": "Update",
+      "object": {
+        "id": "https://storage-api.example/import/results/m3cnbckjmtd9/cc/lqj7mqhg",
+        "type": "ImportJob",
+        "seeAlso": [
+          {
+            "id": "https://storage-api.example/repository/cc/lqj7mqhg",
+            "type": "ArchivalGroup"
+          }
+        ]
+      },
+      "startTime": "2025-10-06T10:31:02Z",
+      "endTime": "2025-10-06T10:34:19Z"
+    }
+  ]
+  // ... 99 more
+}
+```
+
+...and then work from the end of `orderedItems` backwards until it reaches an `endTime` earlier than the last time it read the stream, following `prev` to the page before if it needs to. It will then have gathered all the **new** events. A page that is not the last one also has a `next`.
+
+| Property | Description |
+|---|---|
+| `type` (of the activity) | Always `Update`. The Storage API does not distinguish creating an Archival Group from changing one. |
+| `object.id` | The [Import Job Result](../import#import-job-results) URI. |
+| `object.type` | `ImportJob`, even though the `id` is that of a result. |
+| `object.seeAlso` | An **array** with one entry: the Archival Group the job applied to. |
+| `startTime` | When the job was received. |
+| `endTime` | When the job finished. This is what the stream is ordered by, and what a reader keeps track of. |
+
+Only jobs that have finished appear; a job that is still `waiting` or `running` is not in the stream and is not counted in `totalItems`.
+
+<Aside type="caution">
+Two things here differ from what you would expect, and from the Preservation API's stream: every
+entry is an `Update` (there is no `Create`), and `object.type` says `ImportJob` while `object.id` is
+an Import Job Result URI. If you are reading this stream, follow `seeAlso` to find out what changed
+and do not rely on either value.
+</Aside>
+
+## Fetching file content
+
+If you can call the Storage API you can retrieve the bytes of any Binary.
+
+```
+GET /content/library/manuscripts/ms-342/objects/34r.tiff
+```
+
+The path is the same as the repository path apart from the first segment. This URI is exposed as the `content` property of a Binary in both APIs; it is only honoured here.
+
+The response streams the file with the Binary's recorded `contentType`. Anything at the path that is not a Binary - a Container, an Archival Group, nothing at all - is an error, and the body is a problem document saying `404`. Be careful how you detect it: the controller does not set the response status, so what you actually receive is **HTTP 200** carrying that document, and a client that branches on the status code will read the failure as success. Check the content type, or the body, rather than the status ([issue #262](https://github.com/digirati-co-uk/digital-preservation/issues/262)).
+
+<Aside type="note">
+`/content/...` serves the **current** version. There is no `version` parameter, whatever query
+string the `content` property happens to carry. To read the bytes of an older version, find the file
+in that version's [Storage Map](#the-storage-map) and read it from S3 directly, or
+[export](../export) the version you want.
+</Aside>
+
+Callers that are trusted with direct access to the OCFL bucket do not need this endpoint at all: a Binary's `origin` property gives the real S3 location of the bytes.
+
+## The storage map
+
+```
+GET /ocfl/storagemap/{archivalGroupPathUnderRoot}
+GET /ocfl/storagemap/{archivalGroupPathUnderRoot}?version=v3
+```
+
+The same resource, at the same path, as the [Preservation API's](../../preservation-api/versions-and-storage-map) - the Preservation API passes it straight through. It maps each logical path in an Archival Group to the S3 key that path resolves to in a given version, which is what makes it possible to read an old version's files without asking Fedora for them.
+
+| Property | Description |
+|---|---|
+| `archivalGroup` | The Archival Group this map is of. |
+| `version` | The version the map describes: `ocflVersion`, `mementoTimestamp`, `mementoDateTime`. |
+| `headVersion` | The current version of the object. |
+| `allVersions` | Every version, in order. |
+| `storageType` | The kind of storage - `S3`. |
+| `root` | The bucket. |
+| `objectPath` | The key prefix of the OCFL object within the bucket. |
+| `files` | A map of logical path to `hash` (SHA-256) and `fullPath` (the key, relative to `objectPath`, of the version of the file this version points at). |
+| `hashes` | The reverse lookup: SHA-256 to path. |
+
+Asking for a version the map does not resolve to is an error rather than a silently different answer.
+
+## Fedora search
+
+```
+GET /FedoraSearch?text=ms-342&page=0&pageSize=50
+```
+
+A deliberately simple search, and quite unlike the [Preservation API's](../../preservation-api/search). It is a case-insensitive **substring match over repository paths**, run directly against Fedora's own database, restricted to rows that have a media type - which is to say, to Binaries. It does not look at names (`dc:title`), at METS, or at file content.
+
+| Parameter | Description |
+|---|---|
+| `text` | Required. The substring to look for in the path. An empty or whitespace value is a `400`. |
+| `page` | Zero-based. `page=0` is the first page. |
+| `pageSize` | Between 1 and 500. |
+
+```json
+{
+  "total": 128,
+  "count": 50,
+  "page": 0,
+  "pageSize": 50,
+  "results": [
+    {
+      "fedoraId": "info:fedora/library/manuscripts/ms-342/objects/34r.tiff",
+      "created": "2025-03-11T11:19:13Z",
+      "lastModified": "2025-03-11T11:19:13Z",
+      "contentSize": 15986,
+      "mimeType": "image/tiff"
+    }
+  ]
+}
+```
+
+`total` is the number of matches, `count` the number returned on this page.
+
+<Aside type="caution">
+Always send `pageSize`. Both paging parameters are optional, and omitting `pageSize` does not fall
+back to a default - it runs the query with no limit at all and returns every match, which on a large
+repository is not something you want to do twice.
+</Aside>
+
+Note that the page numbering here starts at 0, while the activity stream's pages start at 1.
+
+## Connectivity checks
+
+| Path | What it tells you |
+|---|---|
+| `/health` | The service is up. This is what the load balancer uses. |
+| `/fedora` | Whether the Storage API can reach Fedora. |
+| `/storagecheck` | Whether the Storage API can read its S3 bucket. |
+| `/whoami` | Who the API resolved you as. See [Authentication](../../preservation-api/authentication#how-the-api-decides-who-you-are). |

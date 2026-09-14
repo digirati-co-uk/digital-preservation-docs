@@ -1,3 +1,10 @@
+> [!WARNING]
+> **Superseded.** This page has been ported to the documentation site, checked against the
+> code as it actually behaves: **https://digirati-co-uk.github.io/digital-preservation-docs/preservation-api/overview/**
+> 
+> It is kept for history. Where the two disagree, the site is right - the porting pass
+> corrected a number of things here that no longer matched the code.
+
 # Preservation API
 
 Throughout this document we will assume for examples that the Preservation API root is at https://preservation-api.library.leeds.ac.uk. There is no API functionality at this root URI, however. The API is JSON over HTTP; most resources have `id` properties that correspond to their HTTP locations, and refer to other resources via fully qualified URIs.

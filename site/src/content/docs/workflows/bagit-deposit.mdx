@@ -1,0 +1,142 @@
+---
+title: Depositing a BagIt bag
+sidebar:
+  label: BagIt deposit
+  order: 8
+---
+
+import { Aside, LinkCard, Steps } from '@astrojs/starlight/components';
+
+Use case: your content arrives as a [BagIt](https://datatracker.ietf.org/doc/html/rfc8493) bag — a payload under `data/`, with tag files and a checksum manifest in the root — and you would like to upload it as it is rather than take it apart first.
+
+The `BagIt` Deposit template exists for exactly this. It gives you the same layout as `RootLevel`, one level down — and nothing else:
+
+```
+/
+  data/
+    objects/
+    metadata/
+       ad-hoc/
+    mets.xml
+```
+
+The tag files and the manifest come from your bag, not from the template, so once you have uploaded it the workspace looks like this:
+
+```
+/
+  bagit.txt                  <- yours
+  bag-info.txt               <- yours
+  manifest-sha256.txt        <- yours, and the platform reads it for digests
+  tagmanifest-sha256.txt     <- yours
+  data/
+    objects/                 <- your payload goes in or below here
+    metadata/
+       ad-hoc/
+    mets.xml
+```
+
+<Aside type="caution">
+Your payload has to end up under `data/objects/`, not directly under `data/`. Anything outside
+`objects/` and `metadata/` is quietly ignored when files are added to the METS, and the diff then
+refuses with a `422` naming a file it cannot find in the METS. If your bag's payload is not already
+arranged that way, that is the one thing you do have to rearrange.
+</Aside>
+
+Two things follow from that, and they are what this page is about.
+
+**The bag is how the content travelled, not part of the content.** The tag files in the root are above `data/`, and they are not preserved. The Archival Group you end up with is indistinguishable from one deposited in the `RootLevel` layout.
+
+**The `data/` prefix is invisible to the API.** Wherever you give a path to the Preservation API — adding files to the METS, deleting items — you give it as it appears *below* `data/`: `objects/image_001.tif`, not `data/objects/image_001.tif`. The one place the prefix does appear is the `origin` of a Binary in an [Import Job](../../preservation-api/import-jobs#bagit-deposits), because that is where the bytes actually are.
+
+<Steps>
+
+1. ### Create a Deposit from the `BagIt` template
+
+   ```
+   POST /deposits
+   ```
+
+   ```json
+   {
+     "type": "Deposit",
+     "template": "BagIt",
+     "archivalGroup": "https://preservation-api.example/repository/library/born-digital/accession-2025-112",
+     "archivalGroupName": "Accession 2025/112"
+   }
+   ```
+
+2. ### Upload the unpacked bag
+
+   Copy the whole bag into the location given by `files`, keeping its structure: tag files in the root, payload under `data/`.
+
+   ```
+   s3://working-bucket/deposits/e56fb7yg/bagit.txt
+   s3://working-bucket/deposits/e56fb7yg/manifest-sha256.txt
+   s3://working-bucket/deposits/e56fb7yg/data/objects/…
+   ```
+
+   <Aside type="tip" title="The manifest is a source of checksums">
+   If `manifest-sha256.txt` is present in the root, the platform reads it and uses its digests as a source of SHA256 for the payload files, alongside the METS and S3 object metadata. A bag that already carries its checksums does not need you to supply them again.
+   </Aside>
+
+   The platform works out that a Deposit is in BagIt *layout* by looking for a `data/` directory in the workspace, not from the `template` you asked for. Finding the METS is a separate question, and it is answered root-first: the root of the workspace is searched before `data/`. So a bag uploaded into a `RootLevel` deposit is a mixture — a `data/`-rooted file tree paired with the `mets.xml` the template already put at the root. Upload a bag into a deposit made with `template: None` or `BagIt`, not into a `RootLevel` one.
+
+3. ### Work on it as usual
+
+   From here everything is as in the other workflows, with paths written as if `data/` were the root:
+
+   ```
+   POST /deposits/e56fb7yg/mets
+   ```
+
+   ```json
+   [
+     "objects/nyc/DSCF0981.JPG",
+     "metadata/brunnhilde/siegfried.csv"
+   ]
+   ```
+
+   You can run the [pipeline](../../preservation-api/tool-outputs-and-pipelines) over a BagIt deposit exactly as over any other; it reads and writes below `data/`.
+
+4. ### Generate the Import Job and look at it
+
+   ```
+   GET /deposits/e56fb7yg/importjobs/diff
+   ```
+
+   The `id` paths carry no `data/`; the `origin` URIs do:
+
+   ```jsonc
+   {
+     "source": "s3://working-bucket/deposits/e56fb7yg/",
+     "binariesToAdd": [
+       {
+         "id": "https://preservation-api.example/repository/library/born-digital/accession-2025-112/objects/nyc/DSCF0981.JPG",
+         "type": "Binary",
+         "name": "DSCF0981.JPG",
+         "origin": "s3://working-bucket/deposits/e56fb7yg/data/objects/nyc/DSCF0981.JPG",
+         "contentType": "image/jpeg",
+         "size": 3183477,
+         "digest": "4675c73e6fd66d2ea9a684ec79e4e6559bb4d44a35e8234794b0691472b0385d"
+       }
+     ]
+   }
+   ```
+
+   Note what is *not* there: no `bagit.txt`, no `manifest-sha256.txt`. They sit above `data/` and are never part of the object.
+
+5. ### Run it, and poll the result
+
+   As in every other workflow.
+
+</Steps>
+
+## What comes back out
+
+An Archival Group that went in as a bag does not come out as one. [Export](../../preservation-api/exports) always produces the `RootLevel` layout, matching the Archival Group: `objects/`, `metadata/` and the METS in the root of the workspace, with no `data/` and no tag files. This is consistent — the bag was packaging, and packaging is not what was preserved — but it does mean the round trip is not byte-for-byte, and a workflow that expects to get its bag back will be disappointed.
+
+<LinkCard
+  title="💻 End-to-end example: deposit a BagIt bag"
+  href="https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/preservation-docs-client/workflows/w07_bagit_deposit.py"
+  description="Uploads a tiny bag, adds its payload to the METS, and shows the data/ prefix in the diff's origins but not its ids."
+/>

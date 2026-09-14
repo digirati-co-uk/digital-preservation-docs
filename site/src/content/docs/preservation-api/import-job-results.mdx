@@ -1,0 +1,123 @@
+---
+title: Import Job results
+sidebar:
+  label: Import Job results
+  order: 10
+---
+
+import { Aside, LinkCard, Steps } from '@astrojs/starlight/components';
+
+In all cases, the resource returned from submitting an [ImportJob](../import-jobs) is an `ImportJobResult`.
+
+This resource is returned quickly, before the Import Job actually runs. The job may take a long time to run, be sitting in a queue, or otherwise not be available for a while. You can repeatedly GET the result to check its progress. It will be at status `waiting` until it is picked up for processing.
+
+```jsonc
+{
+  "id": "https://preservation-api.example/deposits/e56fb7yg/importjobs/results/ad5fbm8k",
+  "type": "ImportJobResult",
+  "created": "2025-10-03T09:56:02.118392Z",
+  "createdBy": "https://preservation-api.example/agents/tom",
+  "importJob": "https://preservation-api.example/deposits/e56fb7yg/importjobs/transient/638950821343621834",
+  "originalImportJob": "https://preservation-api.example/deposits/e56fb7yg/importjobs/diff",
+  "deposit": "https://preservation-api.example/deposits/e56fb7yg",
+  "archivalGroup": "https://preservation-api.example/repository/library/c20-printed-books/my-book",
+  "status": "waiting",
+  "dateBegun": null,
+  "dateFinished": null,
+  "sourceVersion": null,
+  "newVersion": null,
+  "errors": null,
+  "containersAdded": [],
+  "binariesAdded": [],
+  "containersDeleted": [],
+  "binariesDeleted": [],
+  "binariesPatched": [],
+  "binariesRenamed": [],
+  "containersRenamed": []
+}
+```
+
+| Property | Description |
+|---|---|
+| `id` | The URI of this ImportJobResult. You can poll this (with GET) to check for progress, using the fields below. |
+| `type` | `ImportJobResult` |
+| `importJob` | The `id` of the Import Job that was submitted, for which this is the result. For a job generated as a diff that is its transient URI; for a job you wrote yourself it is whatever identifier you gave it. |
+| `originalImportJob` | The `originalId` of the submitted job — for a diff, the `.../importjobs/diff` URI. Absent when the job had no `originalId`. |
+| `deposit` | Included for convenience: the URI of the Deposit the job was started from. |
+| `archivalGroup` | Also for convenience: the URI of the repository object the changes in the job are being applied to. |
+| `status` | One of `waiting`, `running`, `completed`, `completedWithErrors`. |
+| `dateBegun` | When the platform started processing the job. Null until then. |
+| `dateFinished` | When the platform finished processing the job. Null until then. |
+| `sourceVersion` | The version of the Archival Group this job was based on, as a string — `v1`, `v2`, `v3`… Null for a new Archival Group. Known once the job starts running, not before. |
+| `newVersion` | The version of the Archival Group this job produced. Not known until the job has finished processing. |
+| `errors` | A list of [error objects](../overview#errors), not strings. Null when there are none. |
+| `containersAdded` | Populated once the job has finished successfully. |
+| `binariesAdded` | Populated once the job has finished successfully. |
+| `containersDeleted` | Populated once the job has finished successfully. |
+| `binariesDeleted` | Populated once the job has finished successfully. |
+| `binariesPatched` | Populated once the job has finished successfully. |
+| `binariesRenamed` | Populated once the job has finished successfully. |
+| `containersRenamed` | Populated once the job has finished successfully. |
+
+The shared property `created` is the moment the API received the POST of the job. An ImportJobResult carries all four of `created`, `createdBy`, `lastModified` and `lastModifiedBy` — `lastModified` moves as the job progresses, which is a cheap way to tell a job that is still working from one that has stalled.
+
+## Polling
+
+```
+GET /deposits/e56fb7yg/importjobs/results/ad5fbm8k
+```
+
+Returns the same ImportJobResult, and over time you expect to see `status` change and the `binariesAdded` and its neighbours fill up.
+
+<Steps>
+
+1. **`waiting`** — accepted and queued. `dateBegun` is null.
+
+2. **`running`** — being processed. `dateBegun` and, for an update, `sourceVersion` are now set.
+
+3. **`completed`** — done. `dateFinished` and `newVersion` are set, and the lists say what was actually changed.
+
+4. **`completedWithErrors`** — finished, but something went wrong. `errors` says what, and `newVersion` stays null. The whole job runs inside a single transaction against the repository, abandoned when a step fails, so an Archival Group is not left half-updated.
+
+</Steps>
+
+You can poll as little or as often as you like — or even not at all. A background process in the Preservation API reads the Storage API's own stream of finished jobs about once a minute and brings its records up to date, so a result you never ask about still reaches its final state, and the Deposit still moves on. Polling just makes it happen sooner.
+
+<Aside type="note" title="What a completed job does to the Deposit">
+When a job reaches either finished state, the [Deposit](../deposits) it came from is updated too: `status` becomes `preserved` or `error`, `active` becomes false either way, and `preserved`, `preservedBy` and `versionPreserved` are filled in from the result. A Deposit that ended in `error` can be [reactivated](../deposits#active-and-inactive) and used again.
+</Aside>
+
+<LinkCard
+  title="💻 Example: poll an Import Job result"
+  href="https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/preservation-docs-client/p09_import_job_results/poll_result.py"
+  description="Waits for a job to finish and prints what it changed."
+/>
+
+## When a job fails
+
+A job that fails after it has been accepted reports the failure here rather than as an HTTP status, because the HTTP request returned long before. The usual causes:
+
+| Message | What it means |
+|---|---|
+| "Archival Group is not null for new Import" | `isUpdate` was false but the Archival Group already exists. |
+| "Archival Group was null for update" | `isUpdate` was true but there is nothing at that path. |
+| "Archival Group does not have a name" | A new Archival Group needs `archivalGroupName`. |
+| "Binary ID is null" | A Binary in one of the operation lists has no `id`. |
+
+Nothing was changed in the repository, so the fix is to correct the job — reactivating the Deposit if you need to — and run it again.
+
+## Listing the results for a Deposit
+
+```
+GET /deposits/e56fb7yg/importjobs/results
+```
+
+Returns a bare JSON array of ImportJobResult objects, oldest first — not a page object, and with no query parameters. A Deposit will usually have nothing or one entry in it; more than one means earlier attempts that ended in `completedWithErrors`, because a Deposit with a successful job can't be used for another.
+
+This listing is served from the Preservation API's own stored copy of each result, which is refreshed when you fetch an individual result or when the background reader catches up. For the live state of a job that is still running, fetch its own `id`.
+
+<LinkCard
+  title="💻 Example: list a Deposit's Import Job results"
+  href="https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/preservation-docs-client/p09_import_job_results/list_results.py"
+  description="Shows every attempt made from one deposit, and what each one did."
+/>

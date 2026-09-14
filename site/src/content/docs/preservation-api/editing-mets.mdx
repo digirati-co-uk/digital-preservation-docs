@@ -1,0 +1,242 @@
+---
+title: Editing the METS file
+sidebar:
+  label: Editing METS
+  order: 6
+---
+
+import { Aside, LinkCard } from '@astrojs/starlight/components';
+
+A typical workflow for a set of files you want to preserve as an Archival Group might involve:
+
+* creating a new [Deposit](../deposits) with the `RootLevel` or `BagIt` template, which gives you an `objects/` directory, a `metadata/` directory and a METS file — all unpopulated;
+* arranging the files under `objects/` in an *external environment* such as BitCurator, running some analysis over them with **tools**, saving the tool outputs into known locations under `metadata/`, and uploading the files and their metadata as a package to the S3 location of the Deposit; **or**
+* uploading the files to the S3 location of the Deposit and then asking the Preservation API to [run a pre-configured set of tools](../tool-outputs-and-pipelines) over them.
+
+You then end up with, in the Deposit:
+
+* a set of files under `objects/` — the files you want to preserve as a logical unit, as an Archival Group;
+* a set of tool outputs under `metadata/`, providing further information about those files, such as format identification, EXIF data and virus reports;
+* and, in a BagIt layout, a set of BagIt files in the root including the BagIt manifest.
+
+Ask for the [file system view](../deposit-files) of the Deposit and you'd see not just the file and folder layout but also the detailed metadata for each file, collated from the various tool outputs. All this metadata is information that should be stored as part of the preserved digital object, in METS form.
+
+What has happened to the METS file depends on which of those workflows you took.
+
+In the first, where the analysis was performed externally, the METS file is still the original, unpopulated one — nothing has happened to push the metadata present in the tool output files into the XML of the METS, because there has been no interaction with the Preservation API at all in the construction of a fully populated Deposit. Synchronising the Deposit contents with the METS file is a separate operation, and it is the one this page describes.
+
+In the second, where the Preservation API ran the tools, the pipeline has already done that work: once the tools finish it adds every file under `objects/` to the METS, with what they found, and adds its own output files as it uploads them. The operations below are then how you *top up* — pick up files added since, or reflect a change — and how you take things out again, since a pipeline run adds everything it looked at whether or not it all belongs in the eventual preserved object.
+
+<Aside type="note" title="Only METS the platform wrote">
+Every operation on this page needs a METS file the platform may edit — one whose `mets:agent` says the platform created it. A third-party METS (from Archivematica, EPrints, Goobi) is read, understood and preserved, but not written to: you edit it yourself in the workspace. See [METS editability](../../mets/editability).
+</Aside>
+
+## Reading the METS
+
+```
+GET /deposits/e56fb7yg/mets
+```
+
+Returns the content of the METS file as `application/xml`, with its ETag in the `ETag` response header.
+
+This doesn't have to be a METS file the platform wrote; the API will return the content of the first file in the root of the deposit that it recognises as a METS file. It looks for a file called `mets.xml` by preference, and then for `.xml` files whose names contain the string `mets` (case-insensitive). For a BagIt deposit it looks in the root first and then inside `data/`.
+
+### The parsed METS
+
+```
+GET /deposits/e56fb7yg/parsed-mets
+```
+
+The same document as the API understands it, as JSON — useful when you want the structure without parsing XML yourself.
+
+| Property | Description |
+|---|---|
+| `name` | The title of the object the METS file describes. |
+| `metsUri` | Where the METS file itself is. |
+| `rootUri` | The directory it sits in — the root the paths inside it are relative to. |
+| `self` | A `WorkingFile` describing the METS file itself, because a METS file does not usually include itself. |
+| `physicalStructure` | The physical structMap as a `WorkingDirectory` tree, in the same shape as the [file system view](../deposit-files). |
+| `files` | Every file the document mentions, as a flat list, with names and digests. |
+| `logicalStructures` | The logical structMaps, as nested ranges. |
+| `agent` | The `mets:agent` name recorded in the document. |
+| `editable` | Whether that agent is the platform's own — that is, whether the operations below will work. |
+| `eTag` | The current ETag of the document. |
+| `xDocument` | Always null here. The XML itself comes from `GET {id}/mets`. |
+
+## The ETag, and why every write needs one
+
+The METS file is an ordinary file in the workspace. You can edit it yourself, and so can anybody else with access to the bucket — the API is not the only writer. So every operation that changes the METS is guarded by its ETag: you say which version of the document you are changing, and the API refuses if that is no longer the current one.
+
+Get the value from the `ETag` header of `GET {id}/mets`, or from the `metsETag` property of a Deposit you fetched **by its own id** — the listing does not carry one, and neither does the response to creating a deposit. Send it back **exactly as you received it**, quotation marks included: it is an S3 ETag, and the quotes are part of it.
+
+```
+POST /deposits/e56fb7yg/mets
+If-Match: "bfc13a64729c4290ef5b2c2730249c88ca92d82d"
+```
+
+A mismatch is `409 Conflict`, with the current ETag in the problem's `detail` — re-read the METS and work out what changed rather than retrying with the new value:
+
+```json
+{
+  "title": "Conflict: ETag does not match deposit METS",
+  "status": 409,
+  "detail": "\"dac666070460a826b809a3b7846cb01c\""
+}
+```
+
+Every successful write changes the ETag, so a second edit needs a freshly fetched one: the value you used a moment ago is already stale.
+
+| Operation | `If-Match` |
+|---|---|
+| `POST {id}/mets` | Required whenever the deposit has a METS file. |
+| `POST {id}/mets/delete` | Always required. |
+| `POST {id}/mets/normalise` | Optional, but enforced when supplied. |
+
+## Adding files and folders to the METS
+
+```
+POST /deposits/e56fb7yg/mets
+If-Match: "bfc13a64729c4290ef5b2c2730249c88ca92d82d"
+```
+
+```json
+[
+  "metadata/brunnhilde/siegfried.csv",
+  "metadata/brunnhilde/logs/viruscheck-log.txt",
+  "objects/image_001.tif",
+  "objects/image_002.tif",
+  "objects/docs/Fedora-Usage-Principles.doc",
+  "objects/docs/tuesday/notes.txt"
+]
+```
+
+The body is a JSON list of strings: the paths, relative to the root of the deposit, of the files and folders to add. In a BagIt deposit, give the paths as they appear below `data/` — `objects/image_001.tif`, not `data/objects/image_001.tif`.
+
+On receiving this the Preservation API adds (or updates) the entries for those files in the METS file, including all relevant metadata it has collected for them from tool outputs.
+
+This operation can be called repeatedly for the same file; if the file information is already present it is updated. A typical reason to call it more than once is to add the files to the METS first, then run tools to produce more metadata, then submit the same files again to update their entries.
+
+What it does with the list:
+
+* **Folders are not expanded.** Adding a folder adds the folder; all intended files must be listed.
+* **Ancestors are created for you.** A file's parent folders are added if they are not there already, so you do not have to list them.
+* **Files in the root are ignored.** Only paths in or below `objects/` or `metadata/` are added.
+* **Paths that don't exist in the workspace are skipped** rather than failing the request — the API adds what it found. If none of them are found, the request is `400 Bad Request`.
+
+The response says what was affected:
+
+```json
+{
+  "items": [
+    { "path": "objects/image_001.tif", "isDir": false, "where": "Mets" },
+    { "path": "objects/docs", "isDir": true, "where": "Mets" }
+  ]
+}
+```
+
+<LinkCard
+  title="💻 Example: adding files to the METS"
+  href="https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/preservation-docs-client/p06_editing_mets/add_files_to_mets.py"
+  description="Finds files in the workspace that are not yet in the METS, and adds them."
+/>
+
+## Removing items from the METS and the Deposit
+
+Deletion is a little more complicated. You can delete files from the Deposit workspace independently of the API, but the API helps with simultaneous deletions from the Deposit and the METS. The scenarios are:
+
+* deleting a file that is in the Deposit workspace but has not been added to METS;
+* deleting a file from METS that is not currently in the Deposit workspace (this happens on updates where the full contents were not exported);
+* deleting a file from both the METS and the Deposit workspace.
+
+Rather than POST a list of paths as strings, you POST a `DeleteSelection` — note `POST`, not `DELETE`, and `.../mets/delete` rather than `.../mets`:
+
+```
+POST /deposits/e56fb7yg/mets/delete
+If-Match: "bfc13a64729c4290ef5b2c2730249c88ca92d82d"
+```
+
+```json
+{
+  "deleteFromMets": true,
+  "deleteFromDepositFiles": true,
+  "items": [
+    { "path": "objects/unwanted-folder/unwanted-file.txt", "isDir": false },
+    { "path": "objects/unwanted-folder", "isDir": true },
+    { "path": "objects/files/unwanted-1.txt", "isDir": false }
+  ]
+}
+```
+
+| Property | Description |
+|---|---|
+| `deleteFromDepositFiles` | The items will be removed from the Deposit workspace. |
+| `deleteFromMets` | The items will **also** be removed from METS, if present. This has no effect if `deleteFromDepositFiles` is false. |
+| `deleteFromRoot` | Also delete the listed items that sit in the root of the workspace, which are otherwise left alone. |
+| `items` | The items to delete. |
+
+Each entry in `items` requires two fields:
+
+| Property | Description |
+|---|---|
+| `path` | The relative path of the file or directory. |
+| `isDir` | Boolean — required. You need to confirm that the path is a directory, when it is. |
+
+<Aside type="caution" title="deleteFromMets is a modifier, not an alternative">
+The two flags are not independent operations. `deleteFromMets` on its own removes nothing: the METS entry is only removed once the file itself has been removed from the workspace. There is no operation here that takes a file out of the METS while leaving it in the deposit — if that is what you want, the file simply stays out of the next [Import Job](../import-jobs) instead. Sending both flags false is `400 Bad Request`.
+</Aside>
+
+While you do need to supply child file paths — you can't supply just a folder path where there are child items — the Preservation API takes care of the order of delete operations, deleting the deepest items first. Delete operations that cannot be supported result in `400 Bad Request`:
+
+* you cannot delete the `objects` directory, or `metadata/ad-hoc`;
+* you cannot delete a folder that still has files in it — delete the files first;
+* you cannot delete files in the root of the workspace, other than the BagIt files.
+
+The response is the same `items` list as for adding, naming what was actually deleted. A delete that fails partway through reports how many items it had got through.
+
+<LinkCard
+  title="💻 Example: deleting from the METS and workspace"
+  href="https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/preservation-docs-client/p06_editing_mets/delete_from_mets.py"
+  description="Removes a file from both the workspace and the METS, deepest path first."
+/>
+
+## Locks
+
+All three operations respect the Deposit's [lock](../deposits#locking-a-deposit): if somebody else holds it, your edit is refused. Adding to and deleting from the METS answer `401 Unauthorized` for this, while normalising answers `409 Conflict` — the same situation, reported two ways.
+
+## Normalising METS identifiers
+
+```
+POST /deposits/e56fb7yg/mets/normalise
+```
+
+Rewrites every `xs:ID` in the deposit's METS that is not a legal `NCName` into the form the platform mints now, following every reference to it. This exists because of a change in how the platform spells identifiers; the background is in [Identifiers in METS](../../mets/identifiers).
+
+It is behind the `EnableMetsIdNormalisation` feature flag, because it exists to be driven in bulk by a migration tool, and a bulk rewrite of preserved documents is not something to leave switched on by default. Where the flag is off, the route is not there.
+
+The operation is idempotent, and honest about doing nothing: a document whose IDs are already legal comes back with `changed` false and is not rewritten, so you know there is nothing here worth preserving. Preserving an unchanged document would give the Archival Group a new version identical to the one before it.
+
+```json
+{
+  "idsRewritten": 41,
+  "referencesRewritten": 39,
+  "rewrites": [
+    { "from": "objects/image 001.tif", "to": "PREFIX_objects_2Fimage_20001.tif" }
+  ],
+  "warnings": [],
+  "duplicateIds": [],
+  "changed": true
+}
+```
+
+| Property | Description |
+|---|---|
+| `idsRewritten` | How many `ID` attributes were rewritten. |
+| `referencesRewritten` | How many `IDREF`/`IDREFS` values were rewritten to follow their targets. |
+| `rewrites` | Every ID that changed, `from` and `to`. Kept in full rather than counted: this is the record of what a preserved document's identifiers used to be, and the only place it exists. |
+| `warnings` | Things a person should look at. Never a reason to fail on its own — the commonest is a reference that names nothing — but a document that produces a lot of them is not one to migrate unattended. |
+| `duplicateIds` | IDs carried by more than one element. See below — you will not see this property in a successful response, because duplicates stop the operation. |
+| `changed` | Whether the document was actually modified. A normalisation that changed nothing must not be preserved. |
+
+A document that carries the same ID on more than one element is refused with `422 Unprocessable Content`, naming the offending IDs, and nothing is written: a rewrite maps an ID value rather than an element, so both would land on the same new ID and a document that is visibly invalid would become one that is invalid but looks fine. It is left as it was for a person to sort out.
+
+A deposit with no METS file is `400 Bad Request`.

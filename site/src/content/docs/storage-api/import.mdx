@@ -1,0 +1,172 @@
+---
+title: Import
+sidebar:
+  label: Import
+  order: 2
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Creating and updating Archival Groups is done by sending the Storage API an **Import Job**: a JSON document describing Containers and Binaries - folders and files - that are somewhere on S3 *outside Fedora* and that the Storage API should ingest *into Fedora*. The Storage API manages the Fedora transaction for this work and controls the process of getting the content in, no matter how many files are involved.
+
+Two things differ from the [Preservation API's Import Jobs](../../preservation-api/import-jobs):
+
+* **The Storage API cannot generate an Import Job for you.** There is no diff. It only executes jobs you construct and send.
+* **There is no Deposit.** In the Preservation API every Import Job belongs to a Deposit, which supplies the source location. Here there is a single universal endpoint and you name the source locations yourself, in each item's `origin`.
+
+As long as the `origin` properties are accessible to the Storage API, it can stream content from them.
+
+## Submitting a job
+
+```
+POST /import
+```
+
+```jsonc
+{
+  "id": "https://example.org/any-unique-uri-you-like",
+  "type": "ImportJob",
+  "created": "2025-10-03T09:55:34.3621834Z",
+  "createdBy": "https://storage-api.example/agents/my-integration",
+  "lastModifiedBy": "https://storage-api.example/agents/my-integration",
+  "archivalGroup": "https://storage-api.example/repository/docs-misc/import-job-doc",
+  "archivalGroupName": "Import job for Documentation",
+  "isUpdate": false,
+  "containersToAdd": [
+    {
+      "id": "https://storage-api.example/repository/docs-misc/import-job-doc/objects",
+      "type": "Container",
+      "name": "objects"
+    }
+  ],
+  "binariesToAdd": [
+    {
+      "id": "https://storage-api.example/repository/docs-misc/import-job-doc/objects/cat-uv.png",
+      "type": "Binary",
+      "name": "cat-uv.png",
+      "origin": "s3://any-accessible-bucket/any-path/objects/cat-uv.png",
+      "contentType": "image/png",
+      "size": 449518,
+      "digest": "1587a18ce3567215bfba9d0866b9e05e548b0ba70ab1b6e001a96a2f0e95c7f3"
+    },
+    {
+      "id": "https://storage-api.example/repository/docs-misc/import-job-doc/mets.xml",
+      "type": "Binary",
+      "name": "mets.xml",
+      "origin": "s3://any-accessible-bucket/any-path/mets.xml",
+      "contentType": "application/xml",
+      "size": 3278,
+      "digest": "2274bfad9b5420043fc62c6c34441ae436a0caab12d8a62a4679f4dfb2599e53"
+    }
+  ],
+  "containersToDelete": [],
+  "binariesToDelete": [],
+  "binariesToPatch": []
+}
+```
+
+The `id` you give the job is yours - any unique URI will do, and it comes back on the result as `importJob`. `originalImportJob` echoes the separate `originalId`, if you sent one, and is absent otherwise. What the API mints is the *result's* identifier, which is what the result URI is built from.
+
+| Property | Description |
+|---|---|
+| `archivalGroup` | The Storage API URI of the object being created or updated. It need not exist yet - this job may be creating it. |
+| `archivalGroupName` | The display name (`dc:title`) to give a new Archival Group. Required when creating; on an update it replaces the existing name. |
+| `isUpdate` | Must be explicitly `true` to change an Archival Group that already exists. `false` against an existing group, or `true` against a path where nothing is, fails - but as a `completedWithErrors` result, not an HTTP error, because the check happens when the job runs. Use [test-path](#testing-a-path-before-you-build-a-job) first if you are not sure which case you are in. |
+| `createdBy`, `lastModifiedBy` | [Agent](../../preservation-api/agents) URIs. Both are needed: the API refuses a job with no `lastModifiedBy`, and takes the identity it writes into Fedora from `createdBy`. Only the last path segment is read, so what matters is the name on the end. |
+| `sourceVersion` | Optional, and informational only on the way in - the executor reads the Archival Group's current version for itself. |
+| `containersToAdd` | Containers to create inside the Archival Group. `id` gives the URI, whose path must lie within the group and use only the [permitted characters](../../preservation-api/overview#paths-and-names); `name` may be any UTF-8 and preserves the original directory name. A Container has no bytes, so it needs no `origin` - the API ignores one if you send it. |
+| `binariesToAdd` | Binaries to create. As well as `id` and `name`, each needs an `origin` the API can read, a `contentType`, and a `digest`. |
+| `binariesToPatch` | Binaries to replace. Exactly the same as adding, except that the resource must already exist. |
+| `binariesToDelete` | Binaries to remove. `id` is the only property that matters. |
+| `containersToDelete` | Containers to remove. They must already be empty, or contain only Binaries that this same job deletes. |
+| `containersToRename`, `binariesToRename` | Accepted, but see the caution below. |
+| `deposit`, `source`, `suppressActivityStreamEvent` | Part of the shared Import Job model, and meaningful only to the Preservation API. The Storage API stores them with the job and ignores them; in particular, every finished job appears in the Storage API's own [activity stream](../activity-and-content) whether or not suppression was asked for. |
+
+<Aside type="caution" title="Renames are not performed">
+`containersToRename` and `binariesToRename` are part of the Import Job model, and the Preservation
+API's diff will populate them when a display name has changed, but the Storage API's executor has no
+code that acts on them. A job whose only content is renames will run to `completed` and change
+nothing, and `containersRenamed` / `binariesRenamed` on the result are always empty. Renaming - which
+changes the `dc:title`, never the path - is not implemented yet.
+</Aside>
+
+### Digests
+
+The Storage API expects Fedora to agree with the supplied digest: the SHA-256 is sent to Fedora on the binary `PUT` and Fedora verifies the bytes against it. If a Binary arrives with no `digest`, the behaviour depends on the `Fedora:RequireDigestOnBinary` setting, which defaults to requiring one: the job fails. With the setting off, the API asks S3 for the object's checksum instead.
+
+### What comes back
+
+```
+201 Created
+Location: https://storage-api.example/import/results/m3cnbckjmtd9/docs-misc/import-job-doc
+```
+
+The body is an [Import Job Result](#import-job-results) with `status: "waiting"`. Nothing has happened in Fedora yet.
+
+| Status | Meaning |
+|---|---|
+| `400` | The body could not be read as an Import Job. |
+| `401` | No `lastModifiedBy`, so the API cannot attribute the work. |
+| `409` | There is already an active Import Job for this Archival Group. Only one at a time. |
+
+Beyond those three checks the API accepts the job and validates the rest of it when it runs, so most problems with a job's *contents* - a Binary with no `id`, an `id` containing a `#` fragment, a name that is not a valid slug, a missing digest - arrive on the result as `completedWithErrors` rather than as an HTTP error.
+
+## Import Job Results
+
+```
+GET /import/results/{jobIdentifier}/{archivalGroupPathUnderRoot}
+```
+
+This is the URI in the `Location` header, and the `id` of the result you were given. Poll it until `status` is `completed` or `completedWithErrors`; a large job may take minutes or hours.
+
+| Property | Description |
+|---|---|
+| `id` | This URI. |
+| `importJob` | The `id` of the job as submitted. |
+| `originalImportJob` | The `originalId` of the job, where the caller supplied one. |
+| `archivalGroup` | The object the job applies to. |
+| `status` | `waiting`, `running`, `completed` or `completedWithErrors`. |
+| `dateBegun` | When processing started. Null until then. |
+| `dateFinished` | When processing ended. Null until then. |
+| `sourceVersion` | The OCFL version the job was applied to. Null for a job that creates the group. |
+| `newVersion` | The OCFL version the job produced. Not known until it has finished. |
+| `errors` | [Error objects](../../preservation-api/overview#errors), not strings. |
+| `containersAdded`, `binariesAdded`, `binariesPatched`, `binariesDeleted`, `containersDeleted` | What was actually done, populated as the job runs. |
+| `containersRenamed`, `binariesRenamed` | Always empty; see above. |
+
+Plus the [common properties](../../preservation-api/overview#common-properties). A Storage API Import Job Result carries `lastModified` and `lastModifiedBy` as well as `created` and `createdBy`; both pairs name the same agent and the same moment when the job is queued.
+
+## What happens when a job runs
+
+Everything a job does happens inside a single Fedora transaction, so the Archival Group either gains a complete new OCFL version or is left exactly as it was. There is no partial version.
+
+1. The job is validated ahead of the transaction: no Binary may have a null `id` or an `id` containing `#`.
+2. A Fedora transaction is opened, and a timer keeps it alive for as long as the work takes - a job with thousands of files can run far past Fedora's default transaction timeout.
+3. The Archival Group is fetched, or created if this is not an update.
+4. Containers are added, in path order, so parents exist before their children.
+5. Binaries are added, then patched, then deleted.
+6. Containers are deleted, in reverse path order, so children go before their parents.
+7. On an update, the Archival Group's own metadata (its name) is updated.
+8. The transaction is committed. Fedora writes the new OCFL version to S3.
+
+If any step fails, the transaction is rolled back and the result comes back as `completedWithErrors` with the reason in `errors`. Note that this is still a *successful* HTTP exchange: the job ran, and its outcome was a failure. Once the commit has started, however, it is allowed to finish; a failure during commit is reported without a rollback, because Fedora owns that decision by then.
+
+## Testing a path before you build a job
+
+```
+GET /import/test-path/{archivalGroupPathUnderRoot}
+```
+
+Asks whether an Archival Group can be created or edited at this path, without submitting anything. This is cheap, and worth doing before assembling a job over thousands of files.
+
+| Status | Meaning |
+|---|---|
+| `200` | Either nothing is there and the path is usable, or there is already an Archival Group there (which you may update with `isUpdate`). |
+| `400` | The last path segment is not a valid slug. |
+| `409` | Something is in the way: a resource that is not an Archival Group at this path, or an ancestor that is not a plain Container. |
+| `410` | A tombstone - something used to be here and has been deleted but not purged. Nothing can be created until it is. |
+
+<Aside type="note">
+Read the status code, not the body. The response body is an empty placeholder `ArchivalGroup`
+whatever it found, so it tells you nothing about what is at the path.
+</Aside>

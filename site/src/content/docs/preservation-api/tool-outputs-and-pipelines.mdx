@@ -1,0 +1,215 @@
+---
+title: Tool outputs and pipelines
+sidebar:
+  label: Tool outputs and pipelines
+  order: 8
+---
+
+import { Aside, LinkCard, Steps } from '@astrojs/starlight/components';
+
+Preserving a file is not just storing it. You also want to know what format it is, whether it is infected, what the camera recorded when it took the picture — information that only exists once a **tool** has looked at the file and written down what it found.
+
+The platform does not read your files to work any of this out. It reads **tool output**: files that a format identification, virus scanning or metadata extraction tool has left in known places under the Deposit's `metadata/` folder. There are two ways that output gets there:
+
+* you produce it yourself, typically in an external environment such as [BitCurator](https://bitcurator.net/), and upload it into the deposit alongside the files it describes;
+* or you ask the platform to run the tools for you, by [running a pipeline](#running-a-pipeline).
+
+Both end with the same thing: a set of files in the same locations, saying the same sorts of things. Everything on the rest of this page — where the platform looks, what it makes of what it finds, how it reaches the METS — is identical either way. The only difference is who ran the tool.
+
+## Where the platform looks
+
+The paths below are relative to the **files root** of the deposit: the root of the workspace for a `None` or `RootLevel` deposit, and `data/` for a [BagIt](../deposits#templates) one. So `metadata/brunnhilde/report.html` is at `data/metadata/brunnhilde/report.html` in a BagIt deposit. The one exception is the BagIt manifest itself, which lives in the true root of the workspace alongside the other bag files.
+
+| Tool | Path | What it produces |
+|---|---|---|
+| BagIt | `manifest-sha256.txt` (workspace root) | `DigestMetadata`, source `BagIt` |
+| Siegfried | `metadata/siegfried/siegfried.yaml`, `.yml` or `.csv` | `FileFormatMetadata`, source `Siegfried` |
+| Brunnhilde | `metadata/brunnhilde/report.html` | `ToolOutput` (`text/html`), source `Brunnhilde`, attached to the report file itself |
+| Siegfried via Brunnhilde | `metadata/brunnhilde/siegfried.csv` | `FileFormatMetadata`, source `Brunnhilde` |
+| ClamAV via Brunnhilde | `metadata/brunnhilde/logs/viruscheck-log.txt` | `VirusScanMetadata`, source `ClamAv` |
+| ClamAV version | `metadata/virus-definition/virus-definition.txt` | the `virusDefinition` value on each `VirusScanMetadata` |
+| ExifTool | `metadata/exif/exif_output.txt` | `ExifMetadata`, source `ExifTool`, and a per-file HTML `ToolOutput`, source `Exif` |
+
+None of these are mandatory. The platform checks all of them every time it reads the Deposit file layout, and attaches whatever it derives to the `metadata` property of each [`WorkingFile`](../deposit-files#metadata). A file can end up with several entries — a digest from BagIt, a format identification from Brunnhilde, a virus scan, an Exif block — each recording which tool said it and when.
+
+Some detail that is easy to get wrong:
+
+* **`report.html` is how the platform decides the Brunnhilde folder exists.** A folder is not an object in S3, so there is nothing to test for directly. The platform probes for `metadata/brunnhilde/report.html`, and only if it finds it does it go on to read `siegfried.csv` and the virus check log. Brunnhilde always writes all three, so this is fine in practice — but if you are assembling the folder by hand, the report has to be there or the rest is not read.
+* **The Siegfried folder is read leniently.** The platform lists `metadata/siegfried/` and takes any `.yaml`, `.yml` or `.csv` file in it, only preferring names beginning `siegfried.` if there is more than one candidate. It then parses by content rather than by extension, so a YAML file that happens to be called `.csv` is still understood.
+* **A file whose format Siegfried could not identify unambiguously is skipped.** Only files with exactly one match produce a `FileFormatMetadata`; no match, or several, and nothing is recorded rather than a guess.
+* **Tool outputs are read whether or not the platform wrote your METS.** A deposit carrying a third-party METS from Archivematica, EPrints or Goobi still gets its `metadata/` folder read, and you will see the results in the [file system view](../deposit-files). What cannot happen is the platform writing them into a METS it did not author — see [METS editability](../../mets/editability).
+* **Tool outputs are themselves preserved.** They are files in the deposit like any other, and once added to the METS they become Binaries in the Archival Group. The evidence for a claim about a file is kept next to the file.
+
+<Aside type="note" title="One folder per tool, not one per run">
+There are no timestamped output folders. A tool has one place to write, and a second run overwrites the first. This is deliberate: only one set of results can be true of the object at a time, and if the results change then so does the object, which means a new version of the Archival Group — and the previous results are still there, in the previous version. That is a clearer story than a folder of dated outputs, where nothing says which one the METS was built from.
+</Aside>
+
+## How tool output reaches the METS
+
+That depends on who ran the tools.
+
+**If you placed the output in the workspace yourself**, it does not reach the METS until you ask. Assembling a deposit and describing an object are separate steps, for the reasons set out in [Editing the METS file](../editing-mets) — and some of the files you analysed may turn out not to belong in the object at all.
+
+**If the platform ran the pipeline**, it does it for you: once the tools finish, the run adds every file under `objects/` to the METS, and adds each of its own output files as it uploads them. You do not have to, and a deposit that has had a pipeline run is already described. Submitting the same files again afterwards is harmless — entries are updated, not duplicated — and is how you pick up anything you added since.
+
+For output you placed yourself, the sequence is:
+
+<Steps>
+
+1. The tool output arrives in the workspace, however it got there.
+
+2. You refresh the platform's view of the workspace — `GET /deposits/{id}/filesystem?refresh=true` — and the metadata appears against each file.
+
+3. You `POST /deposits/{id}/mets` with the paths of the files you want described. The METS entry for each one is written, or rewritten, carrying everything the platform has collected about it.
+
+</Steps>
+
+Step 3 is repeatable, and that is the point: add the files first, run tools over them, then submit the same paths again to bring the new metadata in. What each kind of metadata becomes in the XML is described on [The METS files we write](../../mets/mets-we-write) — format identification and fixity as [PREMIS object metadata](../../mets/mets-we-write#technical-metadata-amdsec--techmd--premis-object), Exif as [an extension blob](../../mets/mets-we-write#exif-extension-blob), and a virus scan as [a PREMIS event](../../mets/mets-we-write#virus-scanning-digiprovmd--premis-event).
+
+A virus scan is the one that behaves differently, because an event is not a fact about a file but a thing that happened to it. Reading the same unchanged ClamAV log twice is not two scans, so the platform matches on the scan's own time — taken from the log file, not from the moment it was read — and does not record the same event twice. A genuine re-scan has a later time and is appended alongside the first. Events accumulate; they are never replaced.
+
+## The ad-hoc metadata folder
+
+`metadata/ad-hoc` is scaffolded into a new `RootLevel` or `BagIt` deposit — though not into one made against an Archival Group that already exists, where the object's own content defines the deposit — and it is the one folder under `metadata/` that is **not** tool output.
+
+It is for metadata that belongs to the object but that no tool produced: a scanning technician's notes, a rights assessment, a spreadsheet that came with the transfer. The platform does not try to interpret anything in it — there is no parser, no schema and no derived `metadata` entries. It simply preserves what is there.
+
+Because of that it gets two protections the tool folders do not:
+
+* you cannot delete it — `POST /deposits/{id}/mets/delete` refuses with `400 Bad Request`;
+* a pipeline run leaves it alone, while clearing out everything else under `metadata/`.
+
+## Running a pipeline
+
+```
+POST /deposits/e56fb7yg/pipeline
+```
+
+```
+HTTP/1.1 204 No Content
+```
+
+There is no request body and no response body. The call queues a job and returns; the work happens elsewhere, and can take minutes to hours depending on how much is in `objects/`. See [How the pipeline works](https://github.com/digirati-co-uk/digital-preservation/blob/main/docs/internals/pipeline-api.md) if you want to know what is on the other end.
+
+What runs is **Brunnhilde**, which runs **Siegfried** for format identification and **ClamAV** for virus scanning, plus **ExifTool** over the same files, and — for a BagIt deposit — **BagIt** itself, to re-bag the deposit and check the new manifest against the old one.
+
+The request is refused when:
+
+| Condition | Response |
+|---|---|
+| No deposit with that identifier | `404 Not Found` |
+| Somebody else holds the [lock](../deposits#locking-a-deposit) on the deposit | `409 Conflict` |
+| The deposit's workspace is not in the platform's default working bucket | `400 Bad Request` |
+
+That last one deserves a word. The pipeline reaches deposit files through a file system mount of one bucket, so a deposit whose workspace was routed elsewhere is not reachable and the job is declined rather than queued and lost. If you have never been told that your deposits go somewhere else, this will not affect you.
+
+<Aside type="caution" title="Take the lock yourself, and expect to lose it">
+Queueing the job does not lock the deposit — it only checks that nobody else has. Lock it yourself first, immediately before the call, or somebody may edit the workspace underneath a running pipeline. And when the run finishes, the pipeline **releases the lock**, whether or not it was the one that took it. So a lock you were holding for your own reasons will be gone afterwards.
+</Aside>
+
+<Aside type="danger" title="A pipeline run clears the metadata folder">
+Before it uploads its own output, a pipeline run deletes everything under `metadata/` — from the workspace *and* from the METS — except `metadata/ad-hoc`. A Siegfried output you placed there by hand is destroyed, along with the METS entries for it. Tool output produced outside the platform and tool output produced by the pipeline are alternatives, not layers: choose one for a given deposit.
+</Aside>
+
+When it finishes successfully, the run has also added every file under `objects/` to the METS for you, with the metadata the tools just produced. You do not need to call `POST /deposits/{id}/mets` yourself afterwards, though doing so is harmless.
+
+<LinkCard
+  title="💻 Example: run a pipeline and watch it"
+  href="https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/preservation-docs-client/p07_pipelines/run_pipeline.py"
+  description="Locks a deposit, starts a pipeline run, polls the job to completion and shows the metadata it produced."
+/>
+
+## Watching a pipeline run
+
+The `POST` told you nothing, so you ask. Every pipeline run the deposit has ever had, past and present, is listed at:
+
+```
+GET /deposits/e56fb7yg/pipelinerunjobs
+```
+
+The response is a plain JSON array of `ProcessPipelineResult`, oldest first:
+
+```json
+[
+  {
+    "id": "https://preservation-api.example/deposits/e56fb7yg/pipelinerunjobs/phuv9tvurdus",
+    "type": "ProcessPipelineResult",
+    "jobId": "phuv9tvurdus",
+    "deposit": "e56fb7yg",
+    "archivalGroupName": "Local pipeline test",
+    "runUser": "user@example.ac.uk",
+    "status": "completedWithErrors",
+    "dateBegun": "2025-10-01T16:10:07.745419Z",
+    "dateFinished": "2025-10-01T16:10:18.074483Z",
+    "errors": [
+      { "message": "Could not find object folder for deposit e56fb7yg", "id": null }
+    ],
+    "created": "2025-10-01T16:10:00.955951Z",
+    "createdBy": "https://preservation-api.example/agents/user@example.ac.uk",
+    "lastModified": "2025-10-01T16:10:00.963196Z",
+    "lastModifiedBy": "https://preservation-api.example/agents/user@example.ac.uk"
+  },
+  {
+    "id": "https://preservation-api.example/deposits/e56fb7yg/pipelinerunjobs/hkbgyzjh9sep",
+    "type": "ProcessPipelineResult",
+    "jobId": "hkbgyzjh9sep",
+    "deposit": "e56fb7yg",
+    "archivalGroupName": "Local pipeline test",
+    "runUser": "user@example.ac.uk",
+    "status": "completed",
+    "dateBegun": "2025-10-01T16:31:56.224404Z",
+    "dateFinished": "2025-10-01T16:32:42.237115Z",
+    "errors": null,
+    "created": "2025-10-01T16:31:49.311322Z",
+    "createdBy": "https://preservation-api.example/agents/user@example.ac.uk",
+    "lastModified": "2025-10-01T16:31:49.315738Z",
+    "lastModifiedBy": "https://preservation-api.example/agents/user@example.ac.uk"
+  }
+]
+```
+
+A single job is at its own `id`:
+
+```
+GET /deposits/e56fb7yg/pipelinerunjobs/hkbgyzjh9sep
+```
+
+### ProcessPipelineResult
+
+| Property | Description |
+|---|---|
+| `id` | URI of the result in the API. |
+| `type` | `ProcessPipelineResult` |
+| `jobId` | Short identifier for the job — the last path element of `id`. |
+| `deposit` | The identifier of the deposit the job was started from. Included for convenience. |
+| `archivalGroupName` | The deposit's `archivalGroupName`, if it has one. Also for convenience. |
+| `runUser` | Who started the run. |
+| `status` | One of the five values below. |
+| `dateBegun` | When the job moved from `waiting` to `processing`. Null until then. |
+| `dateFinished` | When it moved to `completed` or `completedWithErrors`. Null until then. |
+| `errors` | A list of error objects, each with a `message`, or null when there are none. |
+| `virusDefinition` | Reserved; always null. The virus definition that a scan actually ran with is on each file's [`VirusScanMetadata`](../deposit-files#virusscanmetadata), which is where you want it anyway. |
+
+The `created` / `createdBy` / `lastModified` / `lastModifiedBy` properties common to every resource are also present. `created` is when the job was submitted, which is earlier than `dateBegun`.
+
+### Job states
+
+<Steps>
+
+1. **`waiting`** — the job is queued. Nothing has been read yet.
+
+2. **`processing`** — a worker has claimed the job and the tools are running. `dateBegun` is set.
+
+3. **`metadataCreated`** — the tools have finished and their output has been uploaded back into the deposit, but the METS has not been written yet.
+
+4. **`completed`** — everything finished, including adding the objects to the METS and releasing the lock.
+
+5. **`completedWithErrors`** — it stopped. `errors` says why.
+
+</Steps>
+
+A job that is stuck can be stopped: setting it to `completedWithErrors` from outside — which the [Preservation UI](../../ui/deposits) offers as *Force complete* — makes the running job notice at its next checkpoint, kill the tool process, release the lock and give up. The deposit is then yours again. Whatever output had already been uploaded stays where it is, so the safest next step after a forced completion is to run the pipeline again rather than trust a half-finished `metadata/` folder.
+
+<Aside type="note" title="Duplicate deliveries are not duplicate runs">
+The queue behind the pipeline guarantees at-least-once delivery, so the same job can be offered to a worker more than once. Starting a job is a claim rather than a status report: whichever delivery moves the job out of `waiting` is the one that runs, and the others are dropped. Without that, a redelivered job would re-scan the deposit and write a second virus-scan event into the METS for a scan that only ever happened once.
+</Aside>

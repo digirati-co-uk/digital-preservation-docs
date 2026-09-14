@@ -1,3 +1,12 @@
+> [!WARNING]
+> **Superseded.** This page has been ported to the documentation site, checked against the
+> code as it actually behaves: **https://digirati-co-uk.github.io/digital-preservation-docs/mets/editability/**
+> 
+> It is kept for history. Where the two disagree, the site is right - the porting pass
+> corrected a number of things here that no longer matched the code.
+> 
+> This page reads as though the editability judge exists. It does not yet - the shipped rule is still the `mets:agent` name check. The site page says which is which.
+
 # METS editability
 
 This page defines **which METS files the platform may edit, and what editing does to them**. It is

@@ -1,3 +1,12 @@
+> [!WARNING]
+> **Superseded.** This page has been ported to the documentation site, checked against the
+> code as it actually behaves: **https://digirati-co-uk.github.io/digital-preservation-docs/mets/identifiers/**
+> 
+> It is kept for history. Where the two disagree, the site is right - the porting pass
+> corrected a number of things here that no longer matched the code.
+> 
+> The status section here says the migration campaigns have been "surveyed and sized but not yet run". The development campaign has since completed.
+
 # METS identifiers — how our IDs work
 
 Every element in a METS file the platform writes carries an `ID` attribute, and the

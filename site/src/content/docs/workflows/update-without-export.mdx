@@ -1,0 +1,148 @@
+---
+title: Preserve a new version — no export
+sidebar:
+  label: Update without export
+  order: 5
+---
+
+import { Aside, LinkCard, Steps } from '@astrojs/starlight/components';
+
+Use case: you know which files you are changing, and you don't want to copy a thousand others out of the repository and back again to do it.
+
+This is very similar to [updating with an export](../update-with-export). The difference is in step 1: you POST the partial Deposit to `/deposits` rather than `/deposits/export`.
+
+That **still exports the METS file**, but no other files. And that is what makes the whole thing work: the METS knows about every file in the object, with the digests, names and content types the Archival Group already holds, so the diff can see the complete object even though the workspace holds almost none of it.
+
+<Steps>
+
+1. ### Create a Deposit against the existing Archival Group
+
+   ```
+   POST /deposits
+   ```
+
+   ```json
+   {
+     "type": "Deposit",
+     "template": "RootLevel",
+     "archivalGroup": "https://preservation-api.example/repository/library/c18-printed-books/a-10000001"
+   }
+   ```
+
+   The Deposit comes back with `archivalGroupExists: true` and — because copying one document is quick — status `new`. There is no waiting.
+
+   ```jsonc
+   {
+     "id": "https://preservation-api.example/deposits/bb7c8mast5",
+     "type": "Deposit",
+     "archivalGroup": "https://preservation-api.example/repository/library/c18-printed-books/a-10000001",
+     "archivalGroupExists": true,
+     "files": "s3://working-bucket/deposits/bb7c8mast5/",
+     "status": "new",
+     "metsETag": null
+     // ... the other Deposit properties
+   }
+   ```
+
+2. ### Put the changed files in, and update the METS
+
+   Upload only what is changing. A file that is in the METS but not in the workspace is not missing — it is simply not being touched by this job.
+
+   Then bring the METS into line: add an entry for a new file, change the digest and size of one you are replacing, remove the entry for one you are deleting. If the METS is one the platform wrote, the [METS editing](../../preservation-api/editing-mets) endpoints will do this for you, guarded by the `metsETag` — which you get by fetching the Deposit, since the create response above does not carry one.
+
+3. ### Look at the diff before you run it
+
+   ```
+   GET /deposits/bb7c8mast5/importjobs/diff
+   ```
+
+   If you added a single file and modified the METS to include it, you get an Import Job with one Binary to add — your new file — and one Binary to patch, the METS file:
+
+   ```jsonc
+   {
+     "id": "https://preservation-api.example/deposits/bb7c8mast5/importjobs/transient/638950821343621834",
+     "type": "ImportJob",
+     "originalId": "https://preservation-api.example/deposits/bb7c8mast5/importjobs/diff",
+     "deposit": "https://preservation-api.example/deposits/bb7c8mast5",
+     "created": "2025-10-03T09:55:34.3621834Z",
+     "createdBy": "https://preservation-api.example/agents/tom",
+     "lastModified": "2025-10-03T09:55:34.3621834Z",
+     "lastModifiedBy": "https://preservation-api.example/agents/tom",
+     "archivalGroup": "https://preservation-api.example/repository/library/c18-printed-books/a-10000001",
+     "archivalGroupName": "A Treatise on Opticks",
+     "isUpdate": true,
+     "source": "s3://working-bucket/deposits/bb7c8mast5/",
+     "sourceVersion": {
+       "mementoTimestamp": "20250915120000",
+       "mementoDateTime": "2025-09-15T12:00:00Z",
+       "ocflVersion": "v2"
+     },
+     "containersToAdd": [],
+     "binariesToAdd": [
+       {
+         "id": "https://preservation-api.example/repository/library/c18-printed-books/a-10000001/objects/my-new-file.png",
+         "type": "Binary",
+         "name": "my-new-file.png",
+         "origin": "s3://working-bucket/deposits/bb7c8mast5/objects/my-new-file.png",
+         "contentType": "image/png",
+         "size": 449518,
+         "digest": "1587a18ce3567215bfba9d0866b9e05e548b0ba70ab1b6e001a96a2f0e95c7f3"
+       }
+     ],
+     "containersToDelete": [],
+     "binariesToDelete": [],
+     "binariesToPatch": [
+       {
+         "id": "https://preservation-api.example/repository/library/c18-printed-books/a-10000001/mets.xml",
+         "type": "Binary",
+         "name": "mets.xml",
+         "origin": "s3://working-bucket/deposits/bb7c8mast5/mets.xml",
+         "contentType": "application/xml",
+         "size": 3278,
+         "digest": "2274bfad9b5420043fc62c6c34441ae436a0caab12d8a62a4679f4dfb2599e53"
+       }
+     ],
+     "containersToRename": [],
+     "binariesToRename": []
+   }
+   ```
+
+   This is worth reading before you run it. An empty `binariesToDelete` is the reassurance you came for: the diff has understood that the 999 files you didn't upload are still part of the object.
+
+4. ### POST the job back
+
+   You can POST the object you just looked at, exactly as it came:
+
+   ```
+   POST /deposits/bb7c8mast5/importjobs
+   ```
+
+   ```json
+   {
+     "id": "https://preservation-api.example/deposits/bb7c8mast5/importjobs/transient/638950821343621834",
+     "type": "ImportJob",
+     "deposit": "https://preservation-api.example/deposits/bb7c8mast5"
+   }
+   ```
+
+   ```
+   (the rest of the fields, as above)
+   ```
+
+   Or, if you have satisfied yourself and want the platform to generate the diff afresh at the moment it runs, POST the diff reference instead. Either way you get an `ImportJobResult`.
+
+5. ### Poll the result until it has finished
+
+   As before. `sourceVersion` tells you which version you started from and `newVersion` which one you made.
+
+</Steps>
+
+<Aside type="note" title="When the diff does want to delete everything">
+If you see a diff full of deletions, the usual cause is a Deposit created against an Archival Group that has **no** METS file — or one the platform couldn't read. Without it there is nothing to tell the diff about the files you didn't upload, so it concludes they have gone. In that situation, either export in full, or write the [Import Job yourself](../custom-import-job).
+</Aside>
+
+<LinkCard
+  title="💻 End-to-end example: update without an export"
+  href="https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/preservation-docs-client/workflows/w04_update_without_export.py"
+  description="Makes a METS-only deposit for an existing object, adds one file, checks the diff deletes nothing, and preserves."
+/>

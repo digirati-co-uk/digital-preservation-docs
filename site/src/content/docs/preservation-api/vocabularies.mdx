@@ -1,0 +1,65 @@
+---
+title: Vocabularies
+sidebar:
+  label: Vocabularies
+  order: 16
+---
+
+import { Aside, LinkCard } from '@astrojs/starlight/components';
+
+Two small endpoints tell you the controlled vocabularies this instance of the platform uses: the access conditions that can be applied to preserved material, and the types a logical structure Range can have.
+
+They exist so that a user interface, a script or an integration never has to hard-code a list. Both are **per-instance configuration**, not part of the API's definition: a different institution, or the same institution's test system, will legitimately return different values. Read them at startup, cache them for as long as you like, and offer what they return.
+
+## Access conditions
+
+```
+GET /access-conditions
+```
+
+```json
+[
+  { "value": "dlip-open",          "label": "Open" },
+  { "value": "dlip-2-restricted",  "label": "Restricted" },
+  { "value": "dlip-3-protected",   "label": "Protected" },
+  { "value": "dlip-4-closed",      "label": "Closed" },
+  { "value": "dlip-unassessed",    "label": "Unassessed" }
+]
+```
+
+| Property | Description |
+|---|---|
+| `value` | The string recorded against a file, folder or Range. This is what goes into METS and what comes back in `accessRestrictions`. |
+| `label` | A human-readable name for it, for a drop-down or a report. |
+
+<Aside type="caution">
+The values above are one instance's configuration, shown to make the shape clear. They are **not** the definitive list, and you should not assume any particular value exists. An instance whose configuration omits the section altogether returns an empty list, and the endpoint gives no error when that happens — an empty response means "this instance has not configured any", not "something went wrong".
+</Aside>
+
+Access conditions are applied to individual files, to folders, and to logical Ranges, and they are inherited: a file with none of its own takes the ones that apply to the nearest ancestor that has some. Both values are visible on the objects in a Deposit's [file listing](../deposit-files), as `accessRestrictions` (set here) and `effectiveAccessRestrictions` (what actually applies). Where they end up in the preserved METS is described in [METS we write](../../mets/mets-we-write).
+
+## Range types
+
+```
+GET /range-types
+```
+
+```json
+["Collection", "Item"]
+```
+
+A plain list of strings. Each is a permitted value for the `Type` of a Range in a logical structure — the METS logical structMap divisions that describe how the files are arranged for a reader: a volume, a chapter, an item within an album.
+
+The values are again per-instance. `Collection` and `Item` are the two a standard installation configures, but nothing in the API requires them, and the endpoint returns an empty list if the instance has configured none.
+
+You will meet these values in two places: in the `Type` metadata of a Range when a Deposit is presented [as a IIIF Manifest](../iiif#editing-structure-by-posting-a-manifest-back), and in the structure editor of the [Preservation UI](../../ui/deposits), which populates its dropdown from this endpoint.
+
+<LinkCard
+  title="💻 Example: read the vocabularies"
+  href="https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/preservation-docs-client/p15_vocabularies/list_vocabularies.py"
+  description="Fetches both vocabularies and prints them as a client would offer them."
+/>
+
+<Aside type="note">
+Neither endpoint takes parameters, and neither is paged. Both are cheap, and the values change only when an instance is reconfigured, so a client that fetches them once per run and caches them is behaving correctly — that is what the platform's own UI does, with a one-hour cache.
+</Aside>

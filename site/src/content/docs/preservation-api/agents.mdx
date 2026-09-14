@@ -1,0 +1,40 @@
+---
+title: Agents
+sidebar:
+  label: Agents
+  order: 17
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+An *Agent* is anyone or anything that acts through the API: a person signed in to the [Preservation UI](../../ui/overview), or a machine client such as a digitisation workflow or an integration script. The identity of the agent is recorded on every resource it touches, in the `createdBy`, `lastModifiedBy`, `preservedBy` and `exportedBy` properties, as an Agent URI:
+
+```
+https://preservation-api.example/agents/tom
+https://preservation-api.example/agents/goobi-workflow
+https://preservation-api.example/agents/user0001@example.org
+```
+
+How the name part is chosen is described in [Authentication](../authentication): for a signed-in person it is their user name; for a machine client it comes from the client's token, or from the `X-Client-Identity` header it sends. `GET /whoami` shows you the name your own calls will be recorded under (see the [Overview](../overview#checking-your-connection)).
+
+## Listing agents
+
+```
+GET /agents
+```
+
+Returns a JSON list of every Agent URI the platform has recorded, as plain strings:
+
+```json
+[
+  "https://preservation-api.example/agents/tom",
+  "https://preservation-api.example/agents/user0001@example.org",
+  "https://preservation-api.example/agents/api-user-7"
+]
+```
+
+This is the list you would use to populate a filter in a user interface, for example to offer the `createdBy` and `preservedBy` filters when [listing Deposits](../deposits#listing-and-searching-deposits). Those filters want the **name** only — the last segment of the URI — matched exactly. Passing a whole Agent URI from this list returns nothing, so take the part after `/agents/`.
+
+<Aside type="note">
+Agent URIs are identifiers, not yet resources: requesting one returns nothing. A dereferenceable Agent resource may follow in a later version of the API.
+</Aside>

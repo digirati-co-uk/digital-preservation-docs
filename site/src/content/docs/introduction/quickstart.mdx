@@ -1,0 +1,177 @@
+---
+title: Quickstart
+sidebar:
+  label: Quickstart
+  order: 1
+---
+
+import { Aside, LinkCard, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+
+Preserve one object, from nothing to version 1. Everything here is explained properly elsewhere; this page is the shortest path that works.
+
+There are two of them, and which is yours depends on one question: **do you already have a METS file?**
+
+You need the API's base URL, OAuth2 client credentials, and AWS credentials that can write to the deposit bucket. If you are missing any of those, ask whoever runs your instance — see [Authentication](../../preservation-api/authentication).
+
+<Tabs>
+<TabItem label="I bring my own METS">
+
+For a system that manages and supplies its own METS — a digitisation workflow such as Goobi, or anything in a similar position. You are using the platform for versioned object storage, not to have it describe your content for you. Four requests.
+
+```python
+import requests, boto3, time
+
+API    = "https://preservation-api.example"
+WHOAMI = "my-integration"          # sent as X-Client-Identity; recorded as who did what
+
+token = requests.post(TOKEN_ENDPOINT, data={
+    "grant_type": "client_credentials",
+    "client_id": CLIENT_ID, "client_secret": CLIENT_SECRET, "scope": SCOPE,
+}).json()["access_token"]
+
+H = {"Authorization": f"Bearer {token}", "X-Client-Identity": WHOAMI}
+
+# 1. A deposit: a working area in S3 that belongs to you.
+#    template None means the platform will not touch your METS - it only reads it.
+deposit = requests.post(f"{API}/deposits", headers=H, json={
+    "type": "Deposit",
+    "template": "None",
+    "archivalGroup": f"{API}/repository/my-collection/my-first-object",
+    "archivalGroupName": "My first object",
+}).json()
+slug = deposit["id"].rsplit("/", 1)[-1]
+
+# 2. Put your files in it, your METS among them. The API does not take bytes - you write to
+#    S3 yourself. Everything to be preserved goes in or below objects/; mets.xml sits at the root.
+s3 = boto3.client("s3")
+bucket, prefix = deposit["files"][5:].split("/", 1)
+s3.upload_file("page-001.tif", bucket, f"{prefix}objects/page-001.tif")
+s3.upload_file("mets.xml",     bucket, f"{prefix}mets.xml")
+
+# 3. Preserve it. Posting the diff's own URI runs the comparison and executes it in one go.
+#    The comparison reads your METS for each file's digest, size and content type.
+result = requests.post(f"{API}/deposits/{slug}/importjobs", headers=H, json={
+    "id": f"{API}/deposits/{slug}/importjobs/diff",
+}).json()
+
+# 4. Wait for it.
+while result["status"] not in ("completed", "completedWithErrors"):
+    time.sleep(2)
+    result = requests.get(result["id"], headers=H).json()
+
+print(result["status"], result["newVersion"])       # completed v1
+```
+
+Your METS is preserved alongside the files, exactly as you wrote it.
+
+**What your METS has to say.**
+
+For every file, the platform needs a path, a **SHA256 digest**, a size and a content type — the digest is the part it cannot do without, because that is what it preserves against:
+
+```xml
+<premis:fixity>
+  <premis:messageDigestAlgorithm xsi:type="premis:messageDigestAlgorithm">SHA256</premis:messageDigestAlgorithm>
+  <premis:messageDigest>49ea24a3070c92a393289685ad9d3c3d71e5c23f0ac72e76e63aac658dc3ee59</premis:messageDigest>
+</premis:fixity>
+```
+
+All of it must agree with the file actually in the workspace, or the diff refuses to be generated. See [METS we read](../../mets/mets-we-read) for everything the parser looks for, and [Preserve for the first time](../../workflows/preserve-first-time) for the long version of this page.
+
+<LinkCard
+  title="💻 The same thing, as a runnable sample"
+  href="https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/preservation-docs-client/workflows/w02_preserve_first_time.py"
+  description="With configuration, error checking, and a minimal METS builder you can read."
+/>
+
+</TabItem>
+<TabItem label="The platform writes my METS">
+
+For content that arrives as a pile of files with nothing describing it. The platform scaffolds a METS, and you tell it which files belong in the object. Six requests.
+
+```python
+import requests, boto3, time
+
+API    = "https://preservation-api.example"
+WHOAMI = "my-integration"          # sent as X-Client-Identity; recorded as who did what
+
+token = requests.post(TOKEN_ENDPOINT, data={
+    "grant_type": "client_credentials",
+    "client_id": CLIENT_ID, "client_secret": CLIENT_SECRET, "scope": SCOPE,
+}).json()["access_token"]
+
+H = {"Authorization": f"Bearer {token}", "X-Client-Identity": WHOAMI}
+
+# 1. A deposit, with a METS file the platform maintains, and objects/ and metadata/ folders.
+deposit = requests.post(f"{API}/deposits", headers=H, json={
+    "type": "Deposit",
+    "template": "RootLevel",
+    "archivalGroup": f"{API}/repository/my-collection/my-first-object",
+    "archivalGroupName": "My first object",
+}).json()
+slug = deposit["id"].rsplit("/", 1)[-1]
+
+# 2. Put your files in it. Ask S3 for a SHA256 as you go, so the platform has a digest.
+bucket, prefix = deposit["files"][5:].split("/", 1)
+boto3.client("s3").upload_file(
+    "page-001.tif", bucket, f"{prefix}objects/page-001.tif",
+    ExtraArgs={"ChecksumAlgorithm": "SHA256"})
+
+# 3. Tell the API to look at S3 again, then put the files into the METS.
+requests.get(f"{API}/deposits/{slug}/filesystem", headers=H, params={"refresh": "true"})
+deposit = requests.get(f"{API}/deposits/{slug}", headers=H).json()   # re-read: metsETag
+requests.post(f"{API}/deposits/{slug}/mets", headers={**H, "If-Match": deposit["metsETag"]},
+              json=["objects/page-001.tif"])
+
+# 4. Preserve it, and wait.
+result = requests.post(f"{API}/deposits/{slug}/importjobs", headers=H, json={
+    "id": f"{API}/deposits/{slug}/importjobs/diff",
+}).json()
+while result["status"] not in ("completed", "completedWithErrors"):
+    time.sleep(2)
+    result = requests.get(result["id"], headers=H).json()
+
+print(result["status"], result["newVersion"])       # completed v1
+```
+
+**Watch the ETag.** `metsETag` is null in the response to *creating* the deposit, even though a METS file was created — which is why step 3 fetches the deposit again. Every successful write changes it, so re-read between edits or your next `If-Match` is rejected with a `409`.
+
+Between steps 2 and 3 you can also [run the pipeline](../../preservation-api/tool-outputs-and-pipelines) to identify formats and scan for viruses. A pipeline run adds the files under `objects/` to the METS itself, so if you do that, step 3 becomes a way of picking up anything you added afterwards rather than a requirement.
+
+<LinkCard
+  title="💻 The same thing, as a runnable sample"
+  href="https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/preservation-docs-client/workflows/w06_managed_mets_deposit.py"
+  description="Upload, run tools, add to METS, preserve."
+/>
+
+</TabItem>
+</Tabs>
+
+Either way, that object is now an OCFL v1 in S3, and `GET /repository/my-collection/my-first-object` will show it to you.
+
+
+## Three things that catch everyone
+
+<Steps>
+
+1. **A Deposit is good for exactly one Import Job.** Once a job has run from it, asking for another diff answers `409`. Every new version starts with a new Deposit.
+
+2. **The parent Container must already exist.** `PUT /repository/a/b` where `a` does not exist is refused with `409`, naming the missing ancestor. [Create it first](../../preservation-api/repository#creating-a-container).
+
+3. **The API never uploads bytes for you.** There is no endpoint that takes file content: you write to the deposit's S3 prefix yourself, by whatever means suit you. That is deliberate — see [the boundary](../../preservation-api/libraries).
+
+</Steps>
+
+## Where to go next
+
+| If you want to… | Read |
+|---|---|
+| The long version of either path above | [Preserve for the first time](../../workflows/preserve-first-time), [a managed deposit](../../workflows/managed-mets-deposit) |
+| Change something already preserved | [Update with an export](../../workflows/update-with-export) or [without one](../../workflows/update-without-export) |
+| Upload a BagIt bag | [BagIt deposit](../../workflows/bagit-deposit) |
+| Do one specific small thing | [Recipes](../../workflows/recipes) |
+| Understand what any of these words mean | [Concepts](../concepts) |
+
+<Aside type="note">
+Nothing above touches Fedora or OCFL directly, and nothing needs the Storage API. Almost every
+caller only ever uses the Preservation API.
+</Aside>
