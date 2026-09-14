@@ -28,7 +28,8 @@
 .mermaid svg .node rect,
 .mermaid svg .node polygon,
 .mermaid svg .node path {
-	fill: var(--sl-color-accent-low) !important;
+	/* Blended with the page background so the boxes sit back; accent-low on its own is too vivid. */
+	fill: color-mix(in srgb, var(--sl-color-accent-low) 40%, var(--sl-color-bg)) !important;
 	stroke: var(--sl-color-accent) !important;
 }
 .mermaid svg .nodeLabel,
