@@ -10,6 +10,17 @@ else happens. If it is not on this page, it needs no action.
 Everything here was checked against the code. Items marked **[live]** were also measured against the
 development instance.
 
+## Two lists, one action list
+
+This file is the record of the **documentation port**: what the old pages got wrong, what the code
+does, and which of that became issues or decisions. It is not the security record. That is
+`security-analysis-2026-09-15.md` (Tom's Dropbox, `digirati/leeds/`), the re-review of the April
+2026 security analysis, and it ends with a section called **"What needs you"** that is the single
+action list across *both* documents: everything to merge, decide, or start, in order. The three
+decisions below are repeated there so nothing has to be read twice. Where an item here is also a
+security finding (the IIIF token, the pipeline lock, #267/#271, #275) the security document has the
+current status; this file only says what the site documents.
+
 ## Nothing to do
 
 About two thirds of the findings are errors in the *old* markdown - wrong property names, wrong
