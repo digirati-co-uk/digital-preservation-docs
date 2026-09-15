@@ -4,7 +4,7 @@ What the documentation port turned up, and what - if anything - to do about each
 
 Around 150 findings were recorded across the `findings-*.md` files while the site was written.
 Most needed nothing beyond the site saying the right thing, which it now does. This page sorts the
-rest by what they need: a decision, an issue, a code fix, or a note to come back when something
+rest by what they need: a decision, an issue that now exists, or a note to come back when something
 else happens. If it is not on this page, it needs no action.
 
 Everything here was checked against the code. Items marked **[live]** were also measured against the
@@ -73,78 +73,26 @@ Closed: [#267](https://github.com/digirati-co-uk/digital-preservation/issues/267
 check, PR #271). Fixed without an issue: `Storage.API/appsettings.Example.json` shipping
 `DisableAuth: "true"` (PR #270).
 
-## Code bugs found but not filed
+## Code bugs found during the port, filed 2026-09-15
 
-Real defects with a clear fix, recorded in the detail files but never turned into issues. Each would
-be a small issue on its own; grouped here by service so they can be filed as one each if preferred.
-None of them is documented on the site as anything other than current behaviour.
+Everything the detail files recorded as a code defect and had not been filed is now an issue, one
+per service, except the one that was significant enough to stand alone. Each issue says which
+detail file it came from; the detail files are not repeated here.
 
-**Storage API** (findings-E)
+| # | What | Site page to revisit when it closes |
+|---|---|---|
+| [#272](https://github.com/digirati-co-uk/digital-preservation/issues/272) | Storage API: `GET /FedoraSearch` with no `pageSize` runs an unbounded query (a denial-of-service shape; on its own for that reason) | `storage-api/activity-and-content` |
+| [#273](https://github.com/digirati-co-uk/digital-preservation/issues/273) | Storage API: `createdBy` null dereference on import; `exportMetsOnly` failure is a 500; Exports stored without `created`/`createdBy`; activity stream objects typed `ImportJob` and never `Create` | `storage-api/import`, `storage-api/export`, `storage-api/activity-and-content` |
+| [#274](https://github.com/digirati-co-uk/digital-preservation/issues/274) | Preservation API: diff-reference match is case-sensitive; rename lists have no `JsonPropertyName`; search echoes null `text`/`searchType`; `/deposits/{id}/iiif` redirects into a 401 | `preservation-api/import-jobs`, `search`, `iiif` |
+| [#275](https://github.com/digirati-co-uk/digital-preservation/issues/275) | Pipeline API: upload guard passes by coincidence; `ApiKeyAttribute` fails open | none |
+| [#276](https://github.com/digirati-co-uk/digital-preservation/issues/276) | Preservation UI: everything not in #268 - no upload limit, IIIF button hard-coded to `cc`, `TempData` guard, unlinked Changes page, coupled feature flags, template furniture, BagIt edge cases | `ui/deposits`, `ui/browsing` |
+| [#277](https://github.com/digirati-co-uk/digital-preservation/issues/277) | `deploy.yml` retags the deposit-archiver image but never deploys it | none |
 
-- `GET /FedoraSearch` with no `pageSize` runs an unbounded query: the guard passes nulls through and
-  Postgres treats `LIMIT NULL` as no limit. A denial-of-service shape on a large repository.
-- `POST /import` requires `lastModifiedBy`, then dereferences `createdBy` with `!`. A job with one
-  but not the other passes validation and throws `NullReferenceException` in the executor.
-- `POST /exportMetsOnly`: a failure inside the handler builds `new Uri(null + "#error")`, which
-  throws from inside the `catch`, so the caller gets a 500 instead of an Export with `errors`.
-- An Export is stored exactly as the caller sent it: no `created`, `createdBy`, `lastModified`,
-  `lastModifiedBy`. The only resource with no record of who asked for it.
-- The activity stream types every object `ImportJob` though the `id` is an import job *result*
-  URI, and never emits `Create`.
-
-**Preservation API** (findings-A, findings-C)
-
-- The diff-reference match is case-sensitive on the raw request path: `POST .../ImportJobs` (which
-  routing accepts) with the lower-cased `originalId` is silently not treated as a diff reference and
-  fails with a misleading "must declare which Deposit" message.
-- `ContainersToRename` and `BinariesToRename` have no `[JsonPropertyName]`, so they serialise
-  PascalCase when the model is serialised directly (`Duplicate`, `ImportJobJson`) and camelCase over
-  the wire. Symmetrical today; fragile.
-- Search: `text` and `searchType` are declared on the response and never populated.
-- `GET /deposits/{id}/iiif` is not behind the IIIF feature flag but redirects to a route that is,
-  so with the flag off the caller lands on a bare 401.
-
-**Pipeline API** (findings-B)
-
-- The "is this a Brunnhilde file?" guard on upload passes for Exif and virus-definition output only
-  because the process folder is called `/usr/process-brunnhilde`. Renaming the folder in config
-  silently drops two of the three tool outputs.
-- `ApiKeyAttribute` fails open if the middleware is ever removed from the pipeline.
-- `PipelineController.CheckDepositFolderAndContents`: caller-supplied `depositId` path-combined onto
-  the mount, then `bash -c df`. Filesystem traversal plus an unnecessary shell. **Already a HIGH in
-  the April 2026 security review**, as is the non-constant-time API key comparison; repeated here
-  only because the internals page documents the endpoint.
-
-**Preservation UI** (findings-D) - the four worst are #268; these are the rest
-
-- Upload has no enforced size limit (`MaxRequestBodySize` is `long.MaxValue`), materialises the
-  whole file in browser memory to hash it, and the promise chain has no `.catch`, so a failed hash
-  posts the form anyway.
-- The IIIF button is enabled only for parent containers named `cc` or `cc-test`, above a
-  `// Temporary` comment.
-- The diff button's guard is carried in `TempData` (read-once) with `Remove` calls compensating.
-- The Changes page works but nothing links to it.
-- Two feature flags (`ShowNormaliseMetsIds` in the UI, `EnableMetsIdNormalisation` in the API) must
-  agree, and the UI one also gates the suppress-activity tick box; the coupling is invisible from
-  configuration.
-- Template furniture: **Reports**, **Integrations** and "Saved reports" route nowhere; **Share**,
-  **Export** and "This week" do nothing; a button labelled **Something**; a developer message
-  ("No PagerValues Present") reachable by users.
-- Several BagIt cases look wrong for a `data/`-rooted deposit (the METS-row exemption,
-  `PathIsKnownFirstLevelDirectory`, `PhysicalFilePathsJson`); a real BagIt deposit would confirm.
-
-**Deployment** (findings-E)
-
-- `deploy.yml` retags the deposit-archiver image but never bounces anything, and the archiver is a
-  Lambda, so it is not obvious the job deploys it at all. Confirm with whoever owns the archiver.
-
-**iiif-builder** (findings-E) - Leeds run their own fork, so these matter only if the copy in this
-repository is kept alive
-
-- `lstrip` used where `removeprefix` is meant, in `should_process` and `get_internal_iiif_uris`:
-  a path beginning with any of `r e p o s i t y /` loses those characters and a legitimate
-  Archival Group can be skipped.
-- The database table is created by hand from a commented-out `CREATE TABLE`.
+Not filed, on purpose: the two Pipeline API items already in the April 2026 security review (path
+traversal in the diagnostics endpoint, non-constant-time API key comparison) stay tracked there
+rather than being restated in a public issue; and the two iiif-builder defects (`lstrip` where
+`removeprefix` is meant; the table created by hand), because Leeds run their own fork and the copy
+in this repository is deliberately undocumented. Both are in `findings-E.md` if that changes.
 
 ## Come back to these when something else happens
 
@@ -159,17 +107,15 @@ Documentation follow-ups that are correct today and will stop being correct on a
 | The IIIF endpoints move on (#261) | `preservation-api/iiif` is framed as experimental scaffolding; reframe when the paintedResources / access-conditions-to-roles work exists. |
 | Any issue in the table above closes | Take the "as it is today" note out of the page named. |
 
-## Fix in the code repo's own docs, any time
+## The code repo's own docs
 
-`CLAUDE.md` on the code repository is wrong in four places, all found while writing the internals
-pages and none yet corrected: six ECR images are built and deployed, not five (`deposit-archiver`);
-`docker compose build && docker compose up` does not run the stack (`docker-compose.local.yml` plus
-`dotnet run` does); the METS classes live in `DigitalPreservation.Mets`, not
-`Storage.Repository.Common/Mets/`; and `DisableAuth` does not "disable all auth" - Pipeline API never
-reads it. One small PR. (findings-E, findings-F)
+`CLAUDE.md` on the code repository was wrong in four places found while writing the internals
+pages: six ECR images not five; `docker compose up` not running the stack; the METS classes living
+in `DigitalPreservation.Mets`; and `DisableAuth` doing nothing in Pipeline API. **Corrected in
+[PR #278](https://github.com/digirati-co-uk/digital-preservation/pull/278).**
 
-`clamscan-shim.sh`'s header comment describes a socket bind-mounted from the host; `clamd` runs
-inside the container. (findings-B)
+Still stale, not worth a PR of its own: `clamscan-shim.sh`'s header comment describes a socket
+bind-mounted from the host, but `clamd` runs inside the container. (findings-B)
 
 ## Dead or misleading code, not worth an issue each
 
