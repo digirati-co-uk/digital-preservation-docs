@@ -7,12 +7,12 @@ sidebar:
 
 import { Aside } from '@astrojs/starlight/components';
 
-These are the terms used throughout the documentation. Each is defined once here; the linked pages
-give the detail.
+These terms are used throughout the documentation. The first three are borrowed from Fedora and map 
+directly to Fedora's concepts. So _[why not just use Fedora?](../fedora)_
 
 ## 📦 Archival Group
 
-The unit of preservation. An Archival Group is a set of files and folders that is versioned _as a
+The **_unit of preservation_**. An Archival Group is a set of files and folders that is versioned _as a
 whole_: a digitised book, a manuscript, a born-digital collection, a single PDF. It corresponds
 one-to-one with an **OCFL object** in S3 (and with a
 [Fedora Archival Group](https://wiki.lyrasis.org/display/FEDORA6x/Glossary#Glossary-ArchivalGroupag)
@@ -32,7 +32,7 @@ A folder. Containers are used in two places:
 - **Above** Archival Groups, to organise the repository into a hierarchy (for example
   `/repository/library/manuscripts`). These are created directly with a PUT request.
 - **Inside** Archival Groups, as the directories of the preserved object. These are never created
-  directly; they come into existence when an Import Job runs.
+  directly; they come into existence when an Import Job runs on your provided files.
 
 The repository root is itself a Container, with the special `type` value `RepositoryRoot`.
 
@@ -70,7 +70,7 @@ conditions and rights. The Preservation API uses METS as the object model - chec
 come from the METS, not from the files.
 
 METS is either **managed** (the platform wrote it and can edit it through API operations: add files,
-remove files, set metadata) or **unmanaged** (a third party such as Goobi or Archivematica wrote it;
+remove files, set metadata, define logical structure) or **unmanaged** (a third party such as Goobi or Archivematica wrote it;
 the platform reads it but will not modify it).
 
 See the [METS section](../../mets/overview) and [Editing METS](../../preservation-api/editing-mets).
@@ -84,7 +84,7 @@ carries its S3 `origin` and its SHA-256 `digest`.
 
 Usually you ask the Preservation API to generate an Import Job by **diffing** a Deposit against the
 current state of its Archival Group (for a new Archival Group, everything is an addition). You can
-also write one by hand. Executing an Import Job is what creates a new version.
+also write one by hand (or with your own tools). Executing an Import Job is what creates a new version.
 
 See [Import Jobs](../../preservation-api/import-jobs).
 
@@ -126,7 +126,8 @@ See [Activity stream](../../preservation-api/activity-stream).
 A run of file-analysis tools over a Deposit's `objects/` folder: format identification (Siegfried,
 giving PRONOM identifiers), virus scanning (ClamAV) and related characterisation, orchestrated by
 Brunnhilde. The outputs are written under the deposit's `metadata/` folder and, for a managed METS,
-incorporated into the METS as PREMIS technical metadata and events.
+incorporated into the METS as PREMIS technical metadata and events. These pipeline tools are provided 
+"out of the box" - you can also bring your own tools, e.g., generate metadata in a BitCurator environment.
 
 See [Tool outputs and pipelines](../../preservation-api/tool-outputs-and-pipelines).
 

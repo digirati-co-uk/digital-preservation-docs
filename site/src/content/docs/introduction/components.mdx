@@ -7,32 +7,32 @@ sidebar:
 
 import { Aside } from '@astrojs/starlight/components';
 
-The platform is a set of services layered over an S3 bucket. This page says what each one does and
+The platform is a set of services layered over storage. This page says what each one does and
 which of them talk to each other.
 
 <Aside type="tip">
 Most users - human or machine - only ever have access to the **Preservation API** (or to the
-Preservation UI, which is built on it). The other components are described here so that the
-behaviour of the Preservation API makes sense, not because you will normally call them.
+Preservation UI, which is built on it). The other components are described here to explain what
+ the Preservation API then does.
 </Aside>
 
 ## Preservation API
 
-The application-facing API, and the one this documentation is mostly about. It:
+The application-facing API. Most of this documentation site is about this API. It:
 
-- provides a hierarchical JSON view of the repository (Containers, Archival Groups, Binaries), passed
+- provides a hierarchical, navigable JSON view of the repository (Containers, Archival Groups, Binaries), passed
   through from the Storage API;
 - offers **Deposits** - working areas in S3 - for assembling content before it is preserved, and for
   receiving exports;
 - understands **METS**: it creates and edits METS files for deposits it manages, and reads METS
-  written by other systems (Goobi, Archivematica) to find checksums and structure;
+  written by other systems (Goobi, Archivematica and more) to find checksums and structure;
 - generates **Import Jobs** by diffing a Deposit against its Archival Group, and executes them by
   sending them to the Storage API;
 - triggers **pipeline** runs (format identification, virus scanning) over deposit files — the
   Pipeline API runs the tools and writes the results into the METS itself; the Preservation API
   records the job and its outcome;
 - publishes an **activity stream** of created and updated Archival Groups;
-- builds IIIF Manifests from Archival Groups and Deposits.
+- builds "skeleton" IIIF Manifests from Archival Groups and Deposits, which you can use as the basis for user-facing IIIF downstream.
 
 It is used by the Preservation UI, by Goobi, by the iiif-builder, and by scripts. It has its own
 PostgreSQL database for Deposits, jobs and history. It never talks to Fedora; everything to do with
@@ -42,10 +42,11 @@ See the [Preservation API section](../../preservation-api/overview).
 
 ## Preservation UI
 
-A web application for staff and external contributors, built on the Preservation API. It lets people
+A web application for staff and external contributors, built on the Preservation API and Workspace Manager. 
+It lets people
 browse the repository, create Deposits, upload files (including very large uploads straight into the
 deposit's S3 area), edit the managed METS, run pipelines and execute Import Jobs. Some things the UI
-does - uploading a file into a Deposit, for instance - act on S3 directly rather than through the
+does - uploading a file into a Deposit, for instance - act on Deposit storage directly rather than through the
 API.
 
 See the [Preservation UI section](../../ui/overview).
@@ -58,14 +59,14 @@ The exclusive gateway to Fedora. Nothing else talks to Fedora. The Storage API:
   Preservation API passes through;
 - accepts **Import Jobs** and performs them against Fedora inside a transaction, however many files
   are involved, producing a new OCFL version;
-- **exports** an Archival Group (at any version) to a location in S3;
+- **exports** an Archival Group (at any version) to a location in Deposit storage;
 - can stream the bytes of a preserved Binary (`/content/...`), and reports each Binary's `origin`
   in S3;
 - publishes its own activity stream of completed Import Jobs, which the Preservation API consumes.
 
 It does not parse or understand the files it stores; a METS file is just another Binary to it,
 with one exception - `exportMetsOnly` picks the METS file out *by name* so it can be copied on its
-own, without reading it. It has its own PostgreSQL database, and it also reads Fedora's own
+own, without reading it. It has its own very simple PostgreSQL schema, and it also reads Fedora's own
 database directly (read-only, for containment listings and search) as well as talking to Fedora
 over HTTP. Import processing can run inside the Storage API or in a separately deployed
 **Storage API Importer** service that takes jobs from an SQS queue, so that large imports can be
@@ -92,7 +93,7 @@ platform deliberately uses almost none of it. Only these Fedora features are use
 ## OCFL in S3
 
 The [Oxford Common File Layout](https://ocfl.io/1.1/spec/) is what is actually preserved: for each
-Archival Group, an [OCFL object](https://ocfl.io/1.1/spec/#object-spec) in an S3 bucket, with an
+Archival Group, an [OCFL object](https://ocfl.io/1.1/spec/#object-spec) in storage (e.g., S3 bucket), with an
 inventory listing every version and the SHA-256 of every file. This is the goal of everything else,
 and the bucket can be replicated elsewhere for backup. Very trusted readers may be given direct
 access to it; the `origin` property of a Binary tells them where to look.
@@ -109,22 +110,34 @@ Preservation API.
 See [Tool outputs and pipelines](../../preservation-api/tool-outputs-and-pipelines) and the
 [Pipeline API internals](https://github.com/digirati-co-uk/digital-preservation/blob/main/docs/internals/pipeline-api.md).
 
-## iiif-builder
+## IIIF Production "iiif-builder"
 
-A long-running Python service that polls the Preservation API's activity stream. For each new or
-updated Archival Group it loads the Archival Group and its METS from the Preservation API, obtains
-the item's persistent identifier and public IIIF Manifest URI from the Leeds Identity Service,
-fetches descriptive metadata from the catalogue, builds a IIIF Manifest (structure from the METS,
-description from the catalogue) and PUTs it to IIIF Cloud Services. It keeps track of what it has
-processed in its own database.
+Often, objects in digital preservation will be made accessible as digital objects on the web, using IIIF.
+While not dependent on it or assuming it as the goal, the Preservation platform is designed to make this 
+particular flow as easy as possible, whether or not you are using Digirati's IIIF Cloud Services as the
+public-facing delivery layer.
 
-See iiif-builder internals.
+Typically an implementation involves a long-running service that polls the Preservation API's activity stream. 
+This _iiif-builder_ process is to some degree bespoke each time, because it is _your_ way of presenting IIIF to the world.
+
+For each new or updated Archival Group, iiif-builder loads the Archival Group and its METS from the Preservation API, obtains
+fresh descriptive metadata from the appropriate catalogue, builds a IIIF Manifest (structure from the METS,
+description from the catalogue) and drives the creation of IIIF Image API endpoints, AV transcodes or other derivatives that public
+IIIF Manifests can reference. This step is usually complicated but if you are using IIIF Cloud Services it's as simple as an HTTP PUT of 
+the created Manifest to the IIIF Cloud Services platform. Metadata such as declared access conditions in METS is 
+transformed into actionable IIIF Authorization Flow API services in public facing IIIF Manifests.
+
 
 ## IIIF Cloud Services
 
 The external platform that hosts the IIIF Manifests built by the iiif-builder and serves the content
 resources derived from preserved files - most commonly IIIF Image API services generated from
-archival TIFFs. It is a consumer of the preservation platform's outputs, not part of it.
+archival TIFFs or JPEG2000s, but also transcoded AV, documents and any other content resource that can be 
+linked from a IIIF Manifest. It also enforces access control where required.
+
+It is a consumer of the preservation platform's outputs, not part of it.
+
+See [IIIF Cloud Services Documentation](https://dlcs.github.io/public-docs/) (external site).
 
 ## Who talks to whom
 
