@@ -4,7 +4,11 @@ Discrepancies between the old documentation, the site, and the code, found while
 Each entry says where it was found, what the code actually does, and whether it looks like a
 documentation error or a code bug.
 
-## Open
+## Findings
+
+Everything below is the record of what was found. Whether anything needs *doing* about it is
+decided in `findings.md`, not here; most of these needed only the site to say the right thing, which
+it now does.
 
 - **The site documents RFC-0001 Phase 0 code that is not yet on `main`.** (overview, authentication)
   `/whoami`, `CallerResolver`, `WhoAmIResult`, `IClientDirectory`/`KnownClients` and the per-caller
@@ -103,4 +107,3 @@ documentation error or a code bug.
   because Python puts the *script's* directory on `sys.path`, not the client root. Fixed in the
   README: run them as modules from the client root (`python -m p03_repository.browse_repository`).
 
-## Resolved

@@ -1,10 +1,14 @@
-﻿# Findings: Storage API and Internals pages (brief 7)
+# Findings: Storage API and Internals pages (brief 7)
 
 Discrepancies between `documentation/03-Storage-API.md`, `documentation/01-Introduction.md`, the code
 repo's `CLAUDE.md`, and the code as it stands on `feature/multiple-deposit-buckets`. Same style as
 `findings.md`: what was found, where, what the code actually does, docs error or code bug.
 
-## Open
+## Findings
+
+Everything below is the record of what was found. Whether anything needs *doing* about it is
+decided in `findings.md`, not here; most of these needed only the site to say the right thing, which
+it now does.
 
 - **The Storage API activity stream never emits `Create`, and the object type is `ImportJob`.**
   (storage-api/activity-and-content) `ImportJobResultStore.MakeActivity`

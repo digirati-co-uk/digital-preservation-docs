@@ -4,7 +4,11 @@ Discrepancies found while porting `documentation/02a`–`02e` into `site/src/con
 checked against `digital-preservation` `main` (f8ccd55) on 2026-09-11. Each entry says what the old
 page claimed, what the code does, and how the site page was phrased.
 
-## Open
+## Findings
+
+Everything below is the record of what was found. Whether anything needs *doing* about it is
+decided in `findings.md`, not here; most of these needed only the site to say the right thing, which
+it now does.
 
 ### F1. Virus-scan events are recognised by `premis:eventType`, not by ID prefix (02c stale)
 - 02c "Virus-scan events" says the parser takes "the last `mets:digiprovMD` whose ID starts with
