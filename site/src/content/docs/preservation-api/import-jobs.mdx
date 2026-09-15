@@ -230,6 +230,8 @@ Beyond the Deposit checks at the top of this page, the posted job has to be the 
 |---|---|
 | The job has no `deposit` property | `400 Bad Request`, "Import job must declare which Deposit it is for." |
 | `deposit` names a different Deposit from the one it was posted to | `400 Bad Request` |
+| The job has no `archivalGroup` property | `400 Bad Request`, "Import job must declare which Archival Group it is for." |
+| `archivalGroup` names a different Archival Group from the Deposit's | `400 Bad Request`, naming both. Compared by repository path, so naming the group on the Storage API host is not a mismatch |
 | A Binary to add or patch has an `origin` outside the Deposit's `files` location | `400 Bad Request`, naming the offending origin |
 | The Deposit is locked by somebody else | `409 Conflict` |
 

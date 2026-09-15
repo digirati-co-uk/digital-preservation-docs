@@ -5,7 +5,11 @@ Brief 5 (pages `preservation-api/activity-stream`, `versions-and-storage-map`, `
 Verified against the code at `src/DigitalPreservation` (branch
 `feature/multiple-deposit-buckets`) and `src/iiif-builder`.
 
-## Open
+## Findings
+
+Everything below is the record of what was found. Whether anything needs *doing* about it is
+decided in `findings.md`, not here; most of these needed only the site to say the right thing, which
+it now does.
 
 ### Activity stream
 
@@ -225,9 +229,6 @@ Verified against the code at `src/DigitalPreservation` (branch
   instead, and the example config uses entirely different values. Harmless but misleading; a
   reader of the model class would conclude the vocabulary is fixed. Looks like leftover code.
 
-## Resolved
-
-(nothing yet)
 
 ## Added after drafting
 

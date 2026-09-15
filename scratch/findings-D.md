@@ -14,7 +14,11 @@ before acting on them.
   **[verified]** It is an ordinary local developer config. No action; recorded so the claim is not
   repeated.
 
-## Open
+## Findings
+
+Everything below is the record of what was found. Whether anything needs *doing* about it is
+decided in `findings.md`, not here; most of these needed only the site to say the right thing, which
+it now does.
 
 - **Agent links go to a page that does not exist.** **[verified: no `Pages/Agents*` exists]**
   `TagHelpers/AgentLink.cs` renders every `createdBy`/`lastModifiedBy`/`preservedBy` as a link to
