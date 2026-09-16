@@ -29,35 +29,36 @@ export default defineConfig({
 			// Teal accent to go with the logo; see the file for what it recolours.
 			customCss: ['./src/styles/custom.css'],
 			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/digirati-co-uk/digital-preservation' }],
+			// Starlight 0.39 removed `autogenerate` directly on a labelled group; it lives in `items` now.
 			sidebar: [
 				{
 					label: 'Introduction',
-					autogenerate: { directory: 'introduction' }
+					items: [{ autogenerate: { directory: 'introduction' } }]
 				},
 				{
 					label: 'Preservation API',
 					collapsed: false,
-					autogenerate: { directory: 'preservation-api' }
+					items: [{ autogenerate: { directory: 'preservation-api' } }]
 				},
 				{
 					label: 'Workflows',
 					collapsed: true,
-					autogenerate: { directory: 'workflows' }
+					items: [{ autogenerate: { directory: 'workflows' } }]
 				},
 				{
 					label: 'METS',
 					collapsed: true,
-					autogenerate: { directory: 'mets' }
+					items: [{ autogenerate: { directory: 'mets' } }]
 				},
 				{
 					label: 'Preservation UI',
 					collapsed: true,
-					autogenerate: { directory: 'ui' }
+					items: [{ autogenerate: { directory: 'ui' } }]
 				},
 				{
 					label: 'Storage API',
 					collapsed: true,
-					autogenerate: { directory: 'storage-api' }
+					items: [{ autogenerate: { directory: 'storage-api' } }]
 				},
 			],
 		}),
