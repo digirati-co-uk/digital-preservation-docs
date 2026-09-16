@@ -10,32 +10,32 @@ import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
 Fedora is the storage layer. It is our gateway to OCFL.
 
 [Fedora 6](https://wiki.lyrasis.org/display/FEDORA6x) persists its repository as OCFL and manages
-versions for us, and that is what we use it for. The three resource types at the top of the
+versions for us. The three resource types at the top of the
 [Concepts](../concepts) page - Archival Group, Container, Binary - are Fedora's own, and a Fedora
-Archival Group *is* an OCFL object. So it is a fair question: if Fedora already gives you versioned
+Archival Group *is* an OCFL object. If Fedora already provides versioned
 OCFL objects with an HTTP API, why put two more APIs and a workflow in front of it?
 
-The short answer is that Fedora is a repository, and this is digital preservation. Fedora will store
-whatever you send it, one request at a time. It has no opinion about what a *preserved object* is,
+Fedora is a _repository_, and this is _digital preservation_. Fedora will store
+whatever you send it, _one request at a time_. It has no opinion about what a *preserved object* is,
 what must be known about every file before it goes in, or what has to happen to a file on the way.
-Those opinions are the platform. The rest of this page is the long answer.
+Those opinions (and more) are what makes the platform a digital preservation platform.
 
-## What the Preservation API enables
+## What the Preservation API provides
 
-### An Import Job is one operation, and it is atomic
+### An Import Job is one atomic operation
 
 Fedora's API is one resource per request: PUT a Binary, PUT a Container, PUT another Binary. For a
 digitised book that is hundreds of requests, and with an Archival Group every one of them is a
-commit - and every commit is a new OCFL version. Fedora does have transactions, which is how it
-avoids that, but then you are managing a transaction yourself across hundreds of calls, keeping it
+commit - and every commit is a new OCFL version. Fedora avoids this with transactions, 
+but then you are managing a transaction yourself across hundreds of calls, keeping it
 alive, and rolling it back cleanly if the four-hundredth file fails.
 
-The platform's unit of change is the [Import Job](../../preservation-api/import-jobs): one JSON
+The platform gives you a **_unit of change_**: the [Import Job](../../preservation-api/import-jobs).
+An Import Job is a JSON
 document that says everything that should happen to an Archival Group - Containers to add, Binaries
 to add, patch, delete or rename. The [Storage API](../../storage-api/overview) performs the whole
 job inside a single Fedora transaction, however many files are involved, and commits once. The
-result is exactly one new OCFL version per job, or no new version at all if anything failed. There
-is no such thing as a half-applied job.
+result is exactly one new OCFL version per job, or no new version at all if anything failed. 
 
 ### An Import Job can be a diff
 
@@ -44,36 +44,36 @@ state of an object, working out which of them are new, which have changed, which
 which have merely been renamed is your problem.
 
 The Preservation API can [generate the Import Job for you](../../preservation-api/import-jobs#generate-a-diff-import-job)
-by comparing a Deposit - the files in S3 and the METS file that describes them - with the current
-version of the Archival Group. The job it produces is the difference, and nothing else. It does not
-have to see every file to do this: a file that is mentioned in the METS but not present in the
-Deposit is taken to be unchanged, which is what makes
-[updating without a full export](../../workflows/update-without-export) work.
+by comparing a working Deposit with the current
+version of the Archival Group.  It does not
+have to see every file in the workspace to do this: a file that is mentioned in the METS but not present in the
+current Deposit workspace is taken to be unchanged. This makes
+[updating without a full export](../../workflows/update-without-export) work efficiently.
 
 ### It imposes constraints that Fedora does not
 
-Fedora will accept a Binary with no checksum, no content type, and a name that is not a valid URI.
-The platform will not. Before an Import Job reaches Fedora it must supply, for every Binary:
+Fedora will store a file it has never been given an expected checksum for, record its type as "bytes", and know it only by the
+URI you chose to put it at. The platform will not. Before an Import Job reaches Fedora it must supply, for every
+Binary: 
 
-- a SHA-256 digest, which the platform cross-checks against the checksum S3 recorded on upload and
-  which Fedora verifies again on receipt;
-- a content type;
-- a URI-safe slug *and* the original name, so that "my notes.doc" survives as a name without
-  becoming a path.
+ - a SHA-256 digest, which the platform checks against the checksum S3 recorded on upload, hands to Fedora so that Fedora verifies the bytes it received, and compares with what Fedora then recorded;
+ - a content type;
+ - a URI-safe slug and the original name, so that "my notes.doc" survives as a name without becoming a path.
 
-An Archival Group must have a METS file at its root. A Deposit may only put content under
-`objects/`. An Archival Group may have only one Import Job running at a time, and a Deposit is good
-for one. None of these is a Fedora rule. They are what turns "a place you can put files" into "a
-record you can trust".
+Other constraints include:
 
-### Deposits: somewhere to assemble an object
+ - An Archival Group _managed via the Preservation API_ must have a METS file at its root. 
+ - A Deposit may only put content under `objects/`. 
+ - An Archival Group may have only one Import Job running at a time, and a Deposit is good for one. 
 
-The Storage API needs to be told where files are. The Preservation API gives you somewhere to put
-them: a [Deposit](../../preservation-api/deposits) is a workspace in S3, allocated by the API, in
-which an object is assembled, checked, described and - when it is ready - preserved in one Import
+### Deposits: a workspace to assemble an object
+
+The Storage API needs to be told where files are. The Preservation API gives you somewhere to work on
+them: a [Deposit](../../preservation-api/deposits) is a workspace in S3 (or other storage), allocated by the API, in
+which an object is assembled, checked, described and when it is ready, preserved in one Import
 Job. The same mechanism works in reverse: an existing Archival Group is
 [exported](../../preservation-api/exports) into a Deposit so that it can be changed and preserved
-again as a new version. Fedora has no equivalent; its resources exist or they do not.
+again as a new version. 
 
 ### METS: the object model
 
@@ -81,9 +81,9 @@ Fedora describes its resources in RDF, and can hold arbitrary triples about them
 deliberately uses none of that. Everything it knows about a preserved object lives in one file
 inside the object itself, `mets.xml`: the fixity, size and PRONOM format of every file as PREMIS;
 what the pipeline tools found; access conditions, rights and catalogue identifiers as MODS; and the
-logical structure a viewer needs, as structMaps. The [METS section](../../mets/overview) covers it.
+logical structure a viewer needs, as structMaps. The [METS section](../../mets/overview) describes this.
 
-That choice is what makes the OCFL object self-describing. A copy of the S3 bucket and the OCFL
+This makes the OCFL object **self-describing**. A copy of the S3 bucket and the OCFL
 specification is enough to recover everything, including the metadata - no Fedora database, no
 Preservation API database, no running system. Fedora's own metadata is not needed to read the
 object back, and so is not relied on.
@@ -99,27 +99,26 @@ infected, and what a camera recorded when it took the picture - and you want the
 down with the file, not in someone's notes. The platform runs
 [pipelines](../../preservation-api/tool-outputs-and-pipelines) - Siegfried for format
 identification, ClamAV for virus scanning, ExifTool for embedded metadata, via Brunnhilde - over a
-Deposit, and writes what they found into the METS as PREMIS objects and events. Or you run the tools
+Deposit, and writes what they found into the METS as PREMIS objects and events. Or you run these and any other tools
 yourself, in your own environment, and put the output in the same places; the platform reads it the
 same way. Either way the result is preserved alongside the content, as part of the object.
 
-Fedora has no notion of a tool, or of an event.
+Fedora has no notion of a tool, or of an event of this type, because that is not its purpose as a repository.
 
 ### An audience for what happened
 
 Every Import Job records who asked for it, and every new version is announced on an
 [activity stream](../../preservation-api/activity-stream) that downstream systems - a IIIF builder,
-a catalogue, a replication process - can follow. Fedora's Archival Groups gain versions silently.
+a catalogue, a replication process - can follow. This allows for arbitrary systems integration using
+a modern, easy to consume feed.
 
 ## What the Storage API adds
 
-Underneath the Preservation API there is a second one, and it is worth saying what it is for. The
+The
 [Storage API](../../storage-api/overview) is the only thing that talks to Fedora. It reduces Fedora
-to the four things the platform uses - Containers, Binaries, Archival Groups and transactions - and
+to the four things the platform uses - Containers, Binaries, Archival Groups and transactions and
 presents them as a plain hierarchy, with Import Jobs as the only way to change it. It knows nothing
-about METS, Deposits or tools; a METS file is just another Binary to it. Keeping it that ignorant is
-deliberate: everything that makes the platform *preservation* rather than *storage* is in one place,
-above it, and the layer that holds the Fedora credential is small enough to reason about.
+about METS, Deposits or tools; a METS file is just another Binary to it. 
 
 ## What about Archivematica?
 
@@ -136,7 +135,7 @@ migration.
 This platform is narrower and sits lower. It does not normalise: what you deposit is what is
 preserved, as it is. It does not package: the preserved object is a Fedora Archival Group in OCFL,
 not a bag, and it is versioned in place rather than replaced. Its pipeline runs the same kinds of
-tool but only to *describe* the files, never to change them. And METS is its live object model,
+tool but only to *describe* the files, never to change them. METS is its object model,
 edited and diffed and read back, rather than a manifest written once at the end.
 
 The two are not exclusive. An Archivematica AIP's METS is one of the shapes the platform's parser
