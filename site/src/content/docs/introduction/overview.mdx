@@ -16,7 +16,7 @@ produce those OCFL objects and to make them easy to build, update and read.
 
 This documentation explains how to use the platform. It is written for:
 
-- **Developers writing API clients.** Most integrations - Goobi, the iiif-builder, migration scripts,
+- **Developers writing API clients.** Most integrations - Goobi, the [iiif-builder](../components/#iiif-production-iiif-builder), migration scripts,
   ad hoc tools - talk to the [Preservation API](../../preservation-api/overview). This forms the bulk
   of the documentation, and is accompanied by runnable Python samples.
 - **People using the Preservation UI.** The [UI section](../../ui/overview) covers browsing the
@@ -77,7 +77,7 @@ Reading the diagram from the bottom up:
 | **Fedora** | The repository software that writes and versions the OCFL objects. Nothing talks to Fedora except the Storage API. |
 | **Storage API** | The gateway to Fedora. Knows about Containers, Binaries and Archival Groups, and turns Import Jobs into new OCFL versions. Does not know what a METS file is. |
 | **Preservation API** | The application-facing API. Understands METS, provides Deposits (working areas in S3) for assembling content, generates Import Jobs, runs tools over files, and publishes an activity stream. |
-| **Preservation UI**, Goobi, iiif-builder, scripts | Clients of the Preservation API. |
+| **Preservation UI**, Goobi, [iiif-builder](../components/#iiif-production-iiif-builder), scripts | Clients of the Preservation API. |
 
 The [Components](../components) page describes each of these in more detail, and the
 [Concepts](../concepts) page defines the terms used throughout the site.
