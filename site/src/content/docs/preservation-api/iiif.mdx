@@ -115,7 +115,7 @@ The manifest's `metadata` block summarises the deposit itself — its status, it
 The token is the *only* protection on these URLs. Anyone holding one can read every file in the deposit and change its structure, until it expires. Treat it like a password: do not put it in a bug report, a shared document or a URL you paste into a chat. It lasts eight hours from last use, and it does not survive a restart of the API, so a token that worked yesterday will usually not work today. Fetch `/deposits/{id}/iiif` again to get a fresh one.
 </Aside>
 
-The tokenised routes and the media endpoints below are controlled by the `EnableIiifMediaEndpoints` feature flag, and are off unless an instance has turned them on. When they are off, `GET /deposits/{id}/iiif` still redirects, but the redirect target answers `401` — a `401` there means the feature is disabled, not that your credentials are wrong.
+The tokenised routes and the media endpoints below are controlled by the `EnableIiifMediaEndpoints` feature flag, and are off unless an instance has turned them on. When they are off, `GET /deposits/{id}/iiif` answers `404 Not Found` directly, without redirecting and without minting a token, and so do the tokenised routes and the media endpoints. A `404` from any of them means the feature is disabled on this instance.
 
 <LinkCard
   title="💻 Example: a Deposit as a Manifest"
