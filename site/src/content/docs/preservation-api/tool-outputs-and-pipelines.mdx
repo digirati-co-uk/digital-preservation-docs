@@ -103,8 +103,8 @@ The request is refused when:
 
 That last one deserves a word. The pipeline reaches deposit files through a file system mount of one bucket, so a deposit whose workspace was routed elsewhere is not reachable and the job is declined rather than queued and lost. If you have never been told that your deposits go somewhere else, this will not affect you.
 
-<Aside type="caution" title="Take the lock yourself, and expect to lose it">
-Queueing the job does not lock the deposit — it only checks that nobody else has. Lock it yourself first, immediately before the call, or somebody may edit the workspace underneath a running pipeline. And when the run finishes, the pipeline **releases the lock**, whether or not it was the one that took it. So a lock you were holding for your own reasons will be gone afterwards.
+<Aside type="note" title="The run locks the deposit for you">
+Queueing the job [locks](../deposits#locking-a-deposit) the deposit in your name, so nobody can edit the workspace underneath a running pipeline — or refuses with `409` if somebody else holds the lock. You do not need to lock it yourself first. If you already hold the lock, the run takes it over. Either way the lock is **released when the run ends**, whether it completes, fails or is force completed — unless somebody else has taken the lock over in the meantime, in which case theirs is left alone. So a lock you were holding for your own reasons will be gone afterwards.
 </Aside>
 
 <Aside type="danger" title="A pipeline run clears the metadata folder">
@@ -116,7 +116,7 @@ When it finishes successfully, the run has also added every file under `objects/
 <LinkCard
   title="💻 Example: run a pipeline and watch it"
   href="https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/preservation-docs-client/p07_pipelines/run_pipeline.py"
-  description="Locks a deposit, starts a pipeline run, polls the job to completion and shows the metadata it produced."
+  description="Starts a pipeline run, polls the job to completion and shows the metadata it produced."
 />
 
 ## Watching a pipeline run
@@ -202,13 +202,13 @@ The `created` / `createdBy` / `lastModified` / `lastModifiedBy` properties commo
 
 3. **`metadataCreated`** — the tools have finished and their output has been uploaded back into the deposit, but the METS has not been written yet.
 
-4. **`completed`** — everything finished, including adding the objects to the METS and releasing the lock.
+4. **`completed`** — everything finished, including adding the objects to the METS. Recording this state releases the lock.
 
 5. **`completedWithErrors`** — it stopped. `errors` says why.
 
 </Steps>
 
-A job that is stuck can be stopped: setting it to `completedWithErrors` from outside — which the [Preservation UI](../../ui/deposits) offers as *Force complete* — makes the running job notice at its next checkpoint, kill the tool process, release the lock and give up. The deposit is then yours again. Whatever output had already been uploaded stays where it is, so the safest next step after a forced completion is to run the pipeline again rather than trust a half-finished `metadata/` folder.
+A job that is stuck can be stopped: setting it to `completedWithErrors` from outside — which the [Preservation UI](../../ui/deposits) offers as *Force complete* — releases the lock straight away, and makes the running job notice at its next checkpoint, kill the tool process and give up. The deposit is then yours again. Whatever output had already been uploaded stays where it is, so the safest next step after a forced completion is to run the pipeline again rather than trust a half-finished `metadata/` folder.
 
 <Aside type="note" title="Duplicate deliveries are not duplicate runs">
 The queue behind the pipeline guarantees at-least-once delivery, so the same job can be offered to a worker more than once. Starting a job is a claim rather than a status report: whichever delivery moves the job out of `waiting` is the one that runs, and the others are dropped. Without that, a redelivered job would re-scan the deposit and write a second virus-scan event into the METS for a scan that only ever happened once.

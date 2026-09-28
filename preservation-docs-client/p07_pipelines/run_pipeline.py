@@ -7,9 +7,9 @@ deposit's metadata/ folder, and then adds the objects to the METS with that meta
 
 Two things to know before running this:
 
-  * Lock the deposit first. POST .../pipeline only checks that nobody ELSE holds the lock; it
-    does not take one. And when the run finishes it RELEASES the lock, whether or not it was
-    the one that took it - so do not expect to still be holding it afterwards.
+  * You do not need to lock the deposit first. POST .../pipeline locks it in your name (or
+    takes over the lock if you already hold it), and the lock is RELEASED when the run ends -
+    so do not expect to still be holding it afterwards.
   * The run deletes everything under metadata/ except metadata/ad-hoc before it uploads its own
     output. Tool output you placed there by hand will not survive.
 """
@@ -26,7 +26,6 @@ slug = deposit_slug(deposit)
 # Which jobs are there already? We need this to tell the new one apart from earlier runs.
 before = {job["jobId"] for job in get(f"/deposits/{slug}/pipelinerunjobs").json()}
 
-post(f"/deposits/{slug}/lock")          # 204, or 409 if someone else has it
 post(f"/deposits/{slug}/pipeline")      # 204 and nothing else; the work happens elsewhere
 
 # 404 no such deposit; 409 locked by someone else; 400 the deposit is not in the working bucket
@@ -89,5 +88,5 @@ for file in files_in(filesystem):
         else:
             print(f"  {kind} ({source})")
 
-# The lock has already been released by the pipeline. Take it again if you want to carry on
-# working on this deposit undisturbed.
+# The lock was released when the run ended. Take it again if you want to carry on working on
+# this deposit undisturbed.
