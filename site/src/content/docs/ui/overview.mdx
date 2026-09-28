@@ -66,7 +66,7 @@ A few things in the UI are switched on and off per instance, so a screen describ
 | Feature | What it controls |
 |---|---|
 | `FeatureFlags:ShowPipeline` | The **Run pipeline** and **Stop pipeline run** actions on a deposit. Off by default. |
-| `FeatureFlags:ShowNormaliseMetsIds` | The **Normalise METS IDs** action, and the matching "maintenance only" option when running an import job. Off by default; it exists for a one-off migration rather than for everyday use. |
+| `FeatureFlags:ShowNormaliseMetsIds` | The **Normalise METS IDs** action, and the matching "maintenance only" option when running an import job. Off by default; it exists for a one-off migration rather than for everyday use. It needs the Preservation API's `FeatureFlags:EnableMetsIdNormalisation` on as well: with only this one on, the action is offered and then refused. |
 
 If an action this documentation mentions is not in your **Actions** menu, that is usually why.
 
