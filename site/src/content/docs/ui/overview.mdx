@@ -5,7 +5,7 @@ sidebar:
   order: 1
 ---
 
-import { Aside, Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
 import { Image } from 'astro:assets';
 import imgBrowseRoot from '../../../assets/ui/browse-root.jpg';
 
@@ -35,12 +35,9 @@ Every page has the same frame.
 | **Dashboard** | The home page. A short list of links; there is not much on it. |
 | **Browse** | The preserved repository, as a tree of folders and objects. See [Browsing the repository](../browsing). |
 | **Deposits** | The list of deposits, and the way in to any one of them. See [Working with deposits](../deposits). |
-| **Settings** | Despite the name, this is the connectivity **Status** page. See [Search and changes](../search-and-changes#the-status-page). |
+| **Changes** | The platform's activity stream: what has been preserved recently. See [Search and changes](../search-and-changes#changes). |
+| **Status** | The connectivity checks. See [Search and changes](../search-and-changes#the-status-page). |
 | The theme button, bottom right | Light, dark, or follow the operating system. |
-
-<Aside type="note" title="Some sidebar entries do not go anywhere">
-**Reports**, **Integrations** and the **Saved reports** list are left over from the page template the UI was built on. They are not implemented, and the links lead nowhere.
-</Aside>
 
 ## What you can do here
 
