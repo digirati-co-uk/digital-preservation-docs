@@ -84,6 +84,8 @@ A mismatch is `409 Conflict`, with the current ETag in the problem's `detail` â€
 }
 ```
 
+If another write reaches the METS between that check and your own, the write itself is refused, and that is also `409 Conflict`, with the detail `Supplied ETag did not match METS` and no ETag in it. Treat it the same way: re-read the METS, then decide.
+
 Every successful write changes the ETag, so a second edit needs a freshly fetched one: the value you used a moment ago is already stale.
 
 | Operation | `If-Match` |
