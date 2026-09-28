@@ -250,8 +250,8 @@ The response is a page object, not a bare list:
 
 | Query parameter | Type | Default | Description |
 |---|---|---|---|
-| `page` | integer | `1` | The page of results, from 1 upwards. |
-| `pageSize` | integer | `100` | How many results to return in each response. |
+| `page` | integer | `1` | The page of results, from 1 upwards. `0` or a negative value is refused with `400`. |
+| `pageSize` | integer | `100` | How many results to return in each response. Must be between 1 and 500; anything else is refused with `400`. |
 | `orderBy` | string | `created` | One of `archivalGroupPath`, `status`, `exported`, `exportedBy`, `preserved`, `preservedBy`, `lastModified`, `lastModifiedBy`, `created`, `createdBy`. Anything else falls back to `created`. |
 | `ascending` | boolean | `false` | Direction of `orderBy`. |
 | `createdBy` | string\* | null | Only deposits created by that agent. |
