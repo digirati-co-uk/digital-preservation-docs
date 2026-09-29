@@ -34,55 +34,57 @@ bottom, as a shopping list for whoever next has a tidy-up afternoon, not as work
 
 ## Needs a decision
 
-Three things where the right answer is not obvious and a patch would be guessing.
+Two things where the right answer is not obvious and a patch would be guessing.
 
-- **The `content` URI on a Binary.** The Preservation API emits a `content` URI on its own host
-  that it does not serve (there is no `/content` route; it 404s), and the Storage API's version
-  ignores `?version=`. Either the Preservation API proxies content, with authorisation, or it stops
-  emitting the URI. Part of #265, but the other two leaks in that issue are mechanical and this one
-  is not. (findings-original-list, findings-E)
-
-- **Who locks the deposit for a pipeline run.** RFC 006a says the Preservation API locks the deposit
-  as the pipeline user. It does not: `POST /deposits/{id}/pipeline` checks nobody *else* holds the
-  lock and queues the job, the UI takes the lock itself beforehand, and the Pipeline API releases
-  the lock at the end whether or not it took it. So an API caller who does not lock first has no
-  protection during the run, and one who does has the lock taken away. The lock ought to be
-  acquired by whatever queues the job. Documented as it is on `tool-outputs-and-pipelines`.
-  (findings-B)
+- **The `content` URI on a Binary.** The Preservation API emits a `content` URI on its own host that
+  it does not serve (there is no `/content` route; it 404s), and the Storage API's version ignores
+  `?version=`. Either the Preservation API proxies content, with authorisation, or it stops emitting
+  the URI. Split out of #265 as its own issue,
+  [#300](https://github.com/digirati-co-uk/digital-preservation/issues/300), with that choice as the
+  open question; the other two leaks in #265 are mechanical. (findings-original-list, findings-E)
 
 - **The IIIF deposit token lives in one process's memory.** The tokenised `/media/...` routes are
   anonymous, and the token is held in the API's in-process `IMemoryCache`. It dies on restart and
   does not work across more than one API instance behind a load balancer. That is a deployment
   constraint on a feature that is off by default (`EnableIiifMediaEndpoints`), so it may not matter
   yet - but it decides whether the feature can ever be turned on in production as built. Belongs
-  with #261. (findings-C)
+  with #261; the shared-store design that would fix it is in
+  [#320](https://github.com/digirati-co-uk/digital-preservation/issues/320), which has the same
+  problem for the UI's sign-in state. (findings-C)
 
-Two that were on this list have come off it: `DisableAuth` in the Storage API example config was
-never a decision and is fixed (PR #270); whether a hand-written Import Job may name a different
-Archival Group is settled - it may not (PR #271, closes #267).
+Three that were on this list have come off it. **Who locks the deposit for a pipeline run** was
+decided in #289 - whatever queues the run takes the lock, and the same layer releases it - and done
+in [#299](https://github.com/digirati-co-uk/digital-preservation/issues/299) (PR #309, 2026-09-29);
+`tool-outputs-and-pipelines` was updated with it (docs PR #45). `DisableAuth` in the Storage API
+example config was never a decision and is fixed (PR #270); whether a hand-written Import Job may
+name a different Archival Group is settled - it may not (PR #271, closes #267).
 
 ## Raised as issues
 
 All on the code repository. Nothing is outstanding in the documentation for any of these: each is
 described on the site as the platform currently behaves. **When one closes, the page named needs
-its note taken out** - only #262 links its issue, so the map is here.
+its note taken out** - no page links its issue, so the map is here.
 
 | # | What | Site page to revisit when it closes |
 |---|---|---|
-| [#258](https://github.com/digirati-co-uk/digital-preservation/issues/258) | Lock conflicts answer 401 from some operations and 409 from others | `preservation-api/editing-mets` |
 | [#259](https://github.com/digirati-co-uk/digital-preservation/issues/259) | `DeleteSelection.ContinueIfFail` has inverted logic | none - deliberately undocumented |
 | [#260](https://github.com/digirati-co-uk/digital-preservation/issues/260) | Import jobs accept renames and never perform them | `preservation-api/import-jobs`, `storage-api/import` |
-| [#262](https://github.com/digirati-co-uk/digital-preservation/issues/262) | Storage API `/content` returns HTTP 200 with a body saying 404 | `storage-api/activity-and-content` (linked) |
-| [#263](https://github.com/digirati-co-uk/digital-preservation/issues/263) | `archived`/`active` silently ignored; agent filters reject Agent URIs **[live]** | `preservation-api/deposits`, `preservation-api/agents` |
 | [#264](https://github.com/digirati-co-uk/digital-preservation/issues/264) | `metsETag` absent from the create response and from listings **[live]** | `preservation-api/deposits`, `editing-mets`, `introduction/quickstart`; samples `ensure_deposit.py`, `ready_deposit.py` |
-| [#265](https://github.com/digirati-co-uk/digital-preservation/issues/265) | Storage API URIs leak into Preservation responses (`seeAlso`, `importJob`, `content`) | `preservation-api/activity-stream`, `import-job-results`, `repository` |
-| [#266](https://github.com/digirati-co-uk/digital-preservation/issues/266) | Caller errors surfacing as HTTP 500 (`PreconditionFailed`, non-head export) | `preservation-api/exports`, `editing-mets` |
+| [#265](https://github.com/digirati-co-uk/digital-preservation/issues/265) | Storage API URIs leak into Preservation responses (`seeAlso`, `importJob`; the `content` URI is split out as #300) | `preservation-api/activity-stream`, `import-job-results`, `repository` |
 | [#268](https://github.com/digirati-co-uk/digital-preservation/issues/268) | UI: agent links 404, a display helper throws, inherited metadata invisible until hover, a GET performs writes | `ui/deposits`, `ui/browsing` |
 | [#269](https://github.com/digirati-co-uk/digital-preservation/issues/269) | The first published activity is an unsuppressed seed row pointing at `example.com` | `preservation-api/activity-stream`, `workflows/reading-the-activity-stream` |
 
 Closed: [#267](https://github.com/digirati-co-uk/digital-preservation/issues/267) (Archival Group
-check, PR #271). Fixed without an issue: `Storage.API/appsettings.Example.json` shipping
-`DisableAuth: "true"` (PR #270).
+check, PR #271); [#258](https://github.com/digirati-co-uk/digital-preservation/issues/258) (lock
+conflicts are 409 everywhere, PR #315; docs PR #49);
+[#263](https://github.com/digirati-co-uk/digital-preservation/issues/263) (`archived`/`active` and
+Agent-URI filters, PR #314; docs PR #51);
+[#266](https://github.com/digirati-co-uk/digital-preservation/issues/266) (`PreconditionFailed` is
+409 and a non-head export is 400, PR #313; docs PR #46);
+[#262](https://github.com/digirati-co-uk/digital-preservation/issues/262) (not a code bug after all:
+`ObjectResult` copies the problem's `404` onto the response, so the fix was the docs page, docs PR
+#53). Fixed without an issue: `Storage.API/appsettings.Example.json` shipping `DisableAuth: "true"`
+(PR #270).
 
 ## Code bugs found during the port, filed 2026-09-15
 
@@ -94,10 +96,13 @@ detail file it came from; the detail files are not repeated here.
 |---|---|---|
 | [#272](https://github.com/digirati-co-uk/digital-preservation/issues/272) | Storage API: `GET /FedoraSearch` with no `pageSize` runs an unbounded query (a denial-of-service shape; on its own for that reason) | `storage-api/activity-and-content` |
 | [#273](https://github.com/digirati-co-uk/digital-preservation/issues/273) | Storage API: `createdBy` null dereference on import; `exportMetsOnly` failure is a 500; Exports stored without `created`/`createdBy`; activity stream objects typed `ImportJob` and never `Create` | `storage-api/import`, `storage-api/export`, `storage-api/activity-and-content` |
-| [#274](https://github.com/digirati-co-uk/digital-preservation/issues/274) | Preservation API: diff-reference match is case-sensitive; rename lists have no `JsonPropertyName`; search echoes null `text`/`searchType`; `/deposits/{id}/iiif` redirects into a 401 | `preservation-api/import-jobs`, `search`, `iiif` |
-| [#275](https://github.com/digirati-co-uk/digital-preservation/issues/275) | Pipeline API: upload guard passes by coincidence; `ApiKeyAttribute` fails open | none |
-| [#276](https://github.com/digirati-co-uk/digital-preservation/issues/276) | Preservation UI: everything not in #268 - no upload limit, IIIF button hard-coded to `cc`, `TempData` guard, unlinked Changes page, coupled feature flags, template furniture, BagIt edge cases | `ui/deposits`, `ui/browsing` |
-| [#277](https://github.com/digirati-co-uk/digital-preservation/issues/277) | `deploy.yml` retags the deposit-archiver image but never deploys it | none |
+
+Closed 2026-09-29: [#274](https://github.com/digirati-co-uk/digital-preservation/issues/274) (PR
+#308; docs PR #52); [#275](https://github.com/digirati-co-uk/digital-preservation/issues/275) (PR
+#307); [#276](https://github.com/digirati-co-uk/digital-preservation/issues/276) (PRs #310, #311 and
+#312; docs PRs #44, #47 and #50 - item 7, the BagIt edge cases, needed no change);
+[#277](https://github.com/digirati-co-uk/digital-preservation/issues/277) (PR #304, with the CI
+role's Lambda permission in preservation-ops #77).
 
 Not filed, on purpose: the two Pipeline API items already in the April 2026 security review (path
 traversal in the diagnostics endpoint, non-constant-time API key comparison) stay tracked there
