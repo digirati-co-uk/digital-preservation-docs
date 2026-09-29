@@ -105,7 +105,7 @@ A reason to create an empty Deposit might be to patch a single file out of thous
 What happens to the METS depends on what is there:
 
 * The Archival Group has a METS file — it is copied into the root of the Deposit workspace. This is the ordinary case.
-* The Archival Group has no METS file, and you asked for `RootLevel` or `BagIt` — the platform writes one, describing the Archival Group's current contents. This only works when you are working from the head version; asking for an older version of a METS-less object is refused, because a METS written now for a version from the past would be a statement nobody made.
+* The Archival Group has no METS file, and you asked for `RootLevel` or `BagIt` — the platform writes one, describing the Archival Group's current contents. This only works when you are working from the head version; asking for an older version of a METS-less object is refused with `400 Bad Request`, because a METS written now for a version from the past would be a statement nobody made.
 * You asked for `template: "None"` — no *new* METS is written for you. Note that this does not mean an empty workspace: for a deposit against an Archival Group that already has a METS, that document is copied in whatever template you asked for, because it is the object's own description and the diff needs it.
 
 <LinkCard
