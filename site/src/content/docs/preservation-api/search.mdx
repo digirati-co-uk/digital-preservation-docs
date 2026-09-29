@@ -74,8 +74,8 @@ The returned Search object partitions the result sets:
     "pageSize": 20
   },
   "identifier": null,
-  "text": null,
-  "searchType": null
+  "text": "pipeline",
+  "searchType": "All"
 }
 ```
 
@@ -84,8 +84,8 @@ The returned Search object partitions the result sets:
 | `fedoraSearch` | Matching preserved files, or `null` if the search of the repository could not be run. |
 | `depositSearch` | Matching Deposits, or `null` if there were none. |
 | `identifier` | A matching identifier record, or `null`. See [below](#identifier-lookup). |
-| `text` | Always `null`. Keep your own copy of the search term. |
-| `searchType` | Always `null`. |
+| `text` | The search term you sent. |
+| `searchType` | The `type` you sent, or `All` if you didn't send one, as a string. |
 
 `fedoraSearch` has `total` (how many matches there are altogether), `count` (how many are in `results`), `page`, `pageSize` and `results`. `depositSearch` has `total`, `page`, `pageSize` and `deposits`, and its `deposits` are complete [Deposit](../deposits) resources, not summaries.
 

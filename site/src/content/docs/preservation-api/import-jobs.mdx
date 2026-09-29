@@ -160,10 +160,6 @@ A rename changes the `name` of a Container or Binary — its `dc:title`, the UTF
 
 So an entry in `binariesToRename` or `containersToRename` is the resource as it should now be: the same `id` as the existing one, with a different `name`. A generated diff populates these lists by comparing the name in the Deposit's METS with the name currently recorded in the Archival Group.
 
-<Aside type="note" title="These two are the odd ones out">
-Every other property of an ImportJob has an explicit name in the JSON. `containersToRename` and `binariesToRename` fall back to the framework's default camelCase, which happens to produce the same spelling — but they are the only two lists whose name is not pinned in the code. Send them as shown here.
-</Aside>
-
 ### BagIt deposits
 
 In a [BagIt-layout Deposit](../deposits#templates) the object's content lives under `data/`. That prefix does not appear in the Import Job at all: the diff is generated from `data/` downwards, so the `id` paths are `.../objects/…` and `.../metadata/…` exactly as they would be for a `RootLevel` Deposit, and the target Archival Group looks the same whichever layout you deposited from.
@@ -220,7 +216,7 @@ POST /deposits/e56fb7yg/importjobs
 
 This is an instruction to the API to synchronise the Archival Group with the contents of the Deposit **in a single action**: it generates the diff itself, at that moment, and runs it. It is equivalent to a `GET .../importjobs/diff` followed by a POST of the result, without the round trip and without the window in between where the Deposit might change underneath you.
 
-The value to send is the `originalId` of a diff, not its transient `id`. It can be a full URI or a path, but it must end with exactly the path you are POSTing to plus `/diff`. In particular the match is case-sensitive, so POST to the lower-case `/importjobs`; a body whose `id` doesn't line up is not recognised as a diff reference at all, and is then rejected as an ordinary job with nothing in it.
+The value to send is the `originalId` of a diff, not its transient `id`. It can be a full URI or a path, but it must end with the path you are POSTing to plus `/diff` (the comparison ignores case). A body whose `id` doesn't line up is not recognised as a diff reference at all, and is then rejected as an ordinary job with nothing in it.
 
 ### What the API checks
 
