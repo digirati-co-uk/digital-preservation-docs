@@ -203,7 +203,7 @@ The response is the same `items` list as for adding, naming what was actually de
 
 ## Locks
 
-All three operations respect the Deposit's [lock](../deposits#locking-a-deposit): if somebody else holds it, your edit is refused. Adding to and deleting from the METS answer `401 Unauthorized` for this, while normalising answers `409 Conflict` — the same situation, reported two ways.
+All three operations respect the Deposit's [lock](../deposits#locking-a-deposit): if somebody else holds it, your edit is refused with `409 Conflict`, the same answer you get when patching or deleting a locked Deposit.
 
 ## Normalising METS identifiers
 
