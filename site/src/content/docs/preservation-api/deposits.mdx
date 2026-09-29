@@ -269,19 +269,11 @@ The response is a page object, not a bare list:
 | `archivalGroupPath` | string | null | Deposits for one Archival Group. A value containing `/` matches the whole path; a value without one matches any path ending in it. |
 | `archivalGroupPathParent` | string | null | Deposits for any Archival Group below that path. |
 | `status` | string | null | Only deposits with that `status`. |
-| `active` | boolean | null | `false` returns only inactive deposits. Ignored when `showAll` is true, and see the caution below. |
+| `active` | boolean | null | `true` returns only active deposits, `false` only inactive ones. Ignored when `showAll` is true. |
 | `showAll` | boolean | `false` | By default only active deposits are returned; this overrides that. |
-| `archived` | boolean | null | A filter, not an include: `true` returns **only** archived deposits, `false` only unarchived ones. Omit it to get both. See the caution below. |
+| `archived` | boolean | null | A filter, not an include: `true` returns **only** archived deposits, `false` only unarchived ones. Omit it to get both. Archived deposits are inactive, so `archived=true` also switches off the active-only default, unless you send `active` as well. |
 
-\* The agent's **name** — the last segment of its Agent URI, matched exactly. A full Agent URI does not work here, and nor does part of a name: `createdBy=goobi` finds them, `createdBy=https://preservation-api.example/agents/goobi` finds nothing.
-
-<Aside type="danger" title="archived and active do nothing on their own">
-These two are not counted when the API decides whether you asked it anything. Send `archived=true`
-by itself and you get the default listing — active, unarchived deposits — with no error and no sign
-that your filter was dropped. They only take effect alongside a parameter that does count, and
-`showAll=true` is the usual one: `?archived=true&showAll=true`. Verified against a running instance;
-it looks like a bug rather than a design, so check before relying on it.
-</Aside>
+\* The agent's **name** — the last segment of its Agent URI — or the full Agent URI as [`GET /agents`](../agents) returns it. Either is matched exactly, so part of a name does not work: `createdBy=goobi` and `createdBy=https://preservation-api.example/agents/goobi` both find them, `createdBy=goob` finds nothing.
 
 <Aside type="caution">
 Sending no query parameters at all is not the same as sending ones that happen to match everything. With no terms, the API returns active deposits ordered by creation date, newest first. To walk every deposit there has ever been, ask for `showAll=true` with `orderBy=created&ascending=true` — ascending order keeps paging stable while other people are still creating deposits, because a new deposit sorts after everything you have already seen.
@@ -402,4 +394,4 @@ Both return `204 No Content`. `activate` is how you pick up a deposit whose Impo
 
 A deposit's workspace does not live forever. The deposit archiver packs up the workspace of deposits that are finished with, sets the `archived` timestamp and moves the status to `archived`. The Deposit record itself remains readable through the API, and the [Import Job results](../import-job-results) that record what was preserved are unaffected — as is the Archival Group, which is the point of the whole exercise.
 
-Use the `archived` query parameter to find them, remembering that it is a filter in both directions: `archived=false` excludes archived deposits, `archived=true` returns nothing else.
+Use the `archived` query parameter to find them, remembering that it is a filter in both directions: `archived=false` excludes archived deposits, `archived=true` returns nothing else. `?archived=true` on its own is enough — you do not need `showAll` as well.

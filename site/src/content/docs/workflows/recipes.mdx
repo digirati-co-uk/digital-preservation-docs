@@ -144,10 +144,3 @@ GET /deposits?archivalGroupPath=my-collection/my-object
 **I get `409` saying ancestors must exist.**
 
 `PUT /repository/a/b` needs `a` to exist already. Create the parents first, top down. [Creating a Container](../../preservation-api/repository#creating-a-container)
-
-<Aside type="caution" title="Two query parameters that lie">
-`archived` and `active` are ignored unless another filter is present — `?archived=true` on its own
-silently returns the ordinary active list. Pair them with `showAll=true`. And the `createdBy`,
-`preservedBy` and `exportedBy` filters want the agent's **name**, matched exactly, not the Agent URI
-that `GET /agents` returns.
-</Aside>
