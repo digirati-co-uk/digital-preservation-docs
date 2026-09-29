@@ -57,9 +57,7 @@ Search terms are limited to 500 characters; anything longer is refused with a me
 
 The **Changes** page shows the platform's [activity stream](../../preservation-api/activity-stream) — the record of Archival Groups created and updated, in the IIIF Change Discovery format that downstream systems such as the IIIF builder poll to find out what to reprocess.
 
-<Aside type="caution" title="Nothing links to this page">
-There is no menu entry for it. You reach it by typing the address: `/changes/archivalgroups` for the collection, and the links on that page for the individual pages of activity.
-</Aside>
+**Changes** in the sidebar opens the collection, at `/changes/archivalgroups`; the links on that page take you to the individual pages of activity.
 
 The collection view shows the stream's identifier, how many activities it holds in total, and links to its **first** and **last** pages. Start at the last page: activity is appended, so the most recent changes are at the end.
 
@@ -74,7 +72,7 @@ It is a plain rendering of the JSON rather than a report, and it is genuinely us
 
 ## The status page
 
-**Settings** in the sidebar opens the connectivity checks — the page is titled *Connectivity Checks*, and the mismatch with the menu label is a leftover from the page template.
+**Status** in the sidebar opens the connectivity checks — the page is titled *Connectivity Checks*.
 
 At the top it shows two configuration values the UI is running with: the address of the Preservation API it is talking to, and the default S3 bucket deposits are created in. If you are ever unsure whether you are on the development or production instance, this is where to look.
 
