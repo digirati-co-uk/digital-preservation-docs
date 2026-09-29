@@ -117,12 +117,14 @@ If any file's recorded metadata differs between the workspace and the METS — a
 
 The upload icon on a folder row opens the upload dialogue *for that folder*. Choose a file and the browser does three things immediately: it computes the file's SHA-256 checksum locally and shows it, fills in the file name and content type from the file itself, and shows the size.
 
-The checksum is computed **in your browser, before anything is sent**, and travels with the upload so the platform can confirm the bytes arrived intact. It is not editable. You can change the **file name** the platform stores, and the **content type** if the browser guessed wrongly or said nothing.
+The checksum is computed **in your browser, before anything is sent**, and travels with the upload so the platform can confirm the bytes arrived intact. It is not editable, and **Upload file** stays disabled until it is ready. You can change the **file name** the platform stores, and the **content type** if the browser guessed wrongly or said nothing.
 
 Two rules the dialogue will not let you break: files must go **in or below `objects/`**, and the name must not clash with something already in that folder.
 
 <Aside type="caution" title="Large files">
-Files over 2 GB get a warning: *upload may be slow or unreliable on poor connections*. There is no hard limit, and the platform will accept a larger file, but the whole file is read into your browser's memory to hash it and then sent in a single request — one file at a time, with no resume if the connection drops. For large or numerous files, put them into the workspace directly (**Open Deposit location** in the Actions menu takes you to it) and then use **Refresh storage** so the platform sees them.
+The dialogue has a size limit: 2 GB, unless your instance has been set up with a different one. A larger file is refused as soon as you choose it, with *"File is too large to upload here"*, and **Upload file** stays disabled; the platform refuses an oversized upload too, so the limit cannot be got round. Below the limit, the whole file is still read into your browser's memory to hash it and then sent in a single request — one file at a time, with no resume if the connection drops. If the browser cannot compute the checksum (usually because it has run out of memory on a big file) the dialogue says so, rather than letting you upload without one.
+
+For large or numerous files, put them into the workspace directly (**Open Deposit location** in the Actions menu takes you to it) and then use **Refresh storage** so the platform sees them.
 </Aside>
 
 ### Creating folders
