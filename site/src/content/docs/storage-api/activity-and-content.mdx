@@ -150,8 +150,8 @@ A deliberately simple search, and quite unlike the [Preservation API's](../../pr
 | Parameter | Description |
 |---|---|
 | `text` | Required. The substring to look for in the path. An empty or whitespace value is a `400`. |
-| `page` | Zero-based. `page=0` is the first page. |
-| `pageSize` | Between 1 and 500. |
+| `page` | Zero-based. `page=0` is the first page, and the default. A negative page is a `400`. |
+| `pageSize` | Between 1 and 500. Defaults to 50. Anything outside that range is a `400`. |
 
 ```json
 {
@@ -172,12 +172,6 @@ A deliberately simple search, and quite unlike the [Preservation API's](../../pr
 ```
 
 `total` is the number of matches, `count` the number returned on this page.
-
-<Aside type="caution">
-Always send `pageSize`. Both paging parameters are optional, and omitting `pageSize` does not fall
-back to a default - it runs the query with no limit at all and returns every match, which on a large
-repository is not something you want to do twice.
-</Aside>
 
 Note that the page numbering here starts at 0, while the activity stream's pages start at 1.
 
