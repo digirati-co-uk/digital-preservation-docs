@@ -65,14 +65,7 @@ All on the code repository. Nothing is outstanding in the documentation for any 
 described on the site as the platform currently behaves. **When one closes, the page named needs
 its note taken out** - no page links its issue, so the map is here.
 
-| # | What | Site page to revisit when it closes |
-|---|---|---|
-| [#259](https://github.com/digirati-co-uk/digital-preservation/issues/259) | `DeleteSelection.ContinueIfFail` has inverted logic | none - deliberately undocumented |
-| [#260](https://github.com/digirati-co-uk/digital-preservation/issues/260) | Import jobs accept renames and never perform them | `preservation-api/import-jobs`, `storage-api/import` |
-| [#264](https://github.com/digirati-co-uk/digital-preservation/issues/264) | `metsETag` absent from the create response and from listings **[live]** | `preservation-api/deposits`, `editing-mets`, `introduction/quickstart`; samples `ensure_deposit.py`, `ready_deposit.py` |
-| [#265](https://github.com/digirati-co-uk/digital-preservation/issues/265) | Storage API URIs leak into Preservation responses (`seeAlso`, `importJob`; the `content` URI is split out as #300) | `preservation-api/activity-stream`, `import-job-results`, `repository` |
-| [#268](https://github.com/digirati-co-uk/digital-preservation/issues/268) | UI: agent links 404, a display helper throws, inherited metadata invisible until hover, a GET performs writes | `ui/deposits`, `ui/browsing` |
-| [#269](https://github.com/digirati-co-uk/digital-preservation/issues/269) | The first published activity is an unsuppressed seed row pointing at `example.com` | `preservation-api/activity-stream`, `workflows/reading-the-activity-stream` |
+All six issues raised from the port are now fixed and documented; see below.
 
 Closed: [#267](https://github.com/digirati-co-uk/digital-preservation/issues/267) (Archival Group
 check, PR #271); [#258](https://github.com/digirati-co-uk/digital-preservation/issues/258) (lock
@@ -86,16 +79,28 @@ Agent-URI filters, PR #314; docs PR #51);
 #53). Fixed without an issue: `Storage.API/appsettings.Example.json` shipping `DisableAuth: "true"`
 (PR #270).
 
+Fixed in the October 2026 batch:
+[#259](https://github.com/digirati-co-uk/digital-preservation/issues/259) (`ContinueIfFail` polarity,
+PR #331; no docs change, it was deliberately undocumented);
+[#260](https://github.com/digirati-co-uk/digital-preservation/issues/260) (renames are refused with
+`400` until they are implemented, PR #325; docs PR #56; implementing them is
+[#347](https://github.com/digirati-co-uk/digital-preservation/issues/347));
+[#264](https://github.com/digirati-co-uk/digital-preservation/issues/264) (`metsETag` on create and
+patch, PR #328; docs PR #58);
+[#265](https://github.com/digirati-co-uk/digital-preservation/issues/265) (`seeAlso` and `importJob`
+URIs, PR #330; docs PR #59; the `content` URI stays with #300);
+[#268](https://github.com/digirati-co-uk/digital-preservation/issues/268) (items 1, 2 and 4a in PR
+#346, 4b - the stalled-run tidy-up - in PR #336; docs PRs #64 and #62; item 3 deliberately unchanged);
+[#269](https://github.com/digirati-co-uk/digital-preservation/issues/269) (the seed row is suppressed,
+PR #329; docs PR #59). #259, #265 and #268 are fixed but still open on GitHub.
+
 ## Code bugs found during the port, filed 2026-09-15
 
 Everything the detail files recorded as a code defect and had not been filed is now an issue, one
 per service, except the one that was significant enough to stand alone. Each issue says which
 detail file it came from; the detail files are not repeated here.
 
-| # | What | Site page to revisit when it closes |
-|---|---|---|
-| [#272](https://github.com/digirati-co-uk/digital-preservation/issues/272) | Storage API: `GET /FedoraSearch` with no `pageSize` runs an unbounded query (a denial-of-service shape; on its own for that reason) | `storage-api/activity-and-content` |
-| [#273](https://github.com/digirati-co-uk/digital-preservation/issues/273) | Storage API: `createdBy` null dereference on import; `exportMetsOnly` failure is a 500; Exports stored without `created`/`createdBy`; activity stream objects typed `ImportJob` and never `Create` | `storage-api/import`, `storage-api/export`, `storage-api/activity-and-content` |
+Both remaining issues are now fixed and documented; see below.
 
 Closed 2026-09-29: [#274](https://github.com/digirati-co-uk/digital-preservation/issues/274) (PR
 #308; docs PR #52); [#275](https://github.com/digirati-co-uk/digital-preservation/issues/275) (PR
@@ -103,6 +108,11 @@ Closed 2026-09-29: [#274](https://github.com/digirati-co-uk/digital-preservation
 #312; docs PRs #44, #47 and #50 - item 7, the BagIt edge cases, needed no change);
 [#277](https://github.com/digirati-co-uk/digital-preservation/issues/277) (PR #304, with the CI
 role's Lambda permission in preservation-ops #77).
+
+Closed or fixed 2026-10: [#272](https://github.com/digirati-co-uk/digital-preservation/issues/272)
+(FedoraSearch paging defaults, PR #324; docs PR #55);
+[#273](https://github.com/digirati-co-uk/digital-preservation/issues/273) (all four items, PR #333;
+docs PR #60 - fixed, still open on GitHub).
 
 Not filed, on purpose: the two Pipeline API items already in the April 2026 security review (path
 traversal in the diagnostics endpoint, non-constant-time API key comparison) stay tracked there
