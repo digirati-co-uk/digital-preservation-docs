@@ -71,8 +71,8 @@ def ready_deposit() -> dict:
 
     slug = deposit_slug(deposit)
 
-    # Always fetch the deposit by id before using its metsETag. The listing does not carry one -
-    # only GET /deposits/{id} populates it - and nor does the response to creating one.
+    # Always fetch the deposit by id before using its metsETag. The listing does not carry one,
+    # and a value held from earlier may be stale: every write to the METS changes it.
     deposit = get(f"/deposits/{slug}").json()
 
     # Bring the METS into line with the workspace. Only paths in or below objects/ or metadata/
