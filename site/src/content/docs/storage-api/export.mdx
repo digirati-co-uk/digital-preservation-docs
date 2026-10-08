@@ -78,7 +78,7 @@ Poll until a non-null `dateFinished` appears:
 | `files` | Every file successfully exported, as S3 URIs. |
 | `errors` | [Error objects](../../preservation-api/overview#errors), not strings. Null until the export has run. |
 
-An Export also carries the [common properties](../../preservation-api/overview#common-properties), but unlike every other resource in the platform the API does not fill them in: the export is stored as you sent it, with only an `id` added. If you want `created` and `createdBy` on the record, send them.
+An Export also carries the [common properties](../../preservation-api/overview#common-properties). The API sets `created` and `lastModified` to the moment it received the request, and `createdBy` to the `createdBy` you sent or, if you sent none, to you; `lastModifiedBy` is the same agent.
 
 ## What an export actually does
 
@@ -106,11 +106,7 @@ It copies only the METS file: any file in the object whose name ends `.xml` and 
 
 This exists because a great deal of work on a preserved object needs only its METS - the Preservation API uses it to create a METS-only Deposit for an existing Archival Group, so that the METS can be edited and preserved again without moving gigabytes of TIFFs around.
 
-<Aside type="caution">
-Because a METS-only export is not recorded, it has no `id`, and the error-reporting path assumes it
-has one. A failure that would be reported as an `errors` entry on a normal export instead escapes as
-a `500` here. Treat a non-`200` as "the METS was not exported" and retry.
-</Aside>
+A failure is reported the same way as on a normal export: the response is still `200`, with the problem in `errors` and no `dateFinished`. Because the export is not recorded, those error objects have a null `id`. Check `errors` before you rely on the METS having been copied.
 
 ## Export always runs in this process
 
