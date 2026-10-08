@@ -18,7 +18,7 @@ POST /export
 ```json
 {
     "archivalGroup": "https://storage-api.example/repository/docs-misc/import-job-doc",
-    "destination": "s3://my-export-bucket/export-of-my-ag",
+    "destination": "s3://working-bucket/export-of-my-ag",
     "sourceVersion": "v15"
 }
 ```
@@ -32,7 +32,7 @@ The response is `201 Created` with the same resource type back, now with an `id`
     "id": "https://storage-api.example/export/h6bb4dpm32",
     "type": "Export",
     "archivalGroup": "https://storage-api.example/repository/docs-misc/import-job-doc",
-    "destination": "s3://my-export-bucket/export-of-my-ag",
+    "destination": "s3://working-bucket/export-of-my-ag",
     "sourceVersion": "v15",
     "dateBegun": null,
     "dateFinished": null,
@@ -56,13 +56,13 @@ Poll until a non-null `dateFinished` appears:
     "id": "https://storage-api.example/export/h6bb4dpm32",
     "type": "Export",
     "archivalGroup": "https://storage-api.example/repository/docs-misc/import-job-doc",
-    "destination": "s3://my-export-bucket/export-of-my-ag",
+    "destination": "s3://working-bucket/export-of-my-ag",
     "sourceVersion": "v15",
     "dateBegun": "2025-10-03T09:55:34.3621834Z",
     "dateFinished": "2025-10-03T09:57:20.076543Z",
     "files": [
-        "s3://my-export-bucket/export-of-my-ag/mets.xml",
-        "s3://my-export-bucket/export-of-my-ag/objects/file1.doc"
+        "s3://working-bucket/export-of-my-ag/mets.xml",
+        "s3://working-bucket/export-of-my-ag/objects/file1.doc"
     ],
     "errors": []
 }
@@ -71,7 +71,7 @@ Poll until a non-null `dateFinished` appears:
 | Property | Description |
 |---|---|
 | `archivalGroup` | The Storage API URI of the Archival Group to export. |
-| `destination` | The S3 location to export to. A trailing slash is trimmed; the Archival Group's internal paths are recreated below it. |
+| `destination` | The S3 location to export to. It must be in one of the platform's deposit buckets - the default working bucket, or a bucket configured for a particular client - and anything else is refused with `400 Bad Request` before the export is created: *"Export destination bucket '…' is not a deposit bucket."* A trailing slash is trimmed; the Archival Group's internal paths are recreated below it. |
 | `sourceVersion` | The OCFL version being exported. If you asked for one it is honoured or the export fails; if you left it out, it is filled in with the version that was actually exported, so the result always records what you got. |
 | `dateBegun` | When the API started processing. Null or missing until then. |
 | `dateFinished` | When the API finished. Null or missing until then. |
