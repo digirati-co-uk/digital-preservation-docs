@@ -232,7 +232,7 @@ Starting a run **locks the deposit in your name**. While it runs, a green banner
 The **Pipeline Jobs** table at the foot of the page lists every run for this deposit with its status, when it began and finished, who ran it, and any errors.
 
 <Aside type="note" title="Jobs that never finished">
-Simply opening the Deposit page tidies up after runs that stalled. A job that started, or was queued, more than a day ago and never completed is marked as completed with errors — *"Cleaned up as previous processing did not complete"* — and the lock it was holding is released. So a deposit stuck behind a dead pipeline run unsticks itself the next day.
+The platform tidies up after runs that stalled, whether or not anybody opens the page. A job that started, or was queued, more than a day ago and never completed is marked as completed with errors — *"Cleaned up as previous processing did not complete"* — and, if it is the deposit's most recent run, the lock it was holding is released. So a deposit stuck behind a dead pipeline run unsticks itself the next day.
 </Aside>
 
 ### Locking
