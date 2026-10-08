@@ -37,7 +37,7 @@ The button takes you to a page showing what the platform proposes to do, under t
 | Containers to Add / Binaries to Add | Folders and files that will be created. |
 | Binaries to Patch | Files that exist and whose content will be replaced. |
 | Containers to Delete / Binaries to Delete | What will be removed from the object. |
-| Containers to Rename / Binaries to Rename | What will change name or path. |
+| Containers to Rename / Binaries to Rename | What would change name. A rename changes only the display name, never the path, and isn't supported yet: see below. |
 
 Read it as the answer to "what would preserving this deposit actually change?". For a first version everything is an addition. For an update, the interesting lists are the deletions and patches: a file you did not mean to touch appearing under **Binaries to Delete** is the thing this page exists to catch, and usually means a file was removed from the workspace when only the METS entry should have gone.
 
@@ -49,13 +49,15 @@ Generating the diff changes nothing. You can do it as often as you like, go back
 
 ### A diff that cannot be run
 
-Two problems stop the job before it starts, and both are reported in red at the top of the page with the offending items listed.
+Three problems stop the job before it starts, and each is reported in red at the top of the page with the offending items listed.
 
 **Invalid paths.** Repository paths permit only `a-z A-Z 0-9 . _ - % ( )`, and a file whose name contains anything else cannot be given a URL. Rename the file in the deposit — the platform keeps the original name separately, so nothing is lost by giving the file a safe path.
 
 **Unidentified content types.** A file being added with no usable media type. Set the content type on the file, or run the [pipeline](../deposits#running-the-pipeline) so that format identification fills it in.
 
-When either is present the page says *"This import job is invalid"* and offers no way to run it.
+**Renames.** A file or folder whose name in the METS differs from the name the preserved object already has. Renaming isn't supported yet, so a diff with anything under **Containers to Rename** or **Binaries to Rename** can't be run. Make the name in the METS match the existing one.
+
+When any of these is present the page says *"This import job is invalid"* and offers no way to run it.
 
 Below the job there is a read-only text area holding the job as raw JSON. Editing a diff by hand is not implemented in the UI; the API can [take a job you have written yourself](../../preservation-api/import-jobs).
 
