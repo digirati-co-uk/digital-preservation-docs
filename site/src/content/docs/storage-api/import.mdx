@@ -79,15 +79,16 @@ The `id` you give the job is yours - any unique URI will do, and it comes back o
 | `binariesToPatch` | Binaries to replace. Exactly the same as adding, except that the resource must already exist. |
 | `binariesToDelete` | Binaries to remove. `id` is the only property that matters. |
 | `containersToDelete` | Containers to remove. They must already be empty, or contain only Binaries that this same job deletes. |
-| `containersToRename`, `binariesToRename` | Accepted, but see the caution below. |
+| `containersToRename`, `binariesToRename` | Must be empty for now. A job that asks for a rename is refused; see the caution below. |
 | `deposit`, `source`, `suppressActivityStreamEvent` | Part of the shared Import Job model, and meaningful only to the Preservation API. The Storage API stores them with the job and ignores them; in particular, every finished job appears in the Storage API's own [activity stream](../activity-and-content) whether or not suppression was asked for. |
 
-<Aside type="caution" title="Renames are not performed">
+<Aside type="caution" title="Renames are refused">
 `containersToRename` and `binariesToRename` are part of the Import Job model, and the Preservation
-API's diff will populate them when a display name has changed, but the Storage API's executor has no
-code that acts on them. A job whose only content is renames will run to `completed` and change
-nothing, and `containersRenamed` / `binariesRenamed` on the result are always empty. Renaming - which
-changes the `dc:title`, never the path - is not implemented yet.
+API's diff will populate them when a display name has changed, but renaming - which changes the
+`dc:title`, never the path - is not implemented yet. Rather than run such a job and quietly change
+nothing, the API refuses it: a `POST /import` with anything in either list answers `400 Bad Request`
+before the job is queued, and the detail names the items. `containersRenamed` / `binariesRenamed` on
+a result are therefore always empty.
 </Aside>
 
 ### Digests
