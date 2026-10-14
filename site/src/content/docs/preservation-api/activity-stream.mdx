@@ -76,7 +76,7 @@ GET /activity/archivalgroups/pages/40
         "type": "ArchivalGroup",
         "seeAlso": [
           {
-            "id": "https://storage-api.example/import/results/m3cnbckjmtd9/cc/lqj7mqhg",
+            "id": "https://preservation-api.example/deposits/rt2wq8hb/importjobs/results/m3cnbckjmtd9",
             "type": "ImportJobResult"
           }
         ]
@@ -90,7 +90,7 @@ GET /activity/archivalgroups/pages/40
         "type": "ArchivalGroup",
         "seeAlso": [
           {
-            "id": "https://storage-api.example/import/results/ec29ybrcz8rg/cc/abd321",
+            "id": "https://preservation-api.example/deposits/k9xv4tqe/importjobs/results/ec29ybrcz8rg",
             "type": "ImportJobResult"
           }
         ]
@@ -119,12 +119,8 @@ GET /activity/archivalgroups/pages/40
 | `type` | `Create` when this import produced the Archival Group's first version, `Update` for every later version. |
 | `object` | What changed. Always an `ArchivalGroup` in this stream. |
 | `object.id` | The Archival Group's URI in the [repository](../repository). This is the thing to act on. |
-| `object.seeAlso` | A list, in practice of one entry, referring to the [Import Job Result](../import-job-results) that caused the change. See the caution below. |
+| `object.seeAlso` | A list, in practice of one entry, referring to the [Import Job Result](../import-job-results) that caused the change. You can `GET` it to see what the import did. It is absent when this API has no record of the import, for example one submitted directly to the Storage API. |
 | `endTime` | When the change finished: an ISO 8601 UTC timestamp. This is the value you compare against your watermark. |
-
-<Aside type="caution">
-The `seeAlso` entry is a **Storage API** Import Job Result URI, not a Preservation API one, so almost no consumer can dereference it. Treat it as an opaque identifier — useful for recognising two activities that came from the same import — and act on `object.id`. A future version will link to the Preservation API result instead.
-</Aside>
 
 The value of `object` in this stream will always be an ArchivalGroup; future streams may describe events for other resource types, such as Deposits.
 
@@ -133,7 +129,7 @@ The value of `object` in this stream will always be an ArchivalGroup; future str
 * **One activity per completed import job.** The Preservation API builds its stream by reading the Storage API's own stream of finished import jobs, once a minute, and recording an event for each. So an activity appears shortly after a new version is written, not at the moment you submitted the job.
 * **Deletions are not represented yet.** Only `Create` and `Update` are ever emitted.
 * **Some changes are deliberately hidden.** An Import Job can ask for its event to be suppressed, for maintenance that changes how an object is recorded rather than what it holds — the METS identifier migration, for example. Such a version is written to OCFL, but no activity appears and `totalItems` does not increase. There is nothing you can do about this and nothing you need to do: the point is that you should *not* rebuild anything.
-* **Objects you do not recognise may appear.** The very first activity in the stream is a placeholder written when the database was created, whose `object.id` is not in this repository at all. Consumers should skip anything they do not recognise rather than fail on it; a consumer that only cares about part of the repository should filter on the path of `object.id` anyway.
+* **Objects you do not recognise may appear.** Consumers should skip anything they do not recognise rather than fail on it; a consumer that only cares about part of the repository should filter on the path of `object.id` anyway.
 
 ## The consuming algorithm
 
