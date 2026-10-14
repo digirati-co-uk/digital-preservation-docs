@@ -84,7 +84,7 @@ This is the workflow for consumers who *manage and supply their own METS file*. 
    You do not need to describe the METS file in its own METS: the platform adds it to the object itself, with a digest taken from storage.
 
    <Aside type="tip">
-   If uploading to S3, set `ChecksumAlgorithm` to `SHA256` on the put. AWS then calculates a SHA256 and stores it in the object's metadata. This is not *required* when the METS supplies digests, but if both are present the platform checks that they agree — and disagreement is `409 Conflict` rather than a corrupted object.
+   If uploading to S3, set `ChecksumAlgorithm` to `SHA256` on the put. AWS then calculates a SHA256 and stores it in the object's metadata. This is not *required* when the METS supplies digests, but if both are present the platform checks that they agree — and disagreement is `409 Conflict` rather than a corrupted object. Without the attribute, the platform still verifies every file: Fedora checks the METS digest against the bytes when the Import Job runs, so a mismatch fails the Import Job (naming the file) instead of being refused at diff time.
    </Aside>
 
 4. ### Set anything you left out
