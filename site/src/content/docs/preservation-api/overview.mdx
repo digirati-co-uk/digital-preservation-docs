@@ -67,10 +67,12 @@ The main resource types share these properties:
 
 Resources that live in the repository (Containers, Archival Groups and Binaries) have two kinds of name:
 
-* The last path segment of the `id` URI, which is restricted to a safe set of characters: letters `a-z` and `A-Z`, digits `0-9`, and `(`, `)`, `-`, `_` and `.`, with `%` permitted only in escape sequences.
+* The last path segment of the `id` URI, which is restricted to a safe set of characters: letters `a-z` and `A-Z`, digits `0-9`, and `(`, `)`, `-`, `_`, `.` and `~`, with `%` permitted only as the start of an escape sequence such as `%20`. A segment also can't be `.` or `..`, can't be the word `repository`, and can't contain an encoded path separator (`%2F` or `%5C`).
 * A `name` property, which may contain any UTF-8 characters. This records the original file or folder name, for example `"my notes (final).doc"` or a name in a non-Latin script, so that ugly or fragile URL encoding is never needed to preserve it.
 
 Often the two are the same, but they do not have to be.
+
+When the platform builds an `id` from a file in a Deposit, as a generated diff does, it percent-encodes anything outside that set, so `Teto in tree.png` becomes `Teto%20in%20tree.png` while `name` keeps `Teto in tree.png`. The rules matter when you build `id`s yourself: an Import Job that would create a Container or Binary whose path breaks them is refused with `400 Bad Request`, naming the offending item.
 
 ## Errors
 

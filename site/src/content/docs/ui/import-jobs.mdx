@@ -51,7 +51,7 @@ Generating the diff changes nothing. You can do it as often as you like, go back
 
 Three problems stop the job before it starts, and each is reported in red at the top of the page with the offending items listed.
 
-**Invalid paths.** Repository paths permit only `a-z A-Z 0-9 . _ - % ( )`, and a file whose name contains anything else cannot be given a URL. Rename the file in the deposit — the platform keeps the original name separately, so nothing is lost by giving the file a safe path.
+**Invalid paths.** Repository paths permit only `a-z A-Z 0-9 . _ - ~ % ( )`, with `%` only as the start of an escape such as `%20`. The platform percent-encodes file names for you when it builds the diff, so spaces, accents and punctuation are fine: `Teto in tree.png` becomes `Teto%20in%20tree.png`. What can still be flagged is a name that no encoding makes safe: a file or folder called `repository`, or a name containing `\`, which would encode to a path separator. Rename the file in the deposit — the platform keeps the original name separately, so nothing is lost by giving the file a safe path.
 
 **Unidentified content types.** A file being added with no usable media type. Set the content type on the file, or run the [pipeline](../deposits#running-the-pipeline) so that format identification fills it in.
 
