@@ -52,7 +52,7 @@ preserved are the bytes the agreed digest describes.
 | Upload through the UI | Limit 2 GB; the browser reads the whole file into memory to hash it | Not possible |
 | Upload directly to S3 | Works | Works, but the object has only a composite SHA-256, or none |
 | Reading the deposit | S3 SHA-256 taken as the file's digest | A composite value is not a file digest. How the current code handles one is untested: it may fail to parse, or be read as a wrong digest that conflicts with every real one |
-| Virus scan | See [#371](https://github.com/digirati-co-uk/digital-preservation/issues/371): files over 25 MB are currently skipped and recorded as clean | ClamAV cannot scan a single file this large at any setting. It must be recorded as *not scanned* |
+| Virus scan | See [#371](https://github.com/digirati-co-uk/digital-preservation/issues/371): files over 25 MB are currently skipped and recorded as clean | ClamAV cannot scan any file over 2 GB, at any setting. See section 4 |
 | Import | Streams from S3 into Fedora, which verifies the digest | Should work, but no single file over 5 GB is known to have been imported |
 | Export | One `CopyObject` per file, verified against the SHA-256 S3 returns | `CopyObject` fails over 5 GB, and a multipart copy returns no whole-file SHA-256 to verify against |
 
@@ -122,14 +122,61 @@ Export must use a multipart copy (`UploadPartCopy`, or the SDK's transfer utilit
 
 Re-reading 10 GB costs time. It is only needed above 5 GB, where it is the only check available.
 
-### 4. Validate on dev before promising anything
+### 4. Virus scanning: say what wasn't scanned
+
+ClamAV cannot scan a single file over 2 GB. Its own configuration documentation says so: "Technical
+design limitations prevent ClamAV from scanning files greater than 2 GB". No setting changes that,
+so every file this RFC is about will go unscanned by the pipeline.
+
+The fix for #371 ([#372](https://github.com/digirati-co-uk/digital-preservation/pull/372),
+[#373](https://github.com/digirati-co-uk/digital-preservation/pull/373)) makes that visible. With
+`AlertExceedsMax` on, ClamAV reports such a file as `Heuristics.Limits.Exceeded.MaxFileSize`, and
+the platform records a third PREMIS outcome, `Not scanned`, instead of `Pass`. Tested locally with
+ClamAV 1.5.4, the version in the pipeline image: files of 2.5 GB, 4.1 GB and 5 GB were each refused
+at once, without being read.
+
+"Too big to scan" starts well below 5 GB in practice. ClamAV also stops any scan that runs past
+`MaxScanTime`, which is 2 minutes by default, and reports that as not scanned too. Locally, on one
+CPU, ClamAV scanned at about 15–25 MB/s:
+
+- a 1.9 GB file took 80–119 seconds, so only just finished;
+- four 600 MB files, scanned in parallel as the pipeline does, all ran out of time together.
+
+Raising `MaxScanTime` is a #371 matter. The point for this RFC is that *not scanned* is a normal
+outcome for large files, whatever its cause, and the platform should treat it as one.
+
+For a file ClamAV can't scan, the options are:
+
+- **Record it, and make it visible.** This is the proposal: the outcome is `Not scanned` with the
+  reason, and preservation can go ahead.
+- **Unpack container formats.** A zip, tar or disk image over 2 GB could be unpacked and its members
+  scanned one by one. ClamAV already does this for archives within its limits. Above them, it would
+  need our own unpacking step. This is worth doing only once such deposits arrive.
+- **Use a scanner without the 2 GB limit**, for example AWS's malware scanning for S3. Its size
+  limits, its cost, and how its result would be recorded as PREMIS provenance would all need
+  checking first.
+- **Not viable: scanning the file in chunks.** ClamAV identifies a file's type and parses its
+  format, and a chunk has neither. A signature that crosses a chunk boundary would be missed. A clean
+  result from chunks would claim less than `Pass` means.
+
+A later scan event supersedes an earlier one. So a file recorded `Not scanned` today can be scanned
+again if a better option arrives, and the new outcome becomes its current status.
+
+**Decision C.** Should preserving a file with a `Not scanned` outcome need an explicit
+acknowledgement? For example, a flag on the preserve request, or a confirmation in the UI. The
+proposal is yes. The outcome should be shown on the deposit and in the import job, and the preserve
+request should say that it accepts it. A result that is recorded but never looked at is how #371
+went unnoticed.
+
+### 5. Validate on dev before promising anything
 
 Before this is offered to depositors, one 10 GB file goes through every step on dev:
 
 1. The BagIt variant of the operator route, with today's code.
 2. The same with change 1 in place, using declared metadata.
-3. Pipeline: disk space and time on the pipeline host for three such files; the virus scan records
-   *not scanned* (depends on #371).
+3. Pipeline: the time for three such files. The pipeline reads deposit files through an S3 mount,
+   so it needs no local copy, but Siegfried hashes every byte through it. The virus scan should
+   record each file as *not scanned* (depends on #371).
 4. Import: the Fedora PUT and transaction commit at this size, and the OCFL write to S3.
 5. Export of the preserved file, then a new version built from that export.
 
@@ -138,5 +185,5 @@ Before this is offered to depositors, one 10 GB file goes through every step on 
 - **Uploading large files through the UI.** That needs the browser to hash the file in chunks
   rather than all at once, and to upload parts directly to S3 through presigned URLs rather than
   through the UI server. It builds on change 1, and deserves its own paper when it is needed.
-- **The virus-scan limits**, which are [#371](https://github.com/digirati-co-uk/digital-preservation/issues/371).
-  Large files depend on its *not scanned* status, because no ClamAV setting will scan them.
+- **The virus-scan limits for files under 2 GB**, which are part of
+  [#371](https://github.com/digirati-co-uk/digital-preservation/issues/371). That includes `MaxScanTime`.
