@@ -72,7 +72,7 @@ The `id` you give the job is yours - any unique URI will do, and it comes back o
 | `archivalGroup` | The Storage API URI of the object being created or updated. It need not exist yet - this job may be creating it. |
 | `archivalGroupName` | The display name (`dc:title`) to give a new Archival Group. Required when creating; on an update it replaces the existing name. |
 | `isUpdate` | Must be explicitly `true` to change an Archival Group that already exists. `false` against an existing group, or `true` against a path where nothing is, fails - but as a `completedWithErrors` result, not an HTTP error, because the check happens when the job runs. Use [test-path](#testing-a-path-before-you-build-a-job) first if you are not sure which case you are in. |
-| `createdBy`, `lastModifiedBy` | [Agent](../../preservation-api/agents) URIs. Both are needed: the API refuses a job with no `lastModifiedBy`, and takes the identity it writes into Fedora from `createdBy`. Only the last path segment is read, so what matters is the name on the end. |
+| `createdBy`, `lastModifiedBy` | [Agent](../../preservation-api/agents) URIs. The API refuses a job with no `lastModifiedBy`, and takes the identity it writes into Fedora from `createdBy`, which defaults to `lastModifiedBy` if you leave it out. Only the last path segment is read, so what matters is the name on the end. |
 | `sourceVersion` | Optional, and informational only on the way in - the executor reads the Archival Group's current version for itself. |
 | `containersToAdd` | Containers to create inside the Archival Group. `id` gives the URI, whose path must lie within the group and use only the [permitted characters](../../preservation-api/overview#paths-and-names); `name` may be any UTF-8 and preserves the original directory name. A Container has no bytes, so it needs no `origin` - the API ignores one if you send it. |
 | `binariesToAdd` | Binaries to create. As well as `id` and `name`, each needs an `origin` the API can read, a `contentType`, and a `digest`. |
@@ -106,11 +106,10 @@ The body is an [Import Job Result](#import-job-results) with `status: "waiting"`
 
 | Status | Meaning |
 |---|---|
-| `400` | The body could not be read as an Import Job. |
-| `401` | No `lastModifiedBy`, so the API cannot attribute the work. |
+| `400` | The body could not be read as an Import Job, or fails a check made before anything is queued: no `lastModifiedBy`, so the API cannot attribute the work; no `archivalGroup`, or one that is not a path under the repository root; or a Container or Binary whose `id` is missing, contains a `#` fragment, or does not lie inside the job's Archival Group. |
 | `409` | There is already an active Import Job for this Archival Group. Only one at a time. |
 
-Beyond those three checks the API accepts the job and validates the rest of it when it runs, so most problems with a job's *contents* - a Binary with no `id`, an `id` containing a `#` fragment, a name that is not a valid slug, a missing digest - arrive on the result as `completedWithErrors` rather than as an HTTP error.
+Beyond those checks the API accepts the job and validates the rest of it when it runs, so other problems with a job's *contents* - a Container name that is not a valid slug, a missing digest, an `isUpdate` that does not match what is there - arrive on the result as `completedWithErrors` rather than as an HTTP error.
 
 ## Import Job Results
 

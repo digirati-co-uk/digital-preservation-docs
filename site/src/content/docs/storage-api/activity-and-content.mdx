@@ -59,7 +59,7 @@ GET /activity/importjobs/pages/40
       "type": "Update",
       "object": {
         "id": "https://storage-api.example/import/results/m3cnbckjmtd9/cc/lqj7mqhg",
-        "type": "ImportJob",
+        "type": "ImportJobResult",
         "seeAlso": [
           {
             "id": "https://storage-api.example/repository/cc/lqj7mqhg",
@@ -79,21 +79,14 @@ GET /activity/importjobs/pages/40
 
 | Property | Description |
 |---|---|
-| `type` (of the activity) | Always `Update`. The Storage API does not distinguish creating an Archival Group from changing one. |
+| `type` (of the activity) | `Create` when the job created the Archival Group - it had no previous version, and the job produced one - and `Update` otherwise, including for a job that failed. |
 | `object.id` | The [Import Job Result](../import#import-job-results) URI. |
-| `object.type` | `ImportJob`, even though the `id` is that of a result. |
+| `object.type` | `ImportJobResult`. |
 | `object.seeAlso` | An **array** with one entry: the Archival Group the job applied to. |
 | `startTime` | When the job was received. |
 | `endTime` | When the job finished. This is what the stream is ordered by, and what a reader keeps track of. |
 
 Only jobs that have finished appear; a job that is still `waiting` or `running` is not in the stream and is not counted in `totalItems`.
-
-<Aside type="caution">
-Two things here differ from what you would expect, and from the Preservation API's stream: every
-entry is an `Update` (there is no `Create`), and `object.type` says `ImportJob` while `object.id` is
-an Import Job Result URI. If you are reading this stream, follow `seeAlso` to find out what changed
-and do not rely on either value.
-</Aside>
 
 ## Fetching file content
 
