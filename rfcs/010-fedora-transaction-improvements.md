@@ -19,8 +19,9 @@ The account of Fedora's behaviour here comes from reading its source at the vers
 - fcrepo **6.5.1**, the `fcrepo/fcrepo:6.5.1-tomcat9` image;
 - the fcrepo-storage-ocfl **6.4.0** and ocfl-java **2.2.1** libraries it pins.
 
-Links go to those tags. Where something is inferred rather than read in the code, it says so. Section 8
-lists what we haven't verified.
+Links go to those tags. Where something is inferred rather than read in the code, it says so.
+- **Section 7** asks whether we should go straight to Fedora 7 instead of upgrading within 6.x.
+- **Section 9** lists what we haven't verified.
 
 ## 1. How an import works today
 
@@ -178,20 +179,41 @@ How `GET /fcr:tx/{id}` behaves
 - **Sending the commit `PUT` again, before expiry, returns the real outcome**: 204 if the first commit
   succeeded, 410 if it failed. That's only useful within the expiry window.
 
-### 2.7 Known problems in 6.5.1, fixed in 6.5.2
+### 2.7 How the commit talks to S3, and why 6.5.2 is a step backwards for us
 
-Fedora 6.5.2 was tagged on 2026-07-15
-([fcrepo#2319](https://github.com/fcrepo/fcrepo/pull/2319)). Relevant fixes:
+**Two S3 clients carry the upload.** Fedora gives ocfl-java two
+([`OcflPersistentStorageUtils`](https://github.com/fcrepo/fcrepo/blob/fcrepo-6.5.1/fcrepo-persistence-ocfl/src/main/java/org/fcrepo/persistence/ocfl/impl/OcflPersistentStorageUtils.java#L131-L142)),
+and ocfl-java picks one per file by size
+([`OcflS3Client`](https://github.com/OCFL/ocfl-java/blob/v2.2.1/ocfl-java-aws/src/main/java/io/ocfl/aws/OcflS3Client.java#L180-L199)):
+- **Files of 8 MB or more** go through the AWS CRT `S3TransferManager`, as parallel multipart uploads.
+  The connection-pool settings below don't apply to them, and they handle files over 5 GB.
+- **Files under 8 MB** go through the Netty client's `putObject`, sharing a pool of
+  `fcrepo.ocfl.s3.max_concurrency` (100) connections. An upload that can't get a connection within the
+  pool's *acquisition* timeout fails, and fails the commit. In 6.5.1 that timeout is set by
+  `fcrepo.ocfl.s3.timeout.connection.seconds`, default 60.
+- **S3-to-S3 `CopyObject`**, also on the Netty client, is used when a mutable head becomes a version
+  (autoversioning off) and to copy the small inventory files. It isn't used for our versioned commits.
 
-- **[FCREPO-4084](https://github.com/fcrepo/fcrepo/pull/2309), "Ocfl java s3 5gb issue".**
-  `fcrepo.ocfl.s3.timeout.connection.seconds`, default 60, was wired to the *connection-pool
-  acquisition* timeout. So the parts of a multipart upload, or thousands of small files queued behind
-  the 100 S3 connections, could time out waiting for a connection and fail the commit. 6.5.2 makes it
-  a TCP connect timeout ([fcrepo#2314](https://github.com/fcrepo/fcrepo/pull/2314)).
-  - **This bears directly on [RFC 009](009-large-files.md):** a file over 5 GB may fail at commit on
-    6.5.1 for this reason alone.
-  - It may also matter for very wide Archival Groups ([#244](https://github.com/digirati-co-uk/digital-preservation/issues/244)).
-- **An AWS SDK upgrade.**
+So for us, **the S3 exposure in 6.5.1 is a commit with thousands of small files**. Every upload is
+submitted at once, queues behind 100 connections, and each gets 60 seconds to find one. The October
+test (2,797 files) passed, so this is a margin, not an observed failure.
+
+**What changed after 6.5.1:**
+
+| Change | What it does | Released in |
+|---|---|---|
+| [FCREPO-4084](https://github.com/fcrepo/fcrepo/pull/2309), "Ocfl java s3 5gb issue" (fcrepo#2309) | Turns on multipart for the Netty client, so a `CopyObject` over 5 GB works (as `UploadPartCopy`). That matters for the mutable-head path, not ours | 6.5.2; on `main` after 7.0.0 |
+| [fcrepo#2314](https://github.com/fcrepo/fcrepo/pull/2314) | Rewires `timeout.connection.seconds` to the TCP connect timeout. The acquisition timeout falls back to the AWS SDK default: **10 seconds, and no longer configurable** | 6.5.2; on `main` after 7.0.0 |
+| [fcrepo#2327](https://github.com/fcrepo/fcrepo/pull/2327), backported as [#2328](https://github.com/fcrepo/fcrepo/pull/2328) | Restores a configurable acquisition timeout, `fcrepo.ocfl.s3.timeout.acquisition.seconds`, default 60. Upstream describes #2314's effect as a regression that users on 6.5.2 hit during commits under load | `main` (24 August 2026) and `6.5-maintenance` (9 October 2026). **Not yet released**; it will be in 6.5.3 |
+
+**So 6.5.2 is likely worse for us than 6.5.1.** It cuts the small-file acquisition window from 60
+seconds to a fixed 10, which is exactly our many-files case, and its other S3 change is for a path we
+don't use. We should skip 6.5.2 (T4). The releases worth moving to are 6.5.3, or a 7.x release that
+includes #2327 (section 7, T14).
+
+**For [RFC 009](009-large-files.md):** files over 5 GB go through the CRT transfer manager at commit.
+On the Fedora side, nothing here should stop them, on 6.5.1 or on 7.0.0. That's inferred from the
+code and untested, so T14's test includes a file over 5 GB.
 
 ## 3. Is one transaction per import the right model?
 
@@ -222,7 +244,7 @@ nothing about the model changes. It's the TODO already in `FedoraClient.MakeBina
 | P2 | No S3 gateway endpoint | Every ingested byte crosses the NAT gateway about three times: importer reads the deposit, importer sends to Fedora, Fedora uploads at commit. NAT data processing is charged per GB, about $0.05 in eu-west-1 at the time of writing, and it's another hop to fail |
 | P3 | Fedora's ECS service uses default deployment settings and a strict health check | ECS defaults (minimum 100%, maximum 200%) should briefly run **two Fedoras** behind the ALB during a deploy: transactions live in one task's memory, and two tasks would write OCFL at once. The health check has a 10 s timeout and marks the task unhealthy after 2 failures 30 s apart. A slow health endpoint during a heavy commit could get Fedora replaced mid-commit, which is the "wedged Archival Group" case in 2.5 |
 | P4 | Commit time scales with bytes, and includes a full local re-read | Long commits are the trigger for P1's timeouts, and they block the single importer (P7) |
-| P5 | Fedora 6.5.1's S3 connection-pool timeout bug | Large files, and possibly very many files, can fail at commit (2.7) |
+| P5 | The S3 connection-pool acquisition timeout for files under 8 MB: 60 s on 6.5.1, a fixed 10 s on 6.5.2 | A commit with thousands of small files could fail waiting for a connection. Not observed on 6.5.1, since the October test passed, but 6.5.2 would make it more likely (2.7) |
 | P6 | Importer death mid-commit is reported as a failure | Fedora finishes the commit, but the reaper marks the job failed. The deposit goes to Error while the Archival Group moved on, and a retry fails or makes a confusing extra version. Importer redeploys do this, and on dev every push to `main` redeploys it. #383 doesn't cover it |
 | P7 | One importer runs jobs serially | A long import blocks every other deposit's import until it finishes |
 | P8 | Two to four sequential HTTP requests per binary | Latency multiplied by thousands of files. The post-`PUT` checksum comparison is redundant, since Fedora already rejected a bad digest |
@@ -236,7 +258,7 @@ nothing about the model changes. It's the TODO already in `FedoraClient.MakeBina
 | T1 | Private network path from our services to Fedora | ops (+ platform config) | M | P1 |
 | T2 | S3 gateway VPC endpoint | ops | S | P2 |
 | T3 | Fedora ECS deployment and health-check settings | ops | S | P3 |
-| T4 | Upgrade Fedora to 6.5.2 | ops | S–M | P5 |
+| T4 | Skip Fedora 6.5.2, and widen the S3 acquisition timeout now | ops | XS | P5 |
 | T5 | Evaluate `fcrepo.ocfl.unsafe.write.enabled` | ops (measure on dev) | S | P4 |
 | T6 | Record a commit in progress, and reconcile instead of failing | platform | M | P6 |
 | T7 | Fewer requests per binary | platform | S | P8 |
@@ -246,14 +268,18 @@ nothing about the model changes. It's the TODO already in `FedoraClient.MakeBina
 | T11 | Spike: confirm or rule out the stale containment cache | platform | S | P10 |
 | T12 | Later: Fedora fetches file bytes itself (`handling=copy`, presigned URL) | platform + ops | M | P2, P4 (partly) |
 | T13 | After T1: simplify the transaction monitor | platform | S | P1 follow-up |
+| T14 | Upgrade Fedora to 7.x | ops + platform (test) | M | Section 7, P5 |
 
 **Suggested order:**
-1. **First:** T3 and T10, which are configuration only and remove a real risk; T2, cheap; and T11, a
-   quick check.
-2. **Then:** T1, the change that removes the timeouts at their root; and T4 with T5, measured together
-   on dev with a large deposit.
-3. **Then:** T6, before T8 (concurrency makes reconciliation more important), and T7 any time.
-4. **Later:** T9 alongside T3, and T12 and T13 once T1 has landed.
+1. **First**, all quick:
+   - T3, T4 and T10: configuration only, and each removes a real risk;
+   - T2: cheap;
+   - T11: a quick check.
+2. **Then:** T1, the change that removes the timeouts at their root; and T5, measured on dev with a
+   large deposit.
+3. **Then:** T14, the move to Fedora 7. Re-run T5's measurements on it.
+4. **Then:** T6, before T8 (concurrency makes reconciliation more important), and T7 any time.
+5. **Later:** T9 alongside T3, and T12 and T13 once T1 has landed.
 
 ## 6. Indicative issue text
 
@@ -328,24 +354,33 @@ conditions if needed.
 - A Fedora deploy on dev never shows two registered targets.
 - No unhealthy-target events during a large commit on dev.
 
-### T4: Upgrade Fedora to 6.5.2
+### T4: Skip Fedora 6.5.2, and widen the S3 acquisition timeout now
 
-**Problem.** In 6.5.1, `fcrepo.ocfl.s3.timeout.connection.seconds` (60 s) is the S3 connection-pool
-*acquisition* timeout. Multipart parts of a large file, or thousands of small files queued behind the
-100 S3 connections, can wait longer than that and fail the commit. That's
-[FCREPO-4084](https://github.com/fcrepo/fcrepo/pull/2309), "Ocfl java s3 5gb issue", fixed in 6.5.2
-([fcrepo#2314](https://github.com/fcrepo/fcrepo/pull/2314),
-[fcrepo#2319](https://github.com/fcrepo/fcrepo/pull/2319)). RFC 009's files over 5 GB depend on it.
+**Problem.** At commit, every file under 8 MB is uploaded through a pool of 100 S3 connections. An
+upload that waits longer than the pool's acquisition timeout fails the commit (2.7). A deposit with
+thousands of small files queues them all at once.
+- **On 6.5.1**, which we run, that timeout is `fcrepo.ocfl.s3.timeout.connection.seconds`, default 60.
+- **6.5.2** ([fcrepo#2314](https://github.com/fcrepo/fcrepo/pull/2314)) silently cuts it to the AWS SDK
+  default of 10 seconds, with no setting to raise it again. Upstream fixed that in
+  [fcrepo#2327](https://github.com/fcrepo/fcrepo/pull/2327), backported as #2328, but neither is
+  released yet.
 
 **Proposal.**
-- Move the Fedora image to `fcrepo/fcrepo:6.5.2-tomcat9`, pinned by digest, on dev.
-- Read the 6.5.2 release notes for any migration steps.
-- Run the e2e suite and a large-deposit import: the 2,797-file, 38.7 GB test set, plus at least one
-  file over 5 GB.
-- Then test, then prod. Measure alongside T5.
+- **Don't deploy 6.5.2.** Wait for 6.5.3, or move to 7.x (T14).
+- **On 6.5.1 now**, set `FC_fcrepo_ocfl_s3_timeout_connection_seconds` to something generous, for
+  example 300, in the Fedora task's environment. In 6.5.1, and in 7.0.0, this property *is* the
+  acquisition timeout.
+- **Revisit at T14.** On any release with #2314, the same property becomes the TCP connect timeout,
+  and the acquisition timeout becomes `fcrepo.ocfl.s3.timeout.acquisition.seconds` (#2327).
+- **Optionally, raise `fcrepo.ocfl.s3.max_concurrency`.** Weigh that against S3 request rates and
+  memory. Note that its name contains an underscore. According to its readme, our bootstrap container
+  turns every `_` in an `FC_` variable into `.`, so this property needs either a bootstrap change or
+  another way to pass it.
 
-**Acceptance.** 6.5.2 is on all environments, e2e is green, and a file over 5 GB imports on dev. Feed
-the result back into RFC 009.
+**Acceptance.**
+- The setting is in all environments.
+- A large-deposit commit on dev is no slower.
+- No "Acquire operation took longer than the configured maximum time" errors in Fedora's logs.
 
 ### T5: Measure `fcrepo.ocfl.unsafe.write.enabled`
 
@@ -498,7 +533,130 @@ correct. Consider removing the commit-time poll and cancel, or lengthening it.
 
 **Acceptance.** A decision, and code and `deployment.md` brought into line with it.
 
-## 7. Decisions for Leeds and the team
+### T14: Upgrade Fedora to 7.x
+
+**Problem.** Fedora 7 is the upstream line: fixes land on `main` first, and only some are
+backported to 6.5.x. 7 also adds things we'd use:
+- Prometheus metrics, including the database connection pool;
+- faster reindexing;
+- fewer database calls per `GET`/`HEAD`.
+
+The release we pick matters for S3 (2.7, section 7):
+- **7.0.0** behaves like 6.5.1. None of the post-6.5.1 S3 changes are in it, so it doesn't have
+  6.5.2's 10-second acquisition timeout.
+- **A 7.x released from current `main`** will have all of them, including the #2327 fix.
+- **Avoid any build that has #2314 but not #2327.**
+
+**Proposal.**
+- Choose the release:
+  - a 7.x release that includes #2327, if one exists when we start;
+  - otherwise 7.0.0, keeping T4's setting.
+- Then, on dev:
+  - move the image to `fcrepo/fcrepo:<7.x>-tomcat10`, pinned by digest, keeping our bootstrap
+    container and `FC_*` properties;
+  - turn on `fcrepo.metrics.enabled` and scrape the metrics endpoint;
+  - run the e2e suite, the large-deposit import (2,797 files, 38.7 GB) and a file over 5 GB;
+  - check that our RDF parsing copes with 7's extra triples (`fedora:hasParent`, and membership and
+    containment from inbound references) and deduplicated types;
+  - confirm the health check still answers;
+  - on a release with #2327, set `fcrepo.ocfl.s3.timeout.acquisition.seconds`, and turn T4's property
+    back into what it now means, the TCP connect timeout.
+- Then test, then prod.
+
+Before prod, decide whether rolling back to 6.5.1 must be possible, and if so test it on dev. The
+database change is additive, but a rollback is unverified.
+
+**Acceptance.**
+- 7.x on all environments, with e2e and the large-deposit test green.
+- Metrics visible.
+- Section 2's behaviour re-checked against the 7.x tag, and this RFC updated if anything moved.
+
+## 7. Going straight to Fedora 7?
+
+Fedora 7.0.0 was released on 16 April 2026, after alphas from December 2025 and an RC in March. Docker
+images are published as `fcrepo/fcrepo:7.0.0-tomcat10`, along with `7-tomcat10` and a
+`7.1.0-SNAPSHOT`. The 6.x line is still maintained on a `6.5-maintenance` branch, which produced 6.5.2
+on 16 July 2026 by backporting from `main`.
+
+### 7.1 What changes, and what doesn't
+
+**The platform underneath changes:**
+- Java 21;
+- Servlet 6 and the Jakarta namespace, so Tomcat 10 or later (the image moves from `-tomcat9` to
+  `-tomcat10`) or Jetty 12;
+- Spring 6.2, up from 5.3.
+
+**Transactions and storage don't change.** Between the 6.5.1 and 7.0.0 tags:
+- `TransactionImpl`, `TransactionManagerImpl` and `Transactions` differ only cosmetically: Jakarta
+  imports, and the clean-up task now logs, rather than throws, when it tries to roll back a committed
+  transaction.
+- fcrepo-storage-ocfl 7.0.0 has **no source changes** from 6.4.0, only build changes.
+- ocfl-java is still **2.2.1**.
+
+So **everything in section 2 applies equally to 7.0.0, and moving to 7 fixes none of P1–P10 by
+itself.** The commit is still one synchronous request, staged files are still re-hashed and uploaded
+at commit, and the locks and expiry work the same way.
+
+**On S3, 7.0.0 behaves like 6.5.1.** All three post-6.5.1 S3 changes were merged to `main` *after*
+the 7.0.0 tag:
+- [fcrepo#2309](https://github.com/fcrepo/fcrepo/pull/2309), on 4 June 2026;
+- [#2314](https://github.com/fcrepo/fcrepo/pull/2314), on 30 June;
+- [#2327](https://github.com/fcrepo/fcrepo/pull/2327), on 24 August.
+
+For us that's no loss. 7.0.0 doesn't have 6.5.2's fixed 10-second acquisition timeout (2.7), and
+the multipart-copy fix is for a path we don't use. A 7.x released from current `main` will have all
+three. `main` also has unreleased fixes for a delete and purge in the same transaction (FCREPO-4106),
+and for ETags returned from `PATCH` and `PUT`.
+
+**What 7 adds that we'd use:**
+- **Metrics:** a Prometheus endpoint (`fcrepo.metrics.enabled`), including HikariCP pool metrics. That
+  would show exactly the things T3, T5 and T8 have to reason about: database pool use during a commit,
+  and request timings.
+- **Faster reindexing** (FCREPO-4063). This matters for T9's recovery cases, and for any rebuild.
+- **Fewer database calls per `GET`/`HEAD`** (FCREPO-4073). This helps the slow reads of very wide
+  Archival Groups ([#244](https://github.com/digirati-co-uk/digital-preservation/issues/244)).
+- **A current stack**, where upstream fixes land first.
+- Also simple-search improvements and PREMIS 3 support, neither of which we depend on.
+
+### 7.2 What it would touch in our code and configuration
+
+Checked against our code:
+
+| 7.x change | Effect on us |
+|---|---|
+| JSON-LD now defaults to the *expanded* form (fcrepo#2274) | None. `RequestX.ForJsonLd` always asks for the compacted profile explicitly |
+| Deprecated `Content-Disposition` headers removed (FCREPO-4017) | None found. We don't read them, and our `WithContentDisposition` helper is unused |
+| Extra triples: `fedora:hasParent`, and membership and containment from inbound references; RDF types deduplicated | Probably none: our converters read specific properties. The e2e suite and T14's checks should confirm it |
+| Health check path `fcr:systeminfo` | Still present (`FedoraSystemInfo`) |
+| Database schema | The PostgreSQL search script (`R__Create_search.sql`, a repeatable Flyway migration) only adds indexes. Nothing destructive in the diff |
+| OCFL layout | Unchanged (same storage code), so **no data migration** |
+| Our bootstrap container and `FC_*` properties | Should carry over: same property names, same `fcrepo.home` |
+
+### 7.3 Maturity
+
+The 7.x release-testing discussion
+([fcrepo#2283](https://github.com/fcrepo/fcrepo/discussions/2283)) has three community reports, all
+passes. Only one used S3 storage, with PostgreSQL. That's thin field experience for an S3-backed
+deployment like ours.
+
+The S3 code is also still settling. #2314 shipped a regression in 6.5.2 that #2327 fixed two months
+later. Whatever we choose, run T14's large-deposit test before production.
+
+### 7.4 Options
+
+| Option | For | Against |
+|---|---|---|
+| **A. Stay on 6.5.1 with T4's setting, take 6.5.3 when it's released, and go to 7.x later** | The smallest change now | Three steps. No date for 6.5.3 |
+| **B. 7.0.0 now, with T4's setting** | On 7 soonest. The same S3 behaviour as today. Metrics, faster reindexing and fewer database calls. No data migration | A platform change (Java 21, Tomcat 10) to test, which fixes none of P1–P10 by itself. A later 7.x update is still needed for #2327 |
+| **C. Wait for a 7.x release that includes #2327, and do one upgrade** | One upgrade, onto the line with everything | No date. A `7.1.0-SNAPSHOT` image exists, but no release |
+| **D. 6.5.2** | None for us | Not recommended: it cuts the small-file acquisition timeout to a fixed 10 s (2.7) |
+| **E. Run a snapshot, or build from `main`** | Has everything | Not a release. Not for production |
+
+**Proposed: go to 7, and skip 6.5.2.** Take C if a 7.x release with #2327 is out by the time T1–T3
+are done; otherwise B. Either way, do T4's setting now. Take 6.5.3 (A) only if Fedora 7 work has to
+wait a long time.
+
+## 8. Decisions for Leeds and the team
 
 - **D1. Keep one Fedora transaction per import** (section 3). Proposed: yes.
 - **D2. Unsafe writes** (T5): accept skipping ocfl-java's commit-time re-hash, given the `PUT`-time
@@ -506,8 +664,11 @@ correct. Consider removing the commit-time poll and cancel, or lengthening it.
 - **D3. Private path to Fedora** (T1): option (b), no load balancer, so no idle cap? Proposed: yes,
   unless something still needs Fedora on the public ALB.
 - **D4. Import concurrency** (T8): how many concurrent imports? Proposed: start at 2.
+- **D5. Fedora version path** (section 7, T4, T14): go straight to Fedora 7 and skip 6.5.2?
+  Proposed: yes. Take a 7.x release that includes #2327 if one exists in time, otherwise 7.0.0. Do
+  T4's setting in the meantime.
 
-## 8. What this paper has not verified
+## 9. What this paper has not verified
 
 - **The Tomcat or connector request timeouts in the `6.5.1-tomcat9` image.** fcrepo itself never
   aborts a running commit. We haven't checked the container's configuration.
@@ -522,3 +683,14 @@ correct. Consider removing the commit-time poll and cancel, or lengthening it.
 - **Whether ECS actually starts the second Fedora task during a deploy (T3).** We inferred it from
   the defaults, not observed it.
 - **That the cost figures are current.** Check AWS pricing before using them in a business case.
+- **The S3 upload paths** (2.7) are read from code. That files over 5 GB commit cleanly through the
+  CRT transfer manager on 6.5.1 or 7.0.0, and that 6.5.2's 10-second acquisition timeout would hurt our
+  many-file commits, are both inferences. Upstream's own report of the 6.5.2 regression supports the
+  second.
+- **Fedora 7** (section 7):
+  - when a 7.x release with #2327, or 6.5.3, will appear;
+  - whether rolling back from 7.x to 6.5.x works;
+  - the exact Tomcat 10 build in the `-tomcat10` images;
+  - whether our RDF converters cope with 7's extra triples. That's reasoned from our code, not tested.
+  The source comparison covered the transaction, storage and configuration classes this RFC relies on,
+  not every module.
