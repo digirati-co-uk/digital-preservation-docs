@@ -6,6 +6,10 @@ Fedora transactions ([#350](https://github.com/digirati-co-uk/digital-preservati
 approach is sound, and what should change around it. It is written to be turned into issues on the
 backlog board. Section 6 has indicative issue text for each proposal.
 
+[RFC 010A: Ingress file management](010A-ingress-file-management.md) is a counterpoint to
+leaving T12 until later. It proposes an early spike into direct fetching, local-file sources
+and mixed deposits, without changing the one-transaction-per-import model.
+
 The short answer: **using one Fedora transaction per import job is the right model, and we should
 keep it.** What hurts is the plumbing around it:
 - the network path between our services and Fedora;
