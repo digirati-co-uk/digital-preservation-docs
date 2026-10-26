@@ -6,9 +6,9 @@ Fedora transactions ([#350](https://github.com/digirati-co-uk/digital-preservati
 approach is sound, and what should change around it. It is written to be turned into issues on the
 backlog board. Section 6 has indicative issue text for each proposal.
 
-[RFC 010A: Ingress file management](010A-ingress-file-management.md) is a counterpoint to
-leaving T12 until later. It proposes an early spike into direct fetching, local-file sources
-and mixed deposits, without changing the one-transaction-per-import model.
+[RFC 010A: Ingress file management](010A-ingress-file-management.md) expands T12 into an early
+delivery-and-capacity spike covering direct fetching, local-file sources and mixed deposits,
+without changing the one-transaction-per-import model.
 
 The short answer: **using one Fedora transaction per import job is the right model, and we should
 keep it.** What hurts is the plumbing around it:
@@ -539,11 +539,11 @@ object and sends it as the body of the `PUT` to Fedora (`FedoraClient.MakeBinary
 therefore holds a long stream per binary, and before T1 that stream crosses the NAT gateway. The
 TODO in `MakeBinaryPut` has wanted Fedora to fetch the bytes itself since the March 2024 prototype.
 
-**What it would and wouldn't change.** After T1, this removes the importer's relay: CPU, memory and
-one open stream per binary. It may also shorten the streaming phase of an import. It doesn't change
-commit time, staging capacity, the one-transaction model, or the ALB idle cap on each long request.
-And it adds a failure mode: a fetch that stalls inside Fedora. So it is worth adopting only on
-measured evidence.
+**What it would and wouldn't change.** For S3-origin binaries, this removes the importer's relay:
+CPU, memory and one open stream per binary. It may also shorten the streaming phase of an import.
+It doesn't change commit time, staging capacity, the one-transaction model, or the ALB idle cap on
+each long request. And it adds a failure mode: a fetch that stalls inside Fedora. So it is worth
+adopting only on measured evidence.
 
 **What stops it on the Fedora we run.** On 6.5.1, and unchanged in 7.0.0, Fedora sends a `HEAD` to
 any `http(s)` external-content URL before fetching it (`ExternalContentHandler.retrieveContentDetails`).
@@ -588,7 +588,9 @@ Digest: sha-256=<as now>
   malformed Link) happens outside Fedora's transaction wrapper and leaves the transaction usable,
   but keep the rule simple and fail the job regardless.
 
-**The spike, on dev, now.** It doesn't need T1 or T14.
+**The bounded spike, on an isolated dev setup.** It doesn't need T1 or T14. RFC 010A defines the
+full comparison; this is a delivery-and-capacity investigation, not just a check that the HTTPS
+route works.
 - **Image:** #2331 is on Fedora's `main`. The `7.1.0-SNAPSHOT` image was built on 24 September 2026,
   after the merge. Pin the image by digest and record it.
 - **Data:** use a throwaway database and OCFL prefix, not the shared dev data. The snapshot bumps
@@ -599,13 +601,21 @@ Digest: sha-256=<as now>
     have S3 server access logging on);
   - a wrong digest is still rejected;
   - an expired URL and a missing object fail cleanly.
-- **Then compare:** baseline against fetch on the same network path, for the large-deposit fixture, a
-  file over 5 GB and a many-small-files deposit, three runs each. Record the streaming phase, commit
-  time, and importer and Fedora CPU and memory.
-- **Then the stall test**, with and without the read-timeout property.
+- **Compare** streamed `PUT`, HTTPS copy, and local-file copy; include a read-only S3-mount variant
+  where practical. Use equivalent manifests with multiple deposit buckets, a file over 5 GB,
+  many small files, and a realistic mixed deposit. Include source-preparation time and test a
+  uniform fetch route as well as per-binary selection.
+- **Measure** source preparation, binary staging and commit separately; record importer and Fedora
+  CPU and memory, S3 requests, NAT bytes, ALB traffic, peak disk use, cleanup and operational cost.
+- **Test failures and integrity:** source mutation, denied or expired access, interrupted and stalled
+  reads, client cancellation, mount loss where applicable, and importer failure during fetch or
+  commit. Verify recovery and reconciliation, and inspect logs and job results for signed URLs.
+- **Control capacity:** use isolated, controlled storage limits and measure peak use and cleanup.
+  Coordinated reservations must defer or reject work before writes begin before any route is
+  adopted in production.
 - **Agree the decision rule before the comparison:** what reduction would justify adopting it.
 
-RFC 010A sets out a fuller comparison and the production capacity questions.
+RFC 010A sets out the detailed procedure, including correctness checks and exit criteria.
 
 **Adoption.** If the spike shows a gain worth the added failure mode, adopt it with the first release
 that contains #2331. Ask upstream whether #2331 can be backported to `6.5-maintenance`, as #2327 was
@@ -615,13 +625,15 @@ that contains #2331. Ask upstream whether #2331 can be backported to `6.5-mainte
 - **Patching our own Fedora build with #2331, or running a snapshot in production.** ADR 001's
   principle is a standard, unmodified Fedora. The change itself is small, but we'd be building,
   scanning and rebuilding our own image for every upstream release.
-- **Mounting deposit buckets for Fedora to read as `file://`,** at least not in a first round.
+- **A mount as the default route or a production hosting change.**
   - Fedora's own storage would be untouched: a mount is only the source of a copy.
-  - But Mountpoint is FUSE, which Fargate can't run, so it means moving Fedora to EC2: a hosting
-    change made in order to take a measurement.
+  - Mountpoint is FUSE, which Fargate can't run. A mount comparison may therefore require ECS on
+    EC2, a hosting change that is not itself proposed for production.
   - It moves the same bytes, as S3 GETs behind a file-system daemon, and turns S3's error codes into
-    generic I/O errors.
-  - It needs a mount per deposit bucket, which is the constraint #410 is removing from the pipeline.
+    generic I/O errors. Test its behaviour and failure recovery before treating it as equivalent to
+    direct S3 access.
+  - Multiple buckets may require additional mount configuration; the spike should test this against
+    the external-applications goal in #410 rather than assume that buckets must be consolidated.
 - **An interim on 6.5.1.** Unsigned S3 URLs plus a bucket policy allowing reads only through our
   gateway endpoint (`aws:SourceVpce`) would get past the `HEAD` today. But anything in the private
   subnets, including the pipeline hosts and every ECS task, could then read deposit objects without
@@ -632,9 +644,10 @@ that contains #2331. Ask upstream whether #2331 can be backported to `6.5-mainte
 **Acceptance.**
 - **Spike:** a written comparison and a recommendation against the agreed decision rule.
 - **If adopted:**
-  - imports of S3-origin binaries on dev no longer stream bytes through the importer;
-  - digest verification and one version per import are unchanged;
+  - binaries assigned to a direct-fetch or local-file route no longer stream through the importer;
+  - mixed-route imports preserve target paths, metadata, digest verification and one version per import;
   - no signed URL appears in Fedora logs, importer logs or job results;
+  - source bytes remain stable through reconciliation, and capacity is reserved before writes begin;
   - the TODO in `MakeBinaryPut` is replaced by the implementation.
 
 ### T13 (after T1): Simplify the transaction monitor
