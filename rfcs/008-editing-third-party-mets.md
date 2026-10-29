@@ -3,7 +3,7 @@
 **Status: for agreement.** This paper asks Leeds to confirm three decisions about editing METS
 documents that other systems created — above all the EPrints-migrated items that make up most of
 production. The platform work is specified in
-[METS editability](../documentation/02e-METS-Editability.md); this paper is the short version,
+[METS editability](https://digirati-co-uk.github.io/digital-preservation-docs/mets/editability/); this paper is the short version,
 with a worked example of what saying yes actually does to a document.
 
 ## The situation
@@ -54,7 +54,7 @@ as it can and leave them as they are.
 When someone first edits an EPrints-migrated item — applying a rights statement, say — the save
 does two things at once: it applies the edit, and it makes explicit the structure the original
 document left implicit. From then on the document follows
-[the platform's documented METS profile](../documentation/02b-METS-Written-by-the-Platform.md).
+[the platform's documented METS profile](https://digirati-co-uk.github.io/digital-preservation-docs/mets/mets-we-write/).
 
 The alternative would be documents that stay EPrints-shaped until successive edits force platform
 conventions in piecemeal — a hybrid that is neither EPrints' shape nor ours, and harder for any
