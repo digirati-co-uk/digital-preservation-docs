@@ -91,7 +91,7 @@ Every successful write changes the ETag, so a second edit needs a freshly fetche
 | Operation | `If-Match` |
 |---|---|
 | `POST {id}/mets` | Required whenever the deposit has a METS file. |
-| `POST {id}/mets/delete` | Always required. |
+| `POST {id}/mets/delete` | Required whenever the deposit has a METS file. |
 | `POST {id}/mets/normalise` | Optional, but enforced when supplied. |
 
 ## Adding files and folders to the METS
