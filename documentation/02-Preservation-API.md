@@ -740,6 +740,8 @@ Inside a Deposit, the files and folders are represented by a different pair of r
 | `metadata`            | A list of *Metadata* resources for the directory. These metadata reflect information the Preservation API can see in tool outputs in the metadata/ folder, and/or BagIt manifest data the Preservation API can see in the root of the Deposit when it has the BagIt template layout. They are used to add to METS, or reflect what's in METS. See *File and Directory Metadata* below. |
 | `accessRestrictions`  | A list of strings that represent access conditions on this directory. They might be derived from METS, or might be waiting to be applied to METS. They can be overridden by child access restrictions. |
 | `rightsStatement`     | A single URI from a controlled vocabulary of rights statements, that applies to the contents of this directory until overridden in child files and directories.  |
+| `derivedAccessConditions` | Any other typed `mods:accessCondition` on this directory, as a map from the element's `type` to its value — chiefly the installation's [derived conditions](./02b-METS-Written-by-the-Platform.md#derived-access-conditions), such as the Leeds access tier. Read-only: the Preservation API recomputes these from the two chosen values on every write. Omitted when there are none. |
+| `effectiveAccessRestrictions`, `effectiveRightsStatement`, `effectiveDerivedAccessConditions`, `effectiveRecordInfo` | The values that apply to this directory *after inheritance* from its ancestors; see [effective metadata inheritance](./02c-METS-Parsing.md#effective-metadata-inheritance). |
 | `files`               | A list of **WorkingFile** resources contained in this directory. See next section. |
 | `directories`         | A list of **WorkingDirectory** resources contained in this directory. |
 
@@ -759,6 +761,8 @@ Inside a Deposit, the files and folders are represented by a different pair of r
 | `metadata`            | A list of **Metadata** resources for the file. These metadata reflect information the Preservation API can see in tool outputs in the metadata/ folder, and/or BagIt manifest data the Preservation API can see in the root of the Deposit when it has the BagIt template layout. They are used to add to METS, or reflect what's in METS. See *File and Directory Metadata* below. |
 | `accessRestrictions`  | A list of strings that represent access conditions on this specific file. They might be derived from METS, or might be waiting to be applied to METS. |
 | `rightsStatement`     | A single URI from a controlled vocabulary of rights statements, that applies to this file.  |
+| `derivedAccessConditions` | As for **WorkingDirectory**: other typed access conditions on this file, keyed by `type`; read-only. |
+| `effectiveAccessRestrictions`, `effectiveRightsStatement`, `effectiveDerivedAccessConditions`, `effectiveRecordInfo` | The values that apply to this file after inheritance from its directory, or failing that its logical range; see [effective metadata inheritance](./02c-METS-Parsing.md#effective-metadata-inheritance). |
 
 
 ### MetsExtensions
@@ -896,6 +900,92 @@ Typical uses for this filesystem view might be:
 > [!TIP]
 > If you are working in .NET, the WorkspaceManager class offers more functionality for working with the contents of the METS file and the contents of the workspace directly.
 
+
+### Access condition profile
+
+The vocabulary behind `accessRestrictions`, the grouping of rights statements, and any derived conditions are deployment configuration of the Preservation API, and a client (the UI is one) reads them from:
+
+<!--
+GET /access-conditions
+⎔ Preservation.API.Features.AccessConditions.AccessConditionsController::GetAccessConditionProfile()
+-->
+
+```
+GET /access-conditions
+```
+
+The response is the installation's **profile**. Everything beyond the restriction values is optional; the smallest useful profile is a restriction vocabulary and nothing else:
+
+```json
+{
+  "allowMultipleRestrictions": false,
+  "restrictionAxis": {
+    "label": "Access Restriction(s)",
+    "values": [
+      { "value": "Open", "label": "Open" },
+      { "value": "Restricted", "label": "Restricted" },
+      { "value": "Closed", "label": "Closed" }
+    ]
+  },
+  "rightsAxis": { "label": "Rights statement", "groups": [] },
+  "derived": []
+}
+```
+
+| Property | Description |
+|---|---|
+| `allowMultipleRestrictions` | When true a resource may carry several restrictions at once (the UI shows a multi-select). Cannot be combined with `derived`: a derived value is one cell of a matrix. |
+| `restrictionAxis.label`, `.values` | The label for the restriction choice and its vocabulary. The `value` is what is written to METS; the `label` is what a person sees. |
+| `rightsAxis.label` | The label for the rights-statement choice. The vocabulary itself is fixed: [rightsstatements.org](https://rightsstatements.org/) and Creative Commons. |
+| `rightsAxis.groups` | Optional. Each group has a `key`, a `label` and `members`: rights statements named by their short label (`InC`, `NoC-US`, `CC-BY`...), plus optionally `__none__` (no effective rights statement) and `*` (any statement no other group claims). When groups exist the UI offers only the grouped statements, under group headings, and the group keys are the columns of every derived condition's matrix. |
+| `derived` | Optional. Each entry has the `type` written to METS, a `label`, its ordered `values` (least to most restrictive) and a `matrix`: restriction value → rights group key → derived value, where a row or column key of `*` matches anything more specific keys do not, and a row key of `__none__` is "no effective restriction". |
+
+The Leeds profile derives the **Access Tier** from the Protected Access Level and the copyright status, as agreed in its access control matrix:
+
+```json
+{
+  "restrictionAxis": {
+    "label": "Protected Access Level",
+    "values": [
+      { "value": "PA1", "label": "Level 1" },
+      { "value": "PA2", "label": "Level 2" },
+      { "value": "PA3", "label": "Level 3" },
+      { "value": "PA4", "label": "Level 4" },
+      { "value": "PA-unassessed", "label": "Unassessed" }
+    ]
+  },
+  "rightsAxis": {
+    "label": "Copyright Statement",
+    "groups": [
+      { "key": "public-domain", "label": "Out of copyright (public domain / CC0)", "members": ["NoC-US", "NoC-NC", "NoC-OKLR", "NoC-CR", "NKC", "CC0", "CC-BY", "CC-BY-SA"] },
+      { "key": "low-risk", "label": "In copyright: assessed, low risk / permission given", "members": ["InC-EDU", "InC-NC", "CC-BY-NC", "CC-BY-ND", "CC-BY-NC-SA", "CC-BY-NC-ND"] },
+      { "key": "restricted", "label": "In copyright (restrictions apply)", "members": ["InC", "InC-OW-EU", "InC-RUU"] },
+      { "key": "unassessed", "label": "Copyright unassessed", "members": ["CNE", "UND", "__none__", "*"] }
+    ]
+  },
+  "derived": [
+    {
+      "type": "tier",
+      "label": "Access Tier",
+      "values": [
+        { "value": "0", "label": "Tier 0 - Open" }, { "value": "1", "label": "Tier 1 - Open" },
+        { "value": "2", "label": "Tier 2 - Restricted" }, { "value": "3", "label": "Tier 3 - Protected" },
+        { "value": "4", "label": "Tier 4 - Closed" }, { "value": "5", "label": "Tier 5 - Unassessed" }
+      ],
+      "matrix": {
+        "PA1": { "public-domain": "0", "low-risk": "1", "restricted": "2", "unassessed": "2" },
+        "PA2": { "*": "3" },
+        "PA3": { "*": "3" },
+        "PA4": { "*": "4" },
+        "PA-unassessed": { "*": "5" },
+        "__none__": { "*": "5" }
+      }
+    }
+  ]
+}
+```
+
+A resource with Protected Access Level 1 and the rights statement `InC-EDU` therefore gets `tier` = `1`; one with Level 2 gets `3` whatever its rights. The profile is read-only through the API: it is validated when the Preservation API starts (an unknown row, column or value in a matrix, or `allowMultipleRestrictions` together with `derived`, stops the service) and is changed by redeploying configuration. The configuration section itself is described in the code repository's [deployment notes](https://github.com/digirati-co-uk/digital-preservation/blob/main/docs/internals/deployment.md#preservation-api).
 
 ### Modifying the METS file
 
