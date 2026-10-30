@@ -413,6 +413,8 @@ Raw values only tell you what a div explicitly asserts. Consumers (validation, t
 
 **Logical ranges:** a range's effective access/rights is its own value, else inherited from the *root* descriptive metadata (`DMD_PHYS_ROOT` or the structural root div) — intermediate physical directories like `objects/` do not propagate to logical ranges. Effective record info is its own value, else its parent range's.
 
+**Derived access conditions:** every `mods:accessCondition` whose `type` is neither of the two chosen ones (nor Goobi's `status`) is reported as `derivedAccessConditions`, a map from `type` to value — this is where an installation's [derived conditions](./02b-METS-Written-by-the-Platform.md#derived-access-conditions), such as the Leeds access tier, appear, but the parser cannot know which types a configuration derives, so a third party's other typed conditions appear here too. They inherit **per type**: a value set on a node overrides the ancestor's value for that type and the rest come through; a file whose physical chain has none at all falls back to its logical range the same way access does (rule 3 above). The result is `effectiveDerivedAccessConditions`.
+
 A worked example, from the "Women of Westminster" METS on the [writer page](./02b-METS-Written-by-the-Platform.md#a-complete-example): `objects/` carries access `Level1`, rights `InC`, record `MS 2249`; the logical range "Amber Rudd" carries record `MS 2249/1`; the file `angela-eagle.m4a` carries access `Closed` and the `null` rights sentinel.
 
 | File | Effective access | Effective rights | Effective record |
