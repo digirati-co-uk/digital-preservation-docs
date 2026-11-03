@@ -400,8 +400,8 @@ carry a `DMDID`. From the MODS inside the dmdSec the parser reads:
   explicitly addressed — which suppresses inheritance (below) — while leaving the rights value empty.
 - **Derived access conditions**: every other `mods:accessCondition` that has a `type` — anything that is
   neither of the two above nor Goobi's `status` — as a map from `type` to value. This is where an
-  instance's [derived conditions](../mets-we-write-descriptive#derived-access-conditions), such as the
-  Leeds access tier, appear. The parser cannot know which types an instance derives, so a third party's
+  instance's [derived conditions](../derived-access-conditions), such as the Leeds access tier, appear;
+  a standard instance has none. The parser cannot know which types an instance derives, so a third party's
   other typed conditions land here too.
 - **Record identifiers**: every `mods:recordIdentifier`, with its `source` attribute.
 - For logical divs, the **title**: `mods:title`, falling back to the div's `LABEL`.

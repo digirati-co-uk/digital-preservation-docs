@@ -72,8 +72,8 @@ There are three distinct states, because rights are *inherited* down the physica
 
 ### Derived access conditions
 
-The two elements above are the ones a person *chooses*. An instance of the platform can also configure
-any number of access conditions that are **derived** from them: computed by a lookup over the effective
+The two elements above are the ones a person *chooses*, and on a standard instance they are all there is.
+An instance can also configure any number of access conditions that are **derived** from them: computed by a lookup over the effective
 access restriction and the effective rights statement, and written as a `mods:accessCondition` whose
 `type` is the instance's choosing. For Leeds this is the Access Tier — the 0–5 value that downstream
 delivery maps to IIIF authorisation roles — computed from the Protected Access Level and the copyright
@@ -100,9 +100,10 @@ The rules:
   the document — a third party's, or a value under a type this instance used to derive and no longer does
   — is left exactly as found.
 
-Which types exist, and the lookup for each, are configuration of the Preservation API: the
-[access condition profile](../../preservation-api/vocabularies#a-profile-with-a-derived-condition).
-An instance that configures nothing to derive gets exactly the two chosen elements.
+Which types exist, and the lookup for each, are configuration of the Preservation API, exposed in its
+[access condition profile](../../preservation-api/vocabularies#access-conditions); the mechanism and the
+Leeds example are on [Derived access conditions](../derived-access-conditions). An instance that configures
+nothing to derive gets exactly the two chosen elements.
 
 ### Catalogue record identifiers
 

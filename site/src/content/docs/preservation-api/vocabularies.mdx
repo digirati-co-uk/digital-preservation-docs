@@ -17,7 +17,7 @@ They exist so that a user interface, a script or an integration never has to har
 GET /access-conditions
 ```
 
-The response is the instance's **access condition profile**: the vocabulary of access restrictions, how it labels the restriction and rights-statement choices, optionally a grouping of the rights statements, and optionally any access conditions it *derives* from those two. The smallest useful profile is a restriction vocabulary and nothing else:
+The response is the instance's **access condition profile**: the vocabulary of access restrictions a person can choose from, the captions the instance gives the two access choices, and — only in an instance that has configured it — a grouping of rights statements and the conditions it [derives](../../mets/derived-access-conditions) from them. A standard instance has just the vocabulary:
 
 ```json
 {
@@ -37,77 +37,17 @@ The response is the instance's **access condition profile**: the vocabulary of a
 
 | Property | Description |
 |---|---|
-| `allowMultipleRestrictions` | When true a file, folder or Range may carry several restrictions at once, and the UI offers a multi-select. Cannot be combined with `derived`, because a derived value is one cell of a matrix. |
-| `restrictionAxis.label` | What to call the restriction choice in a user interface. |
 | `restrictionAxis.values` | The vocabulary. `value` is the string recorded against a file, folder or Range — what goes into METS and what comes back in `accessRestrictions`; `label` is for showing to a person. |
-| `rightsAxis.label` | What to call the rights-statement choice. The vocabulary itself is fixed: [rightsstatements.org](https://rightsstatements.org/) and Creative Commons. |
-| `rightsAxis.groups` | Optional. Each group has a `key`, a `label` and `members`: rights statements named by their short label (`InC`, `NoC-US`, `CC-BY`...), plus optionally `__none__` (no effective rights statement) and `*` (any statement no other group claims). When groups exist a UI should offer only the grouped statements, under their group headings, and the group keys are the columns of every derived condition's matrix. |
-| `derived` | Optional. Each entry is an access condition the platform computes rather than accepts: its `type` (the `type` attribute of the `mods:accessCondition` written to METS), a `label`, its ordered `values` (least to most restrictive) and a `matrix` of restriction value → rights group key → derived value. A row or column key of `*` matches anything a more specific key does not, and a row key of `__none__` means "no effective restriction". |
+| `restrictionAxis.label` | What to call the restriction choice in a user interface. |
+| `rightsAxis.label` | What to call the rights-statement choice. The vocabulary itself is fixed and not in the profile: [rightsstatements.org](https://rightsstatements.org/) and Creative Commons. |
+| `allowMultipleRestrictions` | When true a file, folder or Range may carry several restrictions at once, and a user interface should offer a multi-select. Usually false: one restriction per resource. |
+| `rightsAxis.groups`, `derived` | Empty unless the instance derives further access conditions from the two choices. What they hold, and what a client should do with them, is on [Derived access conditions](../../mets/derived-access-conditions). |
 
 <Aside type="caution">
-The values above are one instance's configuration, shown to make the shape clear. They are **not** the definitive list, and you should not assume any particular value exists. An instance whose configuration omits the section altogether returns a profile with empty `values`, `groups` and `derived`, and the endpoint gives no error when that happens — an empty vocabulary means "this instance has not configured any", not "something went wrong".
+The values above are one instance's configuration, shown to make the shape clear. They are **not** the definitive list, and you should not assume any particular value exists. An instance whose configuration omits the section altogether returns a profile with an empty `values` list, and the endpoint gives no error when that happens — an empty vocabulary means "this instance has not configured any", not "something went wrong".
 </Aside>
 
 Access conditions are applied to individual files, to folders, and to logical Ranges, and they are inherited: a file with none of its own takes the ones that apply to the nearest ancestor that has some. Both values are visible on the objects in a Deposit's [file listing](../deposit-files), as `accessRestrictions` (set here) and `effectiveAccessRestrictions` (what actually applies). Where they end up in the preserved METS is described in [METS we write](../../mets/mets-we-write-descriptive#access-restrictions).
-
-### A profile with a derived condition
-
-The Leeds profile derives an **Access Tier** — the 0–5 value its delivery systems map to IIIF authorisation roles — from the Protected Access Level and the copyright status of a resource, following its access control matrix:
-
-```json
-{
-  "allowMultipleRestrictions": false,
-  "restrictionAxis": {
-    "label": "Protected Access Level",
-    "values": [
-      { "value": "PA1", "label": "Level 1" },
-      { "value": "PA2", "label": "Level 2" },
-      { "value": "PA3", "label": "Level 3" },
-      { "value": "PA4", "label": "Level 4" },
-      { "value": "PA-unassessed", "label": "Unassessed" }
-    ]
-  },
-  "rightsAxis": {
-    "label": "Copyright Statement",
-    "groups": [
-      { "key": "public-domain", "label": "Out of copyright (public domain / CC0)",
-        "members": ["NoC-US", "NoC-NC", "NoC-OKLR", "NoC-CR", "NKC", "CC0", "CC-BY", "CC-BY-SA"] },
-      { "key": "low-risk", "label": "In copyright: assessed, low risk / permission given",
-        "members": ["InC-EDU", "InC-NC", "CC-BY-NC", "CC-BY-ND", "CC-BY-NC-SA", "CC-BY-NC-ND"] },
-      { "key": "restricted", "label": "In copyright (restrictions apply)",
-        "members": ["InC", "InC-OW-EU", "InC-RUU"] },
-      { "key": "unassessed", "label": "Copyright unassessed",
-        "members": ["CNE", "UND", "__none__", "*"] }
-    ]
-  },
-  "derived": [
-    {
-      "type": "tier",
-      "label": "Access Tier",
-      "values": [
-        { "value": "0", "label": "Tier 0 - Open" },
-        { "value": "1", "label": "Tier 1 - Open" },
-        { "value": "2", "label": "Tier 2 - Restricted" },
-        { "value": "3", "label": "Tier 3 - Protected" },
-        { "value": "4", "label": "Tier 4 - Closed" },
-        { "value": "5", "label": "Tier 5 - Unassessed" }
-      ],
-      "matrix": {
-        "PA1": { "public-domain": "0", "low-risk": "1", "restricted": "2", "unassessed": "2" },
-        "PA2": { "*": "3" },
-        "PA3": { "*": "3" },
-        "PA4": { "*": "4" },
-        "PA-unassessed": { "*": "5" },
-        "__none__": { "*": "5" }
-      }
-    }
-  ]
-}
-```
-
-A resource whose effective restriction is `PA1` and whose effective rights statement is `InC-EDU` gets a `tier` of `1`; one at `PA2` gets `3` whatever its rights. Derived values come back on the objects in a Deposit's file listing as `derivedAccessConditions` and `effectiveDerivedAccessConditions`, keyed by `type`, and are written to METS as described in [METS we write](../../mets/mets-we-write-descriptive#derived-access-conditions). They cannot be set: the platform recomputes every derived value in a METS file on every write, from the effective restriction and rights statement of each node.
-
-The profile is read-only through the API. It is validated when the Preservation API starts — an unknown row, column or value in a matrix, or `allowMultipleRestrictions` together with `derived`, stops the service — and changes by redeploying configuration. The configuration section is described in the code repository's [deployment notes](https://github.com/digirati-co-uk/digital-preservation/blob/main/docs/internals/deployment.md#preservation-api).
 
 ## Range types
 

@@ -940,52 +940,7 @@ The response is the installation's **profile**. Everything beyond the restrictio
 | `rightsAxis.groups` | Optional. Each group has a `key`, a `label` and `members`: rights statements named by their short label (`InC`, `NoC-US`, `CC-BY`...), plus optionally `__none__` (no effective rights statement) and `*` (any statement no other group claims). When groups exist the UI offers only the grouped statements, under group headings, and the group keys are the columns of every derived condition's matrix. |
 | `derived` | Optional. Each entry has the `type` written to METS, a `label`, its ordered `values` (least to most restrictive) and a `matrix`: restriction value → rights group key → derived value, where a row or column key of `*` matches anything more specific keys do not, and a row key of `__none__` is "no effective restriction". |
 
-The Leeds profile derives the **Access Tier** from the Protected Access Level and the copyright status, as agreed in its access control matrix:
-
-```json
-{
-  "restrictionAxis": {
-    "label": "Protected Access Level",
-    "values": [
-      { "value": "PA1", "label": "Level 1" },
-      { "value": "PA2", "label": "Level 2" },
-      { "value": "PA3", "label": "Level 3" },
-      { "value": "PA4", "label": "Level 4" },
-      { "value": "PA-unassessed", "label": "Unassessed" }
-    ]
-  },
-  "rightsAxis": {
-    "label": "Copyright Statement",
-    "groups": [
-      { "key": "public-domain", "label": "Out of copyright (public domain / CC0)", "members": ["NoC-US", "NoC-NC", "NoC-OKLR", "NoC-CR", "NKC", "CC0", "CC-BY", "CC-BY-SA"] },
-      { "key": "low-risk", "label": "In copyright: assessed, low risk / permission given", "members": ["InC-EDU", "InC-NC", "CC-BY-NC", "CC-BY-ND", "CC-BY-NC-SA", "CC-BY-NC-ND"] },
-      { "key": "restricted", "label": "In copyright (restrictions apply)", "members": ["InC", "InC-OW-EU", "InC-RUU"] },
-      { "key": "unassessed", "label": "Copyright unassessed", "members": ["CNE", "UND", "__none__", "*"] }
-    ]
-  },
-  "derived": [
-    {
-      "type": "tier",
-      "label": "Access Tier",
-      "values": [
-        { "value": "0", "label": "Tier 0 - Open" }, { "value": "1", "label": "Tier 1 - Open" },
-        { "value": "2", "label": "Tier 2 - Restricted" }, { "value": "3", "label": "Tier 3 - Protected" },
-        { "value": "4", "label": "Tier 4 - Closed" }, { "value": "5", "label": "Tier 5 - Unassessed" }
-      ],
-      "matrix": {
-        "PA1": { "public-domain": "0", "low-risk": "1", "restricted": "2", "unassessed": "2" },
-        "PA2": { "*": "3" },
-        "PA3": { "*": "3" },
-        "PA4": { "*": "4" },
-        "PA-unassessed": { "*": "5" },
-        "__none__": { "*": "5" }
-      }
-    }
-  ]
-}
-```
-
-A resource with Protected Access Level 1 and the rights statement `InC-EDU` therefore gets `tier` = `1`; one with Level 2 gets `3` whatever its rights. The profile is read-only through the API: it is validated when the Preservation API starts (an unknown row, column or value in a matrix, or `allowMultipleRestrictions` together with `derived`, stops the service) and is changed by redeploying configuration. The configuration section itself is described in the code repository's [deployment notes](https://github.com/digirati-co-uk/digital-preservation/blob/main/docs/internals/deployment.md#preservation-api).
+`rightsAxis.groups` and `derived` are empty on a standard instance. An instance that derives further conditions (the Leeds Access Tier) fills them in as described on the site's *Derived access conditions* page and in the code repository's [access condition profile notes](https://github.com/digirati-co-uk/digital-preservation/blob/main/docs/internals/access-condition-profile.md), which carry the Leeds configuration as a worked example. The profile is read-only through the API: it is validated when the Preservation API starts and changed by redeploying configuration.
 
 ### Modifying the METS file
 
