@@ -398,6 +398,11 @@ carry a `DMDID`. From the MODS inside the dmdSec the parser reads:
 - **Rights statement**: `mods:accessCondition` with `type="use and reproduction"`, parsed as a URI. If the
   element is *present but not a valid URI* (e.g. the sentinel `null`), the parser records that rights were
   explicitly addressed — which suppresses inheritance (below) — while leaving the rights value empty.
+- **Derived access conditions**: every other `mods:accessCondition` that has a `type` — anything that is
+  neither of the two above nor Goobi's `status` — as a map from `type` to value. This is where an
+  instance's [derived conditions](../mets-we-write-descriptive#derived-access-conditions), such as the
+  Leeds access tier, appear. The parser cannot know which types an instance derives, so a third party's
+  other typed conditions land here too.
 - **Record identifiers**: every `mods:recordIdentifier`, with its `source` attribute.
 - For logical divs, the **title**: `mods:title`, falling back to the div's `LABEL`.
 
@@ -530,6 +535,13 @@ directory's, including everything below it — effective rights is null, not the
 descriptive metadata (`DMD_PHYS_ROOT` or the structural root div) — intermediate physical directories
 like `objects/` do not propagate to logical ranges. Effective record info is its own value, else its parent
 range's.
+
+**Derived access conditions:** these inherit **per type**. A value set on a node overrides the ancestor's
+value for that type and the rest come through, so a file carrying only a `tier` still inherits its folder's
+other typed conditions. A file whose physical chain has none at all falls back to its logical range the
+same way access does (rule 3 above). Because the platform rewrites its derived types from each node's
+effective inputs on every save, the explicit and effective derived values of METS it has written are
+consistent with the chosen ones by construction; these rules matter for documents written elsewhere.
 
 A worked example, from the "Women of Westminster" METS in the writer's
 [complete example](../mets-we-write-descriptive#a-complete-example): `objects/` carries access `Level1`,

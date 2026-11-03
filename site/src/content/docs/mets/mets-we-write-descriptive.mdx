@@ -38,7 +38,8 @@ below).
 
 Zero or more `mods:accessCondition` elements with `type="restriction on access"`. The values are
 access-control tokens meaningful to downstream delivery systems (not to the preservation platform
-itself); see the [access-conditions vocabulary](../../preservation-api/vocabularies):
+itself); the vocabulary, and whether a div may carry more than one, come from the instance's
+[access condition profile](../../preservation-api/vocabularies#access-conditions):
 
 ```xml
 <mods:accessCondition type="restriction on access" xlink:type="simple">Level1</mods:accessCondition>
@@ -68,6 +69,40 @@ There are three distinct states, because rights are *inherited* down the physica
 <!-- state 3: this file must NOT inherit the parent's rights statement -->
 <mods:accessCondition type="use and reproduction" xlink:type="simple">null</mods:accessCondition>
 ```
+
+### Derived access conditions
+
+The two elements above are the ones a person *chooses*. An instance of the platform can also configure
+any number of access conditions that are **derived** from them: computed by a lookup over the effective
+access restriction and the effective rights statement, and written as a `mods:accessCondition` whose
+`type` is the instance's choosing. For Leeds this is the Access Tier — the 0–5 value that downstream
+delivery maps to IIIF authorisation roles — computed from the Protected Access Level and the copyright
+status:
+
+```xml
+<mods:accessCondition type="restriction on access" xlink:type="simple">PA2</mods:accessCondition>
+<mods:accessCondition type="use and reproduction" xlink:type="simple">http://rightsstatements.org/vocab/InC/1.0/</mods:accessCondition>
+<mods:accessCondition type="tier" xlink:type="simple">3</mods:accessCondition>
+```
+
+Nobody writes the third element directly; it cannot be set through the API and is not editable in the UI.
+The rules:
+
+- A derived value is written on every div, physical or logical, that carries at least one explicit chosen
+  element, and is computed from that div's **effective** inputs — so a file that sets only a rights
+  statement gets a tier reflecting the access restriction it inherits from its folder.
+- Every write of the METS recomputes the derived values for the whole document. Changing the folder's
+  restriction therefore rewrites the tier on every descendant that carries one; a stale tier cannot
+  survive a save.
+- A div with no explicit chosen element carries no derived element either, and inherits one on read like
+  everything else (see [effective metadata inheritance](../mets-we-read#effective-metadata-inheritance)).
+- The writer touches only the types the instance currently derives. Any other typed `accessCondition` in
+  the document — a third party's, or a value under a type this instance used to derive and no longer does
+  — is left exactly as found.
+
+Which types exist, and the lookup for each, are configuration of the Preservation API: the
+[access condition profile](../../preservation-api/vocabularies#a-profile-with-a-derived-condition).
+An instance that configures nothing to derive gets exactly the two chosen elements.
 
 ### Catalogue record identifiers
 

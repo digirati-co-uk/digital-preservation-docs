@@ -48,7 +48,7 @@ The API does offer some operations on deposit content, because some of them need
 |---|---|
 | `CreateFolder` | Creates a folder in the workspace and records it in the METS. The UI's **New Folder** button. |
 | `UploadSingleSmallFile` | Puts a file into the workspace. You cannot POST binary content to the API. |
-| `SetModsInformation` | Sets access conditions, a rights statement, rights suppression, record identifiers and file links on a file or folder. Everything on the [access and inheritance](../../ui/deposits) side of the UI. |
+| `SetModsInformation` | Sets access conditions, a rights statement, rights suppression, record identifiers and file links on a file or folder. Everything on the [access and inheritance](../../ui/deposits) side of the UI. Derived conditions are not among the inputs: the writer recomputes them from the profile on every save. |
 | `SetLogicalStructMap` / `RemoveLogicalStructMap` | Edits logical structure one range at a time. Over HTTP you can only POST a whole IIIF Manifest back, and only behind a feature flag. |
 | `ValidateDepositFileSystem` | Checks the cached view of the workspace against what is actually in storage and reports the differences. (Rebuilding it *is* available over HTTP — that is what `GET {id}/filesystem?refresh=true` does.) |
 
