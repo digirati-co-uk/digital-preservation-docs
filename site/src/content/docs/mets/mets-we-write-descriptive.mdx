@@ -108,7 +108,8 @@ editable in the UI. The rules:
   itself or that carry a chosen element. Any other typed `accessCondition` in the document — a third
   party's, or a value under a type this instance used to derive and no longer does — is left exactly as
   found, and so is a third party's derived element on a div with no chosen ones: a Goobi export that
-  carries only its resulting tier keeps it.
+  carries only its resulting tier keeps it — on a physical div indefinitely, on a logical div until the
+  logical structure is saved (see [below](#logical-structmaps)).
 
 Which types exist, and the lookup for each, are configuration of the Preservation API, exposed in its
 [access condition profile](../../preservation-api/vocabularies#access-conditions); the mechanism and the
@@ -171,7 +172,10 @@ Each div in a logical structMap:
 
 Replacing a logical structMap (matched by root div ID) removes the old one *and* the dmdSecs it
 referenced, then writes the new tree; removing one cleans up its dmdSecs the same way. The physical
-structMap is never affected.
+structMap is never affected. The new dmdSecs are built from what the client sent — title, record
+identifiers, restriction, rights statement and category — so anything else a third party's logical
+dmdSec held, including a [derived access condition](../derived-access-conditions) such as a Goobi tier,
+is not carried over.
 
 ### File pointers: whole files, time segments, image regions
 

@@ -107,7 +107,7 @@ profile, as `GET /access-conditions` returns it:
         { "value": "5", "label": "Tier 5 - Unassessed" }
       ],
       "matrix": {
-        "PA1":           { "public-domain": "0", "low-risk": "1", "restrictions-apply": "2", "medium-risk": "2", "unassessed": "2", "high-risk": "3", "__none__": "2" },
+        "PA1":           { "public-domain": "0", "low-risk": "1", "restrictions-apply": "2", "medium-risk": "2", "unassessed": "2", "high-risk": "3", "__none__": "2", "*": "3" },
         "PA2":           { "*": "3" },
         "PA3":           { "*": "3" },
         "PA4":           { "*": "4" },
@@ -129,6 +129,7 @@ This is Leeds' agreed master matrix: only the PA 1 row distinguishes the copyrig
 | `PA1` | `restrictions-apply`, `medium-risk` or `unassessed` | 2 |
 | `PA1` | `high-risk` | 3 |
 | `PA1` | none — nothing set, nothing inherited | 2 |
+| `PA1` | a value outside the vocabulary (mistyped by a caller, or renamed since) | 3, the `*` cell |
 | `PA2` or `PA3` | anything | 3 |
 | `PA4` | anything | 4 |
 | `PA-unassessed`, or none | anything | 5 |
@@ -169,8 +170,9 @@ values both appear there; the profile's `categoryAxis.type` and `derived[].type`
 category can be set through the same operations as the restriction; the derived values cannot be set.
 
 **In the Preservation UI**, the metadata dialogue gains the category dropdown, orders the rights
-statements by what the chosen category permits, and recomputes the derived value live as the restriction
-and category change, so you see the consequence of a decision before saving. See
+statements by what the chosen category permits, warns (and only warns) when the chosen statement is not
+among them, and recomputes the derived value live as the restriction and category change, so you see
+the consequence of a decision before saving. See
 [Working with deposits](../../ui/deposits#access-conditions-rights-and-record-identifiers).
 
 ## Constraints
@@ -182,6 +184,11 @@ and category change, so you see the consequence of a decision before saving. See
   column or value, or that leaves any restriction without a value for any category, stops the service. A
   client can therefore trust that every cell names one of the declared `values`, and that every
   combination of a vocabulary value (or none) and a category (or none) resolves to something.
+- The category is stored like the restriction, and like the restriction it is not checked against the
+  vocabulary on save, so a `*` cell or column is what gives a value outside the vocabulary a result.
+- Saving a logical structMap rebuilds each logical div's descriptive metadata from the client's copy,
+  so a third party's derived element on a *logical* div (a Goobi tier, say) survives until the logical
+  structure is edited; see the [writer page](../mets-we-write-descriptive#logical-structmaps).
 - The platform does not know what a derived value *means*. Mapping a tier to IIIF authorisation roles,
   or to anything else, is the delivery system's business.
 - The values, types and permitted statements in the Leeds example are the ones assumed on
