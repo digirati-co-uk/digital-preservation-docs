@@ -73,28 +73,31 @@ There are three distinct states, because rights are *inherited* down the physica
 ### Derived access conditions
 
 The two elements above are the ones a person *chooses*, and on a standard instance they are all there is.
-An instance can also configure any number of access conditions that are **derived** from them: computed by a lookup over the effective
-access restriction and the effective rights statement, and written as a `mods:accessCondition` whose
-`type` is the instance's choosing. For Leeds this is the Access Tier — the 0–5 value that downstream
+An instance can also configure a third chosen element — a **category**, for Leeds the copyright status,
+written under a `type` the instance picks and inherited like the restriction — and any number of access
+conditions that are **derived**: computed by a lookup over the effective restriction and the effective
+category, and written as a `mods:accessCondition` whose `type` is also the instance's choosing. For Leeds this is the Access Tier — the 0–5 value that downstream
 delivery maps to IIIF authorisation roles — computed from the Protected Access Level and the copyright
 status:
 
 ```xml
-<mods:accessCondition type="restriction on access" xlink:type="simple">PA2</mods:accessCondition>
+<mods:accessCondition type="restriction on access" xlink:type="simple">PA1</mods:accessCondition>
+<mods:accessCondition type="copyright status" xlink:type="simple">high-risk</mods:accessCondition>
 <mods:accessCondition type="use and reproduction" xlink:type="simple">http://rightsstatements.org/vocab/InC/1.0/</mods:accessCondition>
 <mods:accessCondition type="tier" xlink:type="simple">3</mods:accessCondition>
 ```
 
-Nobody writes the third element directly; it cannot be set through the API and is not editable in the UI.
-The rules:
+The category is set like the restriction: setting it replaces the element, clearing it removes the element so
+the node inherits. Nobody writes the fourth element directly; it cannot be set through the API and is not
+editable in the UI. The rules:
 
 - A derived value is written on every div, physical or logical, that carries at least one explicit chosen
-  element, and is computed from that div's **effective** inputs — so a file that sets only a rights
-  statement gets a tier reflecting the access restriction it inherits from its folder.
+  element, and is computed from that div's **effective** restriction and category — so a file that sets
+  only a category gets a tier reflecting the access restriction it inherits from its folder.
 - It is also written on every **file** whose effective inputs come partly from its logical range. The
   reader falls back to the range for an axis the folders are silent on, so a file in a range that sets the
-  restriction, under a folder that sets only the rights statement, could not inherit the right value from
-  the folder; it gets its own.
+  restriction, under a folder that sets only the category, could not inherit the right value from the
+  folder; it gets its own.
 - Every write of the METS recomputes the derived values for the whole document. Changing the folder's
   restriction therefore rewrites the tier on every descendant that carries one, and a derived element
   whose source has gone is removed; a stale tier cannot survive a save.

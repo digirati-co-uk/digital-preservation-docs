@@ -17,7 +17,7 @@ They exist so that a user interface, a script or an integration never has to har
 GET /access-conditions
 ```
 
-The response is the instance's **access condition profile**: the vocabulary of access restrictions a person can choose from, the captions the instance gives the two access choices, and — only in an instance that has configured it — a grouping of rights statements and the conditions it [derives](../../mets/derived-access-conditions) from them. A standard instance has just the vocabulary:
+The response is the instance's **access condition profile**: the vocabulary of access restrictions a person can choose from, the captions the instance gives the access choices, and — only in an instance that has configured it — a third chosen axis and the conditions it [derives](../../mets/derived-access-conditions) from its choices. A standard instance has just the vocabulary:
 
 ```json
 {
@@ -30,7 +30,7 @@ The response is the instance's **access condition profile**: the vocabulary of a
       { "value": "Closed",     "label": "Closed" }
     ]
   },
-  "rightsAxis": { "label": "Rights statement", "groups": [] },
+  "rightsAxis": { "label": "Rights statement" },
   "derived": []
 }
 ```
@@ -41,7 +41,7 @@ The response is the instance's **access condition profile**: the vocabulary of a
 | `restrictionAxis.label` | What to call the restriction choice in a user interface. |
 | `rightsAxis.label` | What to call the rights-statement choice. The vocabulary itself is fixed and not in the profile: [rightsstatements.org](https://rightsstatements.org/) and Creative Commons. |
 | `allowMultipleRestrictions` | When true a file, folder or Range may carry several restrictions at once, and a user interface should offer a multi-select. Usually false: one restriction per resource. |
-| `rightsAxis.groups`, `derived` | Empty unless the instance derives further access conditions from the two choices. What they hold, and what a client should do with them, is on [Derived access conditions](../../mets/derived-access-conditions). |
+| `categoryAxis`, `derived` | Absent and empty, respectively, unless the instance derives further access conditions from its choices — in which case `categoryAxis` is a third thing a person chooses. What they hold, and what a client should do with them, is on [Derived access conditions](../../mets/derived-access-conditions). |
 
 <Aside type="caution">
 The values above are one instance's configuration, shown to make the shape clear. They are **not** the definitive list, and you should not assume any particular value exists. An instance whose configuration omits the section altogether returns a profile with an empty `values` list, and the endpoint gives no error when that happens — an empty vocabulary means "this instance has not configured any", not "something went wrong".

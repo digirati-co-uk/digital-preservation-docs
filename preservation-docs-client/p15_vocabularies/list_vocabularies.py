@@ -8,9 +8,9 @@ configured", not "something went wrong".
 """
 from preservation import get
 
-# The access condition profile: the restriction vocabulary, the labels for the two choices a
-# person makes, optionally a grouping of rights statements, and optionally conditions the
-# platform derives from those choices (the Leeds "tier"). Only the vocabulary is required.
+# The access condition profile: the restriction vocabulary, the labels for the choices a person
+# makes, and - only on an instance that derives something (the Leeds "tier") - a third chosen
+# axis (the Leeds copyright status) and the derived conditions. Only the vocabulary is required.
 profile = get("/access-conditions").json()
 restrictions = profile["restrictionAxis"]["values"]
 if restrictions:
@@ -22,13 +22,17 @@ if restrictions:
 else:
     print("This instance has no access conditions configured")
 
-for group in profile["rightsAxis"]["groups"]:
-    # When groups exist, offer only the grouped rights statements, under these headings.
-    print(f"  {profile['rightsAxis']['label']} group {group['key']!r}: {', '.join(group['members'])}")
+axis = profile.get("categoryAxis")
+if axis:
+    # A third thing to choose, written to METS under axis['type'] and inherited like the
+    # restriction; each value lists the rights statements that make sense under it.
+    print(f"{len(axis['values'])} {axis['label']} values (METS type {axis['type']!r}):")
+    for category in axis["values"]:
+        print(f"  {category['value']:<20} {category['label']}  [{', '.join(category['rightsStatements'])}]")
 
 for derived in profile["derived"]:
     # Derived conditions are read-only: the platform computes them from the effective restriction
-    # and rights statement on every write, and reports them in derivedAccessConditions.
+    # and category on every write, and reports them in otherAccessConditions.
     values = ", ".join(v["value"] for v in derived["values"])
     print(f"  derived {derived['type']!r} ({derived['label']}): {values}")
 

@@ -55,8 +55,8 @@ The API keeps its view of the workspace in a `__METSlike.json` file in the root 
 | `rightsStatement` | A single URI from a controlled vocabulary of rights statements, set on this directory itself. |
 | `effectiveRightsStatement` | The rights statement that actually applies here, after inheritance. |
 | `rightsStatementSuppressed` | True when this resource carries a rights element that asserts no URI — a deliberate stop on inheritance, which is different from carrying no element at all. |
-| `derivedAccessConditions` | Any other typed `mods:accessCondition` set on this directory itself, as a map from the element's `type` to its value — chiefly the instance's [derived conditions](../../mets/derived-access-conditions), such as the Leeds access tier. Absent on a standard instance, which derives nothing. Read-only: the API recomputes these from the effective access restriction and rights statement on every write of the METS. Omitted when there are none. |
-| `effectiveDerivedAccessConditions` | The derived conditions that actually apply here, after inheritance — per `type`, so a value set here for one type does not hide an ancestor's value for another. |
+| `otherAccessConditions` | Any other typed `mods:accessCondition` set on this directory itself, as a map from the element's `type` to its value. On an instance with [derived access conditions](../../mets/derived-access-conditions) this holds its chosen category (for Leeds the copyright status) and its derived values (the access tier); the profile says which `type` is which. Absent on a standard instance. The category is set like the restriction; derived values are recomputed on every write of the METS. Omitted when there are none. |
+| `effectiveOtherAccessConditions` | The same after inheritance — per `type`, so a value set here for one type does not hide an ancestor's value for another. |
 | `recordInfo` / `effectiveRecordInfo` | Catalogue record identifiers set here, and the ones that apply after inheritance. Each is a list of `recordIdentifiers`, objects with a `source` and a `value`. |
 
 ## WorkingFile
@@ -73,7 +73,7 @@ The API keeps its view of the workspace in a `__METSlike.json` file in the root 
 | `links` | Relationships to other files in the deposit — each a `to` (the other file's path) and a `role` (a [IIIF `provides`](https://iiif.io/api/presentation/3.0/#behavior) URI such as `transcript` or `closedCaptions`). |
 | `metsExtensions` | See [MetsExtensions](#metsextensions). |
 | `metadata` | A list of [Metadata](#metadata) resources for the file. |
-| `accessRestrictions`, `effectiveAccessRestrictions`, `rightsStatement`, `effectiveRightsStatement`, `rightsStatementSuppressed`, `derivedAccessConditions`, `effectiveDerivedAccessConditions`, `recordInfo`, `effectiveRecordInfo` | As for `WorkingDirectory` above. For a file, inheritance of the effective values runs up the folder tree and, when the folders are silent, falls back to the file's logical range; see [METS we read](../../mets/mets-we-read#effective-metadata-inheritance). |
+| `accessRestrictions`, `effectiveAccessRestrictions`, `rightsStatement`, `effectiveRightsStatement`, `rightsStatementSuppressed`, `otherAccessConditions`, `effectiveOtherAccessConditions`, `recordInfo`, `effectiveRecordInfo` | As for `WorkingDirectory` above. For a file, inheritance of the effective values runs up the folder tree and, when the folders are silent, falls back to the file's logical range; see [METS we read](../../mets/mets-we-read#effective-metadata-inheritance). |
 
 ## MetsExtensions
 
