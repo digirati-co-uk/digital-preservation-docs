@@ -1,0 +1,196 @@
+---
+title: Derived access conditions
+sidebar:
+  label: Derived access conditions
+  order: 2.2
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+This page describes an **optional** extension to the access metadata described on the
+[descriptive metadata page](../mets-we-write-descriptive#access-restrictions). A standard instance of the
+platform records two things about a resource — an access restriction and a rights statement — and
+computes nothing from them. If `GET /access-conditions` on your instance has no `categoryAxis` and an
+empty `derived` list, nothing on this page applies to you.
+
+An instance can configure the platform to **derive** further access conditions: a `mods:accessCondition`
+with a `type` of the instance's choosing, whose value is looked up from two chosen inputs. The platform
+computes it on every write of a METS file and never accepts it as input. The motivating case is Leeds,
+whose delivery systems need an **Access Tier** from 0 to 5 that combines the Protected Access Level of an
+item with its copyright status.
+
+## A third thing to choose
+
+Why not derive from the restriction and the rights statement, the two things every instance already
+records? Because a rights statement is a *public* claim about what people may do with the content, and the
+copyright columns of a matrix like Leeds' are an *internal risk assessment* — low risk, medium risk, high
+risk. The same statement, `InC`, is honestly used at any of those risk levels, and they give different
+tiers. No grouping of statements can express that.
+
+So an instance that derives something configures a **category axis**: a third chosen value, written to
+METS as its own `mods:accessCondition` under a type the instance picks, and inherited down the tree
+exactly like the restriction. For Leeds it is the **copyright status**, with the six values of their master
+matrix. The rights statement is still chosen, because it is still what reaches the public IIIF `rights`
+property; it is just not an input to the lookup.
+
+The derived value is then a cell in a matrix:
+
+- The **rows** are the restriction vocabulary's values, plus `__none__` for a resource with no effective
+  restriction at all.
+- The **columns** are the category values, plus `__none__` for a resource with no effective category.
+- The **cell** is the derived value. A row or column key of `*` matches anything a more specific key does
+  not.
+
+Both inputs are the *effective* values — what applies to the resource after inheritance — so a file that
+sets only a category gets a value that reflects the restriction it inherits from its folder.
+
+## What the profile holds
+
+The parts of the [access condition profile](../../preservation-api/vocabularies#access-conditions) that
+a standard instance does not have:
+
+| Property | Description |
+|---|---|
+| `categoryAxis.label` | What to call the category choice in a user interface. |
+| `categoryAxis.type` | The `type` attribute the chosen category is written under in METS. |
+| `categoryAxis.values` | The categories: `value` (written to METS), `label`, and `rightsStatements` — the rights statements, by short label (`InC`, `NoC-US`, `CC-BY`...), the instance considers to make sense under that category. A statement may appear under several categories. A user interface offers those first once a category is chosen, and preselects the category when a chosen statement is permitted under exactly one; nothing is enforced on save. |
+| `derived` | A list of derived conditions, each with the `type` written to METS, a `label`, its possible `values` in order from least to most restrictive, and a `matrix` of restriction value → category value → derived value. |
+
+## Worked example: the Leeds Access Tier
+
+Leeds choose a **Protected Access Level** (the restriction), a **copyright status** (the category) and a
+**Copyright Statement** (the rights statement), and derive an **Access Tier** from the first two. Its
+profile, as `GET /access-conditions` returns it:
+
+```json
+{
+  "allowMultipleRestrictions": false,
+  "restrictionAxis": {
+    "label": "Protected Access Level",
+    "values": [
+      { "value": "PA1", "label": "Level 1" },
+      { "value": "PA2", "label": "Level 2" },
+      { "value": "PA3", "label": "Level 3" },
+      { "value": "PA4", "label": "Level 4" },
+      { "value": "PA-unassessed", "label": "Unassessed" }
+    ]
+  },
+  "categoryAxis": {
+    "label": "Copyright status",
+    "type": "copyright status",
+    "values": [
+      { "value": "public-domain",      "label": "Out of Copyright (Public Domain / CC0)",
+        "rightsStatements": ["NoC-US", "NoC-NC", "NoC-OKLR", "NoC-CR", "NKC", "CC0"] },
+      { "value": "low-risk",           "label": "In Copyright: Assessed (Low Risk)",
+        "rightsStatements": ["InC", "InC-EDU", "InC-NC", "InC-RUU", "InC-OW-EU", "CC-BY", "CC-BY-SA", "CC-BY-ND", "CC-BY-NC", "CC-BY-NC-SA", "CC-BY-NC-ND"] },
+      { "value": "restrictions-apply", "label": "In Copyright (restrictions apply)",
+        "rightsStatements": ["InC", "InC-OW-EU", "InC-RUU", "NoC-OKLR", "NoC-CR"] },
+      { "value": "medium-risk",        "label": "In Copyright (medium risk)",
+        "rightsStatements": ["InC", "InC-OW-EU", "InC-RUU"] },
+      { "value": "unassessed",         "label": "In Copyright (Unassessed)",
+        "rightsStatements": ["CNE", "UND"] },
+      { "value": "high-risk",          "label": "In Copyright (High Risk)",
+        "rightsStatements": ["InC", "InC-OW-EU", "InC-RUU"] }
+    ]
+  },
+  "rightsAxis": { "label": "Copyright Statement" },
+  "derived": [
+    {
+      "type": "tier",
+      "label": "Access Tier",
+      "values": [
+        { "value": "0", "label": "Tier 0 - Open" },
+        { "value": "1", "label": "Tier 1 - Open" },
+        { "value": "2", "label": "Tier 2 - Restricted" },
+        { "value": "3", "label": "Tier 3 - Protected" },
+        { "value": "4", "label": "Tier 4 - Closed" },
+        { "value": "5", "label": "Tier 5 - Unassessed" }
+      ],
+      "matrix": {
+        "PA1":           { "public-domain": "0", "low-risk": "1", "restrictions-apply": "2", "medium-risk": "2", "unassessed": "2", "high-risk": "3", "__none__": "2", "*": "3" },
+        "PA2":           { "*": "3" },
+        "PA3":           { "*": "3" },
+        "PA4":           { "*": "4" },
+        "PA-unassessed": { "*": "5" },
+        "__none__":      { "*": "5" },
+        "*":             { "*": "5" }
+      }
+    }
+  ]
+}
+```
+
+This is Leeds' agreed master matrix: only the PA 1 row distinguishes the copyright columns.
+
+| Effective restriction | Effective copyright status | Tier |
+|---|---|---|
+| `PA1` | `public-domain` | 0 |
+| `PA1` | `low-risk` | 1 |
+| `PA1` | `restrictions-apply`, `medium-risk` or `unassessed` | 2 |
+| `PA1` | `high-risk` | 3 |
+| `PA1` | none — nothing set, nothing inherited | 2 |
+| `PA1` | a value outside the vocabulary (mistyped by a caller, or renamed since) | 3, the `*` cell |
+| `PA2` or `PA3` | anything | 3 |
+| `PA4` | anything | 4 |
+| `PA-unassessed`, or none | anything | 5 |
+| any value outside the vocabulary (legacy content) | anything | 5, the `*` row |
+
+<Aside type="note">
+This JSON is also, key for key, the Preservation API's `AccessConditionProfile` configuration section
+— the API returns what it was configured with. How and where to configure it, how it relates to the
+standard `AccessConditions` list, and what to think about when changing a profile that is already in
+use, is in the code repository's
+[access conditions configuration](https://github.com/digirati-co-uk/digital-preservation/blob/main/docs/internals/access-condition-profile.md)
+notes for operators.
+</Aside>
+
+## What it produces
+
+**In METS**, the category and the derived value sit beside the two conditions every instance writes. The
+category is written wherever a person chose it; the derived value on every div (physical or logical) that
+carries a chosen element of its own, and on every file whose effective inputs come partly from its logical
+range:
+
+```xml
+<mods:accessCondition type="restriction on access" xlink:type="simple">PA1</mods:accessCondition>
+<mods:accessCondition type="copyright status" xlink:type="simple">high-risk</mods:accessCondition>
+<mods:accessCondition type="use and reproduction" xlink:type="simple">http://rightsstatements.org/vocab/InC/1.0/</mods:accessCondition>
+<mods:accessCondition type="tier" xlink:type="simple">3</mods:accessCondition>
+```
+
+Every write recomputes every derived value in the document, so a stale value cannot survive a save, and
+the writer touches only the types the instance currently derives. The full rules are on the
+[writer page](../mets-we-write-descriptive#derived-access-conditions); how the values are read back and
+inherited is on the [reader page](../mets-we-read#effective-metadata-inheritance).
+
+**On the API**, every file, folder and Range in a Deposit's [file listing](../../preservation-api/deposit-files)
+carries `otherAccessConditions` (what the resource itself has, keyed by `type`) and
+`effectiveOtherAccessConditions` (what applies after inheritance). The chosen category and the derived
+values both appear there; the profile's `categoryAxis.type` and `derived[].type` say which is which. The
+category can be set through the same operations as the restriction; the derived values cannot be set.
+
+**In the Preservation UI**, the metadata dialogue gains the category dropdown, orders the rights
+statements by what the chosen category permits, warns (and only warns) when the chosen statement is not
+among them, and recomputes the derived value live as the restriction and category change, so you see
+the consequence of a decision before saving. See
+[Working with deposits](../../ui/deposits#access-conditions-rights-and-record-identifiers).
+
+## Constraints
+
+- A derived value is a single matrix cell, so an instance that derives anything must allow only one
+  restriction per resource (`allowMultipleRestrictions` false). Legacy content carrying several uses the
+  most restrictive of them, by the order of the restriction vocabulary, for the lookup.
+- The profile is validated when the Preservation API starts, and a matrix that names an unknown row,
+  column or value, or that leaves any restriction without a value for any category, stops the service. A
+  client can therefore trust that every cell names one of the declared `values`, and that every
+  combination of a vocabulary value (or none) and a category (or none) resolves to something.
+- The category is stored like the restriction, and like the restriction it is not checked against the
+  vocabulary on save, so a `*` cell or column is what gives a value outside the vocabulary a result.
+- Saving a logical structMap rebuilds each logical div's descriptive metadata from the client's copy,
+  so a third party's derived element on a *logical* div (a Goobi tier, say) survives until the logical
+  structure is edited; see the [writer page](../mets-we-write-descriptive#logical-structmaps).
+- The platform does not know what a derived value *means*. Mapping a tier to IIIF authorisation roles,
+  or to anything else, is the delivery system's business.
+- The values, types and permitted statements in the Leeds example are the ones assumed on
+  [issue #433](https://github.com/digirati-co-uk/digital-preservation/issues/433), pending Leeds'
+  confirmation.

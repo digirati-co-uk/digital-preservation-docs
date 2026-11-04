@@ -374,6 +374,27 @@ There are three distinct states, because rights are *inherited* down the physica
 <mods:accessCondition type="use and reproduction" xlink:type="simple">null</mods:accessCondition>
 ```
 
+### Derived access conditions
+
+The two elements above are the ones a person *chooses*. An installation can also configure any number of access conditions that are **derived** from them: computed by a lookup over the effective restriction and the effective rights statement, and written as a `mods:accessCondition` with a `type` of the installation's choosing. For Leeds this is the Access Tier, the 0–5 value that downstream delivery maps to IIIF authorisation roles, computed from the Protected Access Level and the copyright status:
+
+```xml
+<mods:mods>
+  <mods:accessCondition type="restriction on access" xlink:type="simple">PA2</mods:accessCondition>
+  <mods:accessCondition type="use and reproduction" xlink:type="simple">http://rightsstatements.org/vocab/InC/1.0/</mods:accessCondition>
+  <mods:accessCondition type="tier" xlink:type="simple">3</mods:accessCondition>
+</mods:mods>
+```
+
+Nobody writes the third element directly; it is not accepted on the API and not editable in the UI. The rules:
+
+- A derived value is written on every div (physical or logical) that carries at least one explicit chosen element, and is computed from the div's **effective** inputs — so a file that sets only a rights statement gets a tier that reflects the Protected Access Level it inherits from its folder.
+- Every write of the METS recomputes the derived values for the whole document. Changing the folder's Protected Access Level therefore rewrites the tier on every descendant that carries one; a stale tier cannot survive a save.
+- A div with no explicit chosen element carries no derived element either, and inherits one on read like everything else.
+- The writer touches only the types the installation currently derives. Any other typed `accessCondition` in the document — a third party's, or a value under a type this installation used to derive and no longer does — is left exactly as found.
+
+The lookup itself, and which types exist, are deployment configuration of the Preservation API (the [access condition profile](./02-Preservation-API.md#access-condition-profile)). An installation that configures nothing to derive gets exactly the two chosen elements.
+
 ### Catalogue record identifiers
 
 `mods:recordInfo` holds one or more `mods:recordIdentifier` elements, each with a `source` attribute naming the identifying system:

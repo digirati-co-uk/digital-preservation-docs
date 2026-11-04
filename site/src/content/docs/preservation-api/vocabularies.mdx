@@ -7,7 +7,7 @@ sidebar:
 
 import { Aside, LinkCard } from '@astrojs/starlight/components';
 
-Two small endpoints tell you the controlled vocabularies this instance of the platform uses: the access conditions that can be applied to preserved material, and the types a logical structure Range can have.
+Two small endpoints tell you the controlled vocabularies this instance of the platform uses: the access conditions that can be applied to preserved material (and anything the instance derives from them), and the types a logical structure Range can have.
 
 They exist so that a user interface, a script or an integration never has to hard-code a list. Both are **per-instance configuration**, not part of the API's definition: a different institution, or the same institution's test system, will legitimately return different values. Read them at startup, cache them for as long as you like, and offer what they return.
 
@@ -17,26 +17,37 @@ They exist so that a user interface, a script or an integration never has to har
 GET /access-conditions
 ```
 
+The response is the instance's **access condition profile**: the vocabulary of access restrictions a person can choose from, the captions the instance gives the access choices, and — only in an instance that has configured it — a third chosen axis and the conditions it [derives](../../mets/derived-access-conditions) from its choices. A standard instance has just the vocabulary:
+
 ```json
-[
-  { "value": "dlip-open",          "label": "Open" },
-  { "value": "dlip-2-restricted",  "label": "Restricted" },
-  { "value": "dlip-3-protected",   "label": "Protected" },
-  { "value": "dlip-4-closed",      "label": "Closed" },
-  { "value": "dlip-unassessed",    "label": "Unassessed" }
-]
+{
+  "allowMultipleRestrictions": false,
+  "restrictionAxis": {
+    "label": "Access Restriction(s)",
+    "values": [
+      { "value": "Open",       "label": "Open" },
+      { "value": "Restricted", "label": "Restricted" },
+      { "value": "Closed",     "label": "Closed" }
+    ]
+  },
+  "rightsAxis": { "label": "Rights statement" },
+  "derived": []
+}
 ```
 
 | Property | Description |
 |---|---|
-| `value` | The string recorded against a file, folder or Range. This is what goes into METS and what comes back in `accessRestrictions`. |
-| `label` | A human-readable name for it, for a drop-down or a report. |
+| `restrictionAxis.values` | The vocabulary. `value` is the string recorded against a file, folder or Range — what goes into METS and what comes back in `accessRestrictions`; `label` is for showing to a person. |
+| `restrictionAxis.label` | What to call the restriction choice in a user interface. |
+| `rightsAxis.label` | What to call the rights-statement choice. The vocabulary itself is fixed and not in the profile: [rightsstatements.org](https://rightsstatements.org/) and Creative Commons. |
+| `allowMultipleRestrictions` | When true a file, folder or Range may carry several restrictions at once, and a user interface should offer a multi-select. Usually false: one restriction per resource. |
+| `categoryAxis`, `derived` | Absent and empty, respectively, unless the instance derives further access conditions from its choices — in which case `categoryAxis` is a third thing a person chooses. What they hold, and what a client should do with them, is on [Derived access conditions](../../mets/derived-access-conditions). |
 
 <Aside type="caution">
-The values above are one instance's configuration, shown to make the shape clear. They are **not** the definitive list, and you should not assume any particular value exists. An instance whose configuration omits the section altogether returns an empty list, and the endpoint gives no error when that happens — an empty response means "this instance has not configured any", not "something went wrong".
+The values above are one instance's configuration, shown to make the shape clear. They are **not** the definitive list, and you should not assume any particular value exists. An instance whose configuration omits the section altogether returns a profile with an empty `values` list, and the endpoint gives no error when that happens — an empty vocabulary means "this instance has not configured any", not "something went wrong".
 </Aside>
 
-Access conditions are applied to individual files, to folders, and to logical Ranges, and they are inherited: a file with none of its own takes the ones that apply to the nearest ancestor that has some. Both values are visible on the objects in a Deposit's [file listing](../deposit-files), as `accessRestrictions` (set here) and `effectiveAccessRestrictions` (what actually applies). Where they end up in the preserved METS is described in [METS we write](../../mets/mets-we-write).
+Access conditions are applied to individual files, to folders, and to logical Ranges, and they are inherited: a file with none of its own takes the ones that apply to the nearest ancestor that has some. Both values are visible on the objects in a Deposit's [file listing](../deposit-files), as `accessRestrictions` (set here) and `effectiveAccessRestrictions` (what actually applies). Where they end up in the preserved METS is described in [METS we write](../../mets/mets-we-write-descriptive#access-restrictions).
 
 ## Range types
 
@@ -57,9 +68,9 @@ You will meet these values in two places: in the `Type` metadata of a Range when
 <LinkCard
   title="💻 Example: read the vocabularies"
   href="https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/preservation-docs-client/p15_vocabularies/list_vocabularies.py"
-  description="Fetches both vocabularies and prints them as a client would offer them."
+  description="Fetches the access condition profile and the range types, and prints them as a client would offer them."
 />
 
 <Aside type="note">
-Neither endpoint takes parameters, and neither is paged. Both are cheap, and the values change only when an instance is reconfigured, so a client that fetches them once per run and caches them is behaving correctly — that is what the platform's own UI does, with a one-hour cache.
+Neither endpoint takes parameters, and neither is paged. Both are cheap, and the values change only when an instance is reconfigured, so a client that fetches them once per run and caches them is behaving correctly — that is what the platform's own UI does, caching the profile for five minutes and the range types for an hour.
 </Aside>

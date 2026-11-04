@@ -38,7 +38,8 @@ below).
 
 Zero or more `mods:accessCondition` elements with `type="restriction on access"`. The values are
 access-control tokens meaningful to downstream delivery systems (not to the preservation platform
-itself); see the [access-conditions vocabulary](../../preservation-api/vocabularies):
+itself); the vocabulary, and whether a div may carry more than one, come from the instance's
+[access condition profile](../../preservation-api/vocabularies#access-conditions):
 
 ```xml
 <mods:accessCondition type="restriction on access" xlink:type="simple">Level1</mods:accessCondition>
@@ -68,6 +69,52 @@ There are three distinct states, because rights are *inherited* down the physica
 <!-- state 3: this file must NOT inherit the parent's rights statement -->
 <mods:accessCondition type="use and reproduction" xlink:type="simple">null</mods:accessCondition>
 ```
+
+### Derived access conditions
+
+The two elements above are the ones a person *chooses*, and on a standard instance they are all there is.
+An instance can also configure a third chosen element — a **category**, for Leeds the copyright status,
+written under a `type` the instance picks and inherited like the restriction — and any number of access
+conditions that are **derived**: computed by a lookup over the effective restriction and the effective
+category, and written as a `mods:accessCondition` whose `type` is also the instance's choosing. For Leeds this is the Access Tier — the 0–5 value that downstream
+delivery maps to IIIF authorisation roles — computed from the Protected Access Level and the copyright
+status:
+
+```xml
+<mods:accessCondition type="restriction on access" xlink:type="simple">PA1</mods:accessCondition>
+<mods:accessCondition type="copyright status" xlink:type="simple">high-risk</mods:accessCondition>
+<mods:accessCondition type="use and reproduction" xlink:type="simple">http://rightsstatements.org/vocab/InC/1.0/</mods:accessCondition>
+<mods:accessCondition type="tier" xlink:type="simple">3</mods:accessCondition>
+```
+
+The category is set like the restriction: setting it replaces the element, clearing it removes the element so
+the node inherits. Nobody writes the fourth element directly; it cannot be set through the API and is not
+editable in the UI. The rules:
+
+- A derived value is written on every div, physical or logical, that carries at least one explicit chosen
+  element, and is computed from that div's **effective** restriction and category — so a file that sets
+  only a category gets a tier reflecting the access restriction it inherits from its folder.
+- It is also written on every **file** whose effective inputs come partly from its logical range. The
+  reader falls back to the range for an axis the folders are silent on, so a file in a range that sets the
+  restriction, under a folder that sets only the category, could not inherit the right value from the
+  folder; it gets its own.
+- Every write of the METS recomputes the derived values for the whole document. Changing the folder's
+  restriction therefore rewrites the tier on every descendant that carries one, and a derived element
+  whose source has gone is removed; a stale tier cannot survive a save.
+- Any other div carries no derived element and inherits one on read like everything else (see
+  [effective metadata inheritance](../mets-we-read#effective-metadata-inheritance)). Nothing is written
+  for a node with no effective input at all.
+- The writer touches only the types the instance currently derives, and only in `dmdSec`s it created
+  itself or that carry a chosen element. Any other typed `accessCondition` in the document — a third
+  party's, or a value under a type this instance used to derive and no longer does — is left exactly as
+  found, and so is a third party's derived element on a div with no chosen ones: a Goobi export that
+  carries only its resulting tier keeps it — on a physical div indefinitely, on a logical div until the
+  logical structure is saved (see [below](#logical-structmaps)).
+
+Which types exist, and the lookup for each, are configuration of the Preservation API, exposed in its
+[access condition profile](../../preservation-api/vocabularies#access-conditions); the mechanism and the
+Leeds example are on [Derived access conditions](../derived-access-conditions). An instance that configures
+nothing to derive gets exactly the two chosen elements.
 
 ### Catalogue record identifiers
 
@@ -125,7 +172,10 @@ Each div in a logical structMap:
 
 Replacing a logical structMap (matched by root div ID) removes the old one *and* the dmdSecs it
 referenced, then writes the new tree; removing one cleans up its dmdSecs the same way. The physical
-structMap is never affected.
+structMap is never affected. The new dmdSecs are built from what the client sent — title, record
+identifiers, restriction, rights statement and category — so anything else a third party's logical
+dmdSec held, including a [derived access condition](../derived-access-conditions) such as a Goobi tier,
+is not carried over.
 
 ### File pointers: whole files, time segments, image regions
 
