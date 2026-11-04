@@ -92,7 +92,8 @@ statement), and derives an **Access Tier**. Its profile, as `GET /access-conditi
         "PA3":           { "*": "3" },
         "PA4":           { "*": "4" },
         "PA-unassessed": { "*": "5" },
-        "__none__":      { "*": "5" }
+        "__none__":      { "*": "5" },
+        "*":             { "*": "5" }
       }
     }
   ]
@@ -110,6 +111,7 @@ Reading the matrix:
 | `PA2` | anything | — (`*`) | 3 |
 | `PA4` | anything | — | 4 |
 | none | anything | the `__none__` row | 5 |
+| any value outside the vocabulary (legacy content) | anything | the `*` row | 5 |
 
 <Aside type="note">
 This JSON is also, key for key, the Preservation API's `AccessConditionProfile` configuration section
@@ -122,7 +124,8 @@ notes for operators.
 ## What it produces
 
 **In METS**, a third `accessCondition` beside the two chosen ones, on every div (physical or logical) that
-carries an explicit choice of its own:
+carries an explicit choice of its own, and on every file whose effective inputs come partly from its
+logical range:
 
 ```xml
 <mods:accessCondition type="restriction on access" xlink:type="simple">PA2</mods:accessCondition>
@@ -150,7 +153,12 @@ decision before saving. See [Working with deposits](../../ui/deposits#access-con
   restriction per resource (`allowMultipleRestrictions` false). Legacy content carrying several uses the
   most restrictive of them, by the order of the restriction vocabulary, for the lookup.
 - The profile is validated when the Preservation API starts, and a matrix that names an unknown row,
-  column or value stops the service. A client can therefore trust that every cell names one of the
-  declared `values`.
+  column or value, or that leaves any restriction without a value for any group, stops the service. A
+  client can therefore trust that every cell names one of the declared `values`, and that every
+  combination of a vocabulary value (or none) and a group resolves to something.
+- The grouping of rights statements into columns is the instance's inference, not a property of the
+  statements: a URI says nothing about risk. The Leeds grouping above is the one assumed on
+  [issue #433](https://github.com/digirati-co-uk/digital-preservation/issues/433), where it is set out
+  statement by statement for Leeds to confirm.
 - The platform does not know what a derived value *means*. Mapping a tier to IIIF authorisation roles,
   or to anything else, is the delivery system's business.

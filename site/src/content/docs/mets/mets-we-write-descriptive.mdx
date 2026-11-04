@@ -91,14 +91,21 @@ The rules:
 - A derived value is written on every div, physical or logical, that carries at least one explicit chosen
   element, and is computed from that div's **effective** inputs — so a file that sets only a rights
   statement gets a tier reflecting the access restriction it inherits from its folder.
+- It is also written on every **file** whose effective inputs come partly from its logical range. The
+  reader falls back to the range for an axis the folders are silent on, so a file in a range that sets the
+  restriction, under a folder that sets only the rights statement, could not inherit the right value from
+  the folder; it gets its own.
 - Every write of the METS recomputes the derived values for the whole document. Changing the folder's
-  restriction therefore rewrites the tier on every descendant that carries one; a stale tier cannot
-  survive a save.
-- A div with no explicit chosen element carries no derived element either, and inherits one on read like
-  everything else (see [effective metadata inheritance](../mets-we-read#effective-metadata-inheritance)).
-- The writer touches only the types the instance currently derives. Any other typed `accessCondition` in
-  the document — a third party's, or a value under a type this instance used to derive and no longer does
-  — is left exactly as found.
+  restriction therefore rewrites the tier on every descendant that carries one, and a derived element
+  whose source has gone is removed; a stale tier cannot survive a save.
+- Any other div carries no derived element and inherits one on read like everything else (see
+  [effective metadata inheritance](../mets-we-read#effective-metadata-inheritance)). Nothing is written
+  for a node with no effective input at all.
+- The writer touches only the types the instance currently derives, and only in `dmdSec`s it created
+  itself or that carry a chosen element. Any other typed `accessCondition` in the document — a third
+  party's, or a value under a type this instance used to derive and no longer does — is left exactly as
+  found, and so is a third party's derived element on a div with no chosen ones: a Goobi export that
+  carries only its resulting tier keeps it.
 
 Which types exist, and the lookup for each, are configuration of the Preservation API, exposed in its
 [access condition profile](../../preservation-api/vocabularies#access-conditions); the mechanism and the
