@@ -6,6 +6,7 @@
 1. [004 IIIF Manifests and Collections](004-storing-iiif-manifests-and-collections.md)
 1. [005 Access Control](005-access-control.md)
 1. [008 Editing METS the platform did not write](008-editing-third-party-mets.md)
+1. [009 Preserving files larger than 5 GB](009-large-files.md)
 
 * Fedora - linked data platform, Vanilla Fedora API.
 * Storage API - Sits in front of Fedora. API to organise a repository with Containers (folders), store versioned Archival Groups, that contain Binaries (and Containers).
