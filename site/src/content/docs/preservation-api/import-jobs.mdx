@@ -158,9 +158,11 @@ The same information appears on the [ImportJobResult](../import-job-results) as 
 
 A rename changes the `name` of a Container or Binary — its `dc:title`, the UTF-8 display name that preserves the original file or folder name. **It cannot change the slug**, the last segment of the `id`, because that is the object's address in the repository and in OCFL. A file whose path must change is a delete and an add.
 
-So an entry in `binariesToRename` or `containersToRename` is the resource as it should now be: the same `id` as the existing one, with a different `name`. A generated diff populates these lists by comparing the name in the Deposit's METS with the name currently recorded in the Archival Group.
+So an entry in `binariesToRename` or `containersToRename` is the resource as it should now be: the same `id` as the existing one, with a different `name`. A generated diff populates these lists by comparing the name in the Deposit's METS (a structMap `div`'s `LABEL`, or else the last path segment) with the name currently recorded in the Archival Group. A `LABEL` left blank is never a rename: the resource keeps the name it already has.
 
-**Renames are not carried out yet.** The diff still lists them, so you can see that a name differs, but executing a job with anything in either list is refused with `400 Bad Request` before anything is created. The detail names the items and says how to proceed: make the name in the METS match the name the Archival Group already has, or remove the rename entries from the job. A diff reference is no way round this: the diff is generated first, and refused if it contains renames.
+Executing the job **replaces** each listed resource's name. A resource has one name; earlier names survive only in the Archival Group's earlier OCFL versions. Renames are carried out after additions and patches, in the same transaction, so a Binary that is both patched and renamed ends up with its new name. A job you write yourself that renames something to an empty `name` is refused with `400 Bad Request` before anything is created.
+
+The Archival Group's own name works the same way: on an update, the job's `archivalGroupName` replaces the existing name rather than being kept alongside it.
 
 ### BagIt deposits
 
