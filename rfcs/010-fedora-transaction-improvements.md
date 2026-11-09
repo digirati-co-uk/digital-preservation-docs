@@ -300,7 +300,11 @@ Each block below is meant to be pasted into an issue, more or less as is.
 ### T1: Reach Fedora on a private network path, not through NAT and the public ALB
 
 **Problem.** The Storage API and importer reach Fedora through the platform's internet-facing ALB.
-Traffic leaves the VPC through the NAT gateway and comes back in. That path has a fixed 350-second NAT
+Traffic leaves the VPC through the NAT gateway and comes back in. This is Fedora traffic only: S3
+traffic from the same subnets uses the S3 gateway endpoint (section 1). Confirmed on dev on 9 November
+2026: the Storage API and importer subnets route `0.0.0.0/0` to the NAT gateway, the ALB is
+internet-facing, and all 4,555 Fedora requests in its access logs from 13:50 to 14:30 UTC came from
+the NAT gateway's public address. That path has a fixed 350-second NAT
 idle timeout, and the ALB's idle timeout is capped at 4,000 seconds. Together they caused the 2025
 incidents in #350, and most of the commit-verification logic in #383 exists to survive them. Fedora
 needn't be on an internet-facing load balancer at all.
@@ -337,9 +341,20 @@ also carries basic auth in clear text. If HTTPS is kept, add one more check befo
 whether Fedora's response URIs come back as `https://` behind the internal ALB, which depends on
 how the image's Tomcat handles forwarded headers.
 
-**Check before switching.** Fedora builds resource URIs from the request's host. Confirm that nothing
-we persist holds full Fedora URLs: not the Storage or Preservation API databases, not the import job
-JSON, not METS. Confirm too that the Storage API's URI conversion only depends on `Fedora__Root`.
+**Check before switching.** Fedora builds the URIs in its responses from the host it is called on,
+and the Storage API converts them using `Fedora__Root`, so the two must match exactly. Changing that
+host is safe because nothing we store holds a Fedora URL:
+- What we do store fully qualified are Storage API and Preservation API URIs (`.../repository/...`,
+  `.../content/...`, `.../import/results/...`) and `s3://` locations. They are built from
+  `Converter__StorageRoot` and `ResourceMutator__*`, which T1 does not change.
+- On 9 November 2026 a scan of every text and JSON column in a local Storage API and Preservation API
+  database found no Fedora host and no `fcrepo` path. That local Storage API was talking to dev
+  Fedora, so a stored Fedora URL would have shown up. Repeat the scan against each environment's two
+  databases before switching it; the query is on the T1 issue, digital-preservation#440.
+- METS file references are relative to the deposit, and no METS code knows Fedora's address.
+- Fedora's own database and the OCFL inventories use host-independent `info:fedora/...` identifiers
+  (#351, checked 6 October 2026).
+
 Change both services in the same deploy.
 
 **Acceptance.**
