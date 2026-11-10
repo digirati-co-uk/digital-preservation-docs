@@ -104,6 +104,11 @@ The full commit is
 It still depends on fcrepo-storage-ocfl 7.0.0 and ocfl-java 2.2.1.
 These findings apply to that snapshot; do not assume a `7.0.0` image contains its changes.
 
+**Update, 10 November 2026:** there is still no release containing this change. Fedora's `main` has
+moved on from that commit (a large dependency update, ocfl-java 2.2.3), and the `7.1.0-SNAPSHOT` image
+was last rebuilt on 6 November. Pin an image digest and check that build's source before relying on
+these findings. See RFC 010 section 7.5.
+
 The important difference is in
 [`ExternalContentHandler`](https://github.com/fcrepo/fcrepo/blob/c2d13bdf89cad2f3e863a5078714610dd45db2b5/fcrepo-http-api/src/main/java/org/fcrepo/http/api/ExternalContentHandler.java):
 when the external-content Link supplies **both `type` and a valid, non-negative `size`**,

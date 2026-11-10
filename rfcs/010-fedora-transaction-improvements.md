@@ -3,8 +3,8 @@
 **Status: draft for discussion.** This paper steps back from the run of fixes to how imports use
 Fedora transactions ([#350](https://github.com/digirati-co-uk/digital-preservation/issues/350),
 [#383](https://github.com/digirati-co-uk/digital-preservation/pull/383)) and asks whether the
-approach is sound, and what should change around it. It is written to be turned into issues on the
-backlog board. Section 6 has indicative issue text for each proposal.
+approach is sound, and what should change around it. Its proposals are now issues under the epic
+[#439](https://github.com/digirati-co-uk/digital-preservation/issues/439), which holds the working order. Section 6 lists them.
 
 [RFC 010A: Ingress file management](010A-ingress-file-management.md) expands T12 into an early
 delivery-and-capacity spike covering direct fetching, local-file sources and mixed deposits,
@@ -210,7 +210,7 @@ test (2,797 files) passed, so this is a margin, not an observed failure.
 |---|---|---|
 | [FCREPO-4084](https://github.com/fcrepo/fcrepo/pull/2309), "Ocfl java s3 5gb issue" (fcrepo#2309) | Turns on multipart for the Netty client, so a `CopyObject` over 5 GB works (as `UploadPartCopy`). That matters for the mutable-head path, not ours | 6.5.2; on `main` after 7.0.0 |
 | [fcrepo#2314](https://github.com/fcrepo/fcrepo/pull/2314) | Rewires `timeout.connection.seconds` to the TCP connect timeout. The acquisition timeout falls back to the AWS SDK default: **10 seconds, and no longer configurable** | 6.5.2; on `main` after 7.0.0 |
-| [fcrepo#2327](https://github.com/fcrepo/fcrepo/pull/2327), backported as [#2328](https://github.com/fcrepo/fcrepo/pull/2328) | Restores a configurable acquisition timeout, `fcrepo.ocfl.s3.timeout.acquisition.seconds`, default 60. Upstream describes #2314's effect as a regression that users on 6.5.2 hit during commits under load | `main` (24 August 2026) and `6.5-maintenance` (9 October 2026). **Not yet released**; it will be in 6.5.3 |
+| [fcrepo#2327](https://github.com/fcrepo/fcrepo/pull/2327), backported as [#2328](https://github.com/fcrepo/fcrepo/pull/2328) | Restores a configurable acquisition timeout, `fcrepo.ocfl.s3.timeout.acquisition.seconds`, default 60. Upstream describes #2314's effect as a regression that users on 6.5.2 hit during commits under load | `main` (24 August 2026) and `6.5-maintenance` (9 October 2026). **Not yet released** (still so at 10 November 2026); it would be in a 6.5.3 |
 
 **So 6.5.2 is likely worse for us than 6.5.1.** It cuts the small-file acquisition window from 60
 seconds to a fixed 10, which is exactly our many-files case, and its other S3 change is for a path we
@@ -252,10 +252,10 @@ first. fcrepo #2331, not yet released, fixes that. See T12.
 |---|---|---|
 | P1 | Service traffic to Fedora goes out through NAT to an internet-facing ALB and back | The 350 s NAT idle drop and the 4,000 s ALB cap. Most of #350 and #383 exists to survive this. Fedora is also on an internet-facing load balancer when only our own services need it |
 | P2 | Every ingested byte is relayed by the importer | S3 legs already use the gateway endpoint, so they don't cross NAT. But the importer holds a stream from S3 to Fedora for every binary, and before T1 that stream crosses the NAT gateway once on its way to Fedora. NAT data processing is charged per GB, about $0.05 in eu-west-1 at the time of writing |
-| P3 | Fedora's ECS service uses default deployment settings and a strict health check | ECS defaults (minimum 100%, maximum 200%) should briefly run **two Fedoras** behind the ALB during a deploy: transactions live in one task's memory, and two tasks would write OCFL at once. The health check has a 10 s timeout and marks the task unhealthy after 2 failures 30 s apart. A slow health endpoint during a heavy commit could get Fedora replaced mid-commit, which is the "wedged Archival Group" case in 2.5 |
+| P3 | Fedora's ECS service uses default deployment settings | ECS defaults (minimum 100%, maximum 200%) run **two Fedoras** behind the ALB whenever the task is replaced: transactions live in one task's memory, and two tasks write OCFL at once. That happens on a deploy, and also about weekly with no deploy, when AWS retires the Fargate task for patching (seen in production on 9, 17 and 29 October 2026). The health check isn't a risk: it expects a `401`, which Tomcat answers before any Fedora code runs |
 | P4 | Commit time scales with bytes, and includes a full local re-read | Long commits are the trigger for P1's timeouts, and they block the single importer (P7) |
 | P5 | The S3 connection-pool acquisition timeout for files under 8 MB: 60 s on 6.5.1, a fixed 10 s on 6.5.2 | A commit with thousands of small files could fail waiting for a connection. Not observed on 6.5.1, since the October test passed, but 6.5.2 would make it more likely (2.7) |
-| P6 | Importer death mid-commit is reported as a failure | Fedora finishes the commit, but the reaper marks the job failed. The deposit goes to Error while the Archival Group moved on, and a retry fails or makes a confusing extra version. Importer redeploys do this, and on dev every push to `main` redeploys it. #383 doesn't cover it |
+| P6 | Importer death mid-commit is reported as a failure | Fedora finishes the commit, but the reaper marks the job failed. The deposit goes to Error while the Archival Group moved on, and a retry fails or makes a confusing extra version. Importer redeploys do this, and on dev every push to `main` redeploys it. So do AWS's task retirements, in production too (10 November 2026). #383 doesn't cover it |
 | P7 | One importer runs jobs serially | A long import blocks every other deposit's import until it finishes |
 | P8 | Two to four sequential HTTP requests per binary | Latency multiplied by thousands of files. The post-`PUT` checksum comparison is redundant, since Fedora already rejected a bad digest |
 | P9 | Fedora runs with `-Dfcrepo.log=DEBUG` in every environment | Log volume, and some overhead, on every request |
@@ -267,7 +267,7 @@ first. fcrepo #2331, not yet released, fixes that. See T12.
 |---|---|---|---|---|
 | T1 | Private network path from our services to Fedora | ops (+ platform config) | M | P1 |
 | T2 | ~~S3 gateway VPC endpoint~~ Withdrawn: every environment already has one (section 1) | – | – | – |
-| T3 | Fedora ECS deployment and health-check settings | ops | S | P3 |
+| T3 | Run only one Fedora task at a time | ops | S | P3 |
 | T4 | Skip Fedora 6.5.2, and widen the S3 acquisition timeout now | ops | XS | P5 |
 | T5 | Evaluate `fcrepo.ocfl.unsafe.write.enabled` | ops (measure on dev) | S | P4 |
 | T6 | Record a commit in progress, and reconcile instead of failing | platform | M | P6 |
@@ -277,443 +277,60 @@ first. fcrepo #2331, not yet released, fixes that. See T12.
 | T10 | Turn off Fedora debug logging in deployed environments | ops | XS | P9 |
 | T11 | Spike: confirm or rule out the stale containment cache | platform | S | P10 |
 | T12 | Spike, then possibly adopt: Fedora fetches file bytes itself (external content, `handling=copy`, presigned URL, needs fcrepo #2331) | platform + ops | M | P2 (partly) |
-| T13 | After T1: simplify the transaction monitor | platform | S | P1 follow-up |
+| T13 | Simplify the transaction monitor | platform | S | P1 follow-up |
 | T14 | Upgrade Fedora to 7.x | ops + platform (test) | M | Section 7, P5 |
 
-**Suggested order:**
-1. **First**, all quick:
-   - T3, T4 and T10: configuration only, and each removes a real risk;
-   - T11: a quick check.
-2. **Then:** T1, the change that removes the timeouts at their root; and T5, measured on dev with a
-   large deposit.
-3. **Then:** T14, the move to Fedora 7. Re-run T5's measurements on 7. T12's spike can run on dev at
-   any time ops can stand up a pinned 7.1 snapshot. T12 itself lands only on a release that contains
-   #2331, and only if the spike shows a gain.
-4. **Then:** T6, before T8 (concurrency makes reconciliation more important), and T7 any time.
-5. **Later:** T9 alongside T3, and T13 once T1 has landed. Under option (a) the 4,000 s ALB cap
-   remains, so #383's verification stays.
-
-## 6. Indicative issue text
-
-Each block below is meant to be pasted into an issue, more or less as is.
-
-### T1: Reach Fedora on a private network path, not through NAT and the public ALB
-
-**Problem.** The Storage API and importer reach Fedora through the platform's internet-facing ALB.
-Traffic leaves the VPC through the NAT gateway and comes back in. This is Fedora traffic only: S3
-traffic from the same subnets uses the S3 gateway endpoint (section 1). Confirmed on dev on 9 November
-2026: the Storage API and importer subnets route `0.0.0.0/0` to the NAT gateway, the ALB is
-internet-facing, and all 4,555 Fedora requests in its access logs from 13:50 to 14:30 UTC came from
-the NAT gateway's public address. That path has a fixed 350-second NAT
-idle timeout, and the ALB's idle timeout is capped at 4,000 seconds. Together they caused the 2025
-incidents in #350, and most of the commit-verification logic in #383 exists to survive them. Fedora
-needn't be on an internet-facing load balancer at all.
-
-**Proposal.** Give service-to-service traffic a private route to Fedora. Either:
-- (a) **an internal ALB**: removes NAT, but keeps a 4,000 s idle cap, so commits over about 66
-  minutes would still hit it; or
-- (b) **service discovery** straight to the Fedora task. With **Cloud Map DNS-only** discovery there's
-  no proxy and no load balancer, so no idle cap. But the task's IP changes on every deploy, there's no
-  health-based routing beyond ECS deregistration, and the shared modules don't support it.
-  **ECS Service Connect** is different: it adds a proxy to every task, with its own idle timeout
-  (5 minutes by default for HTTP) and per-request timeout. Both can be set to 0, but it isn't cap-free
-  by default. Fedora is a single task, so there's nothing to balance either way.
-
-Point the importer's and Storage API's `Fedora__Root` at it. Decide whether anything still needs
-Fedora on the public ALB, such as admin access, and if not, remove the listener rule.
-
-**For option (a)**, the shared modules will support it: digirati-co-uk/terraform-aws-modules#100
-(open at the time of writing; preservation-ops pins the modules at `v3.34`, so T1 needs a module
-release or a branch ref) adds an `internal` option and an optional HTTPS listener to `wildcard-alb`,
-and lets ECS services register with more than one target group. Donald used it to move Wellcome's
-DLCS image servers onto an internal ALB with no downtime:
-1. add an internal Route 53 hosted zone and an internal ALB;
-2. put the service on both the old and new ALBs;
-3. point its callers at the internal hostname;
-4. remove it from the old ALB.
-
-That pattern uses a private zone and plain HTTP inside the VPC, so `Fedora__Root` becomes an
-`http://` URL. That's fine as long as it matches exactly, the same condition as in "Check before
-switching". Keeping HTTPS with the existing wildcard certificate is the alternative, and a
-sub-decision under D3. The ALB→Fedora hop is already plain HTTP today (the target group is
-`HTTP` to port 8080), so the question is whether the services→ALB leg, now inside the VPC,
-also carries basic auth in clear text. If HTTPS is kept, add one more check before switching:
-whether Fedora's response URIs come back as `https://` behind the internal ALB, which depends on
-how the image's Tomcat handles forwarded headers.
-
-**Check before switching.** Fedora builds the URIs in its responses from the host it is called on,
-and the Storage API converts them using `Fedora__Root`, so the two must match exactly. Changing that
-host is safe because nothing we store holds a Fedora URL:
-- What we do store fully qualified are Storage API and Preservation API URIs (`.../repository/...`,
-  `.../content/...`, `.../import/results/...`) and `s3://` locations. They are built from
-  `Converter__StorageRoot` and `ResourceMutator__*`, which T1 does not change.
-- On 9 November 2026 a scan of every text and JSON column in a local Storage API and Preservation API
-  database found no Fedora host and no `fcrepo` path. That local Storage API was talking to dev
-  Fedora, so a stored Fedora URL would have shown up. Repeat the scan against each environment's two
-  databases before switching it; the query is on the T1 issue, digital-preservation#440.
-- METS file references are relative to the deposit, and no METS code knows Fedora's address.
-- Fedora's own database and the OCFL inventories use host-independent `info:fedora/...` identifiers
-  (#351, checked 6 October 2026).
-
-Change both services in the same deploy.
-
-**Acceptance.**
-- No Fedora traffic from our services crosses the NAT gateway.
-- On dev, a large commit returns its 204 directly. Under option (a), a commit past the 4,000 s ALB
-  cap stays covered by #383's verification.
-- `deployment.md`'s "Reaching Fedora" section is rewritten.
-- TCP keepalive (120/30/5) stays, as dead-peer detection.
-
-### T2: Withdrawn
-
-This proposed an S3 gateway endpoint. Every environment already has one, created by the shared VPC
-module (`terraform-aws-modules`, `tf/modules/vpc`, `public-private-igw/vpc_endpoints.tf`), which
-isn't visible from preservation-ops alone. The id is kept so the other proposals' numbers don't
-change.
-
-### T3: Fedora ECS service: single-instance deployment and a tolerant health check
-
-**Problem.**
-- **Deploys.** The Fedora service sets `desired_count = 1`, but leaves ECS's deployment defaults in
-  place (minimum healthy 100%, maximum 200%). During a deploy, a second Fedora task should start and
-  register with the target group while the first is still serving. Transactions live in one task's
-  memory, so requests carrying a transaction id can reach the wrong task and get 404. Two Fedoras would
-  also be writing OCFL and the index database at the same time.
-- **Health check.** The ALB health check (`fcr:systeminfo`) has a 10 s timeout and marks the task
-  unhealthy after 2 failures 30 s apart, with no grace period. If that endpoint is slow during a heavy
-  commit, ECS replaces the task mid-commit. A task killed mid-upload can leave an Archival Group wedged
-  (see T9).
-
-**Proposal.**
-- Set `deployment_minimum_healthy_percent = 0` and `deployment_maximum_percent = 100` on the Fedora
-  service. A deploy is then stop-then-start, with a short outage instead of two writers.
-- Raise the health-check timeout and unhealthy threshold, for example 30 s and 5, and set
-  `health_check_grace_period_seconds`.
-- First, look in CloudWatch for `UnHealthyHostCount` on the Fedora target group during the 22-minute
-  commit test on 6 October 2026, to see how close we've already come.
-- Optionally set `deployment_circuit_breaker`.
-
-**Acceptance.**
-- A Fedora deploy on dev never shows two registered targets.
-- No unhealthy-target events during a large commit on dev.
-
-### T4: Skip Fedora 6.5.2, and widen the S3 acquisition timeout now
-
-**Problem.** At commit, every file under 8 MB is uploaded through a pool of 100 S3 connections. An
-upload that waits longer than the pool's acquisition timeout fails the commit (2.7). A deposit with
-thousands of small files queues them all at once.
-- **On 6.5.1**, which we run, that timeout is `fcrepo.ocfl.s3.timeout.connection.seconds`, default 60.
-- **6.5.2** ([fcrepo#2314](https://github.com/fcrepo/fcrepo/pull/2314)) silently cuts it to the AWS SDK
-  default of 10 seconds, with no setting to raise it again. Upstream fixed that in
-  [fcrepo#2327](https://github.com/fcrepo/fcrepo/pull/2327), backported as #2328, but neither is
-  released yet.
-
-**Proposal.**
-- **Don't deploy 6.5.2.** Wait for 6.5.3, or move to 7.x (T14).
-- **On 6.5.1 now**, set `FC_fcrepo_ocfl_s3_timeout_connection_seconds` to something generous, for
-  example 300, in the Fedora task's environment. In 6.5.1, and in 7.0.0, this property *is* the
-  acquisition timeout.
-- **Revisit at T14.** On any release with #2314, the same property becomes the TCP connect timeout,
-  and the acquisition timeout becomes `fcrepo.ocfl.s3.timeout.acquisition.seconds` (#2327).
-- **Optionally, raise `fcrepo.ocfl.s3.max_concurrency`.** Weigh that against S3 request rates and
-  memory. Note that its name contains an underscore. According to its readme, our bootstrap container
-  turns every `_` in an `FC_` variable into `.`, so this property needs either a bootstrap change or
-  another way to pass it.
-
-**Acceptance.**
-- The setting is in all environments.
-- A large-deposit commit on dev is no slower.
-- No "Acquire operation took longer than the configured maximum time" errors in Fedora's logs.
-
-### T5: Measure `fcrepo.ocfl.unsafe.write.enabled`
-
-**Problem.** At commit, ocfl-java re-reads every staged byte to compute its digest, serially. Fedora
-has already verified every binary against our `Digest` header at `PUT` time. Our importer then also
-compares Fedora's recorded checksum with ours. The re-read is a third check of the same bytes, on local
-disk, and it's on the critical path of every commit.
-
-**Proposal.** On dev, time the large-deposit commit with and without
-`FC_fcrepo_ocfl_unsafe_write_enabled=true`. With it on, ocfl-java trusts the digest it's given and skips
-the re-read. Fedora's own warning: "If this value is incorrect, the object will be corrupted". The risk
-is bytes changing on the staging disk between `PUT` and commit.
-
-**Decide** whether the saving justifies dropping that check. An export with checksum verification
-would still catch a bad file afterwards.
-
-**Acceptance.** Commit-time figures with and without the setting, and a decision recorded here.
-
-### T6: Record a commit in progress, and reconcile instead of reporting failure
-
-**Problem.** If the importer dies during the commit `PUT` (a redeploy, a crash, an out-of-memory),
-Fedora still finishes the commit (2.5). The heartbeat reaper then marks the job failed:
-- the deposit goes to Error while the Archival Group has a new version;
-- retrying a create fails, because the group now exists;
-- retrying an update makes a confusing extra version.
-
-#383 only covers failures the importer survives. On dev, every push to `main` redeploys the importer.
-
-**Proposal.**
-- Before the commit `PUT`, persist on the import job result: commit started, the transaction URI, the
-  source version, and the time.
-- When the reaper would mark such a job failed, or when an importer starts and finds one, resolve it
-  the way #383 does instead:
-  - wait for the transaction to finish, with a `GET` until 404 or 410;
-  - then compare the Archival Group's OCFL version with the source version;
-  - record Completed or CompletedWithErrors accordingly, with the evidence.
-- Optionally, use the 410 body text ("already committed" versus "rolled back" or "expired") as a
-  corroborating signal, but never as the only one.
-
-**Acceptance.**
-- Killing the importer mid-commit on dev leaves the job Completed once the commit lands, with the right
-  new version, and the deposit is not in Error.
-- Tests cover the reaper and startup paths.
-
-### T7: Fewer requests per binary
-
-**Problem.** Each binary takes a `PUT`, a `GET` of its description, possibly a title `PATCH`, and
-another `GET`, then a client-side checksum comparison. That's two to four sequential requests per file.
-Fedora already rejects a `PUT` whose content doesn't match the `Digest` header, so the comparison can't
-fail on a successful `PUT`.
-
-**Proposal.**
-- Drop the post-`PUT` `GET` and checksum comparison.
-- Set the title with one conditional SPARQL `PATCH`, an insert that only applies when there's no title.
-- Read the description back only when the job result needs a field we don't already have.
-
-Keep the error mapping and the tombstone handling.
-
-**Acceptance.** Requests per binary go from 2–4 to 2. Import time for a many-file deposit on dev is
-measurably lower, and the import tests are unchanged.
-
-### T8: Run import jobs for different Archival Groups concurrently
-
-**Problem.** One importer task runs one job at a time, so a long commit (tens of minutes) blocks every
-other deposit's import.
-
-**Proposal.** Allow N concurrent jobs, configurable, starting at 2 or 3, as long as each is for a
-different Archival Group. Fedora's group-level lock already makes a clash a 409 rather than corruption,
-and the Storage API already refuses to queue a second active job for the same group (`QueueImportJob`, 409).
-
-Constraints:
-- staging disk: the EBS volume is 1,000 GB, and must hold every in-flight import's payload;
-- Fedora's database pool: a commit holds 2 connections for its duration, and each streaming `PUT`
-  holds 1;
-- task memory.
-
-Do this after T6, since more concurrency makes reconciliation matter more.
-
-**Acceptance.** Two imports for different groups overlap on dev, and a small import is no longer
-blocked by a large one.
-
-### T9: Runbook: an Archival Group wedged by a half-written version
-
-**Problem.** If Fedora dies mid-upload, an orphan `vN/` prefix can be left in the OCFL bucket. The next
-write to that object then fails with `ObjectOutOfSyncException`, so every import to that Archival Group
-fails until the orphan is removed. Separately, a crash between the OCFL write and the database commit
-leaves OCFL ahead of Fedora's index.
-
-**Proposal.** Write the runbook in `docs/internals`:
-- how to recognise each case from Fedora's logs and the import error;
-- how to confirm the orphan against the root inventory's head version;
-- how to remove it safely: the orphan prefix only, never a version the inventory lists;
-- when `POST /{path}/fcr:reindex` or a restart is needed.
-
-Rehearse the first case on dev.
-
-**Acceptance.** The runbook exists and has been rehearsed once on dev.
-
-### T10: Turn off Fedora debug logging in deployed environments
-
-**Problem.** The Fedora task's `CATALINA_OPTS` sets `-Dfcrepo.log=DEBUG` in every environment.
-
-**Proposal.** Make the log level a module variable. Default it to `INFO`, and use `DEBUG` only when
-diagnosing.
-
-**Acceptance.** Prod and test log at INFO, and log volume drops.
-
-### T11: Spike: is there a stale containment cache after long commits?
-
-**Problem.** *Inferred from source, untested:*
-- Fedora invalidates its containment caches at the start of a commit
-  ([`ContainmentIndexImpl`](https://github.com/fcrepo/fcrepo/blob/fcrepo-6.5.1/fcrepo-kernel-impl/src/main/java/org/fcrepo/kernel/impl/ContainmentIndexImpl.java),
-  around L783-786).
-- A non-transaction read during the upload could then cache "doesn't exist" for a new Archival Group.
-- The caches are Caffeine with `expireAfterAccess` 10 minutes, so continued polling could keep it 404
-  after the commit lands.
-
-**Proposal.** On dev, start a large *new* Archival Group import. Poll `GET` on its path through the
-Storage API every 30 s throughout the commit, and see whether it appears as soon as the commit returns.
-
-**Acceptance.** Confirmed or ruled out. If confirmed, raise it upstream and decide on a mitigation
-(not polling, or a shorter cache timeout via `fcrepo.cache.db.containment.timeout.minutes`).
-
-### T12: Fedora fetches file bytes itself (spike first)
-
-**Problem.** Every binary's bytes are relayed by the importer: it opens a stream from the deposit
-object and sends it as the body of the `PUT` to Fedora (`FedoraClient.MakeBinaryPut`). The importer
-therefore holds a long stream per binary, and before T1 that stream crosses the NAT gateway. The
-TODO in `MakeBinaryPut` has wanted Fedora to fetch the bytes itself since the March 2024 prototype.
-
-**What it would and wouldn't change.** For S3-origin binaries, this removes the importer's relay:
-CPU, memory and one open stream per binary. It may also shorten the streaming phase of an import.
-It doesn't change commit time, staging capacity, the one-transaction model, or the ALB idle cap on
-each long request. And it adds a failure mode: a fetch that stalls inside Fedora. So it is worth
-adopting only on measured evidence.
-
-**What stops it on the Fedora we run.** On 6.5.1, and unchanged in 7.0.0, Fedora sends a `HEAD` to
-any `http(s)` external-content URL before fetching it (`ExternalContentHandler.retrieveContentDetails`).
-A non-200 fails the request. An S3 URL presigned for `GET` is signed for that method only, so the
-`HEAD` gets a 403. Donald found this when he tried it in 2024. fcrepo #2331, merged on 2 September
-2026 and not yet in a release, adds a `size` parameter to the Link header and skips the `HEAD` when
-both `type` and `size` are given.
-
-**The route.** On a Fedora containing #2331, `PUT` each binary with an empty body and:
-
-```http
-Link: <presigned GET URL>; rel="http://fedora.info/definitions/fcrepo#ExternalContent"; handling="copy"; type="<media type>"; size="<bytes>"
-Digest: sha-256=<as now>
-```
-
-- **Size and type come from the deposit**, which already records both, so no `HEAD` is needed.
-  - For `copy`, Fedora stores the byte count it actually staged, not the Link `size`, which only
-    suppresses the `HEAD`.
-  - The Link `type` *is* stored as the media type, so send the deposit's media type, as now.
-  - The `Digest` header stays mandatory (`RequireDigestOnBinary`), and a copied stream goes through
-    the same digest check as a streamed body.
-- **Allow-list each deposit bucket in the exact host form the presigner emits.** Fedora's
-  `fcrepo.external.content.allowed` check is a plain string prefix. The bootstrap already writes the
-  file, but the current template (`files/allow_list.tftpl`) emits the global-endpoint form
-  `https://<bucket>.s3.amazonaws.com/`, while a presigner configured for eu-west-1 most likely emits
-  the regional `https://<bucket>.s3.eu-west-1.amazonaws.com/`. Replace the entry deployed today for
-  the OCFL bucket (`s3-fedora.tf`), which is unused and left over from the 2024 prototype.
-- **Presign just before each `PUT`, and never persist the URL.** S3 checks expiry when a request
-  starts, so the URL only has to outlive the start of the fetch. A URL signed with role credentials
-  also stops working when that role session ends.
-- **Set JVM-wide timeouts for the fetch.** It uses `URL.openStream()`, which has no timeouts of its
-  own, so add `-Dsun.net.client.defaultConnectTimeout` and `-Dsun.net.client.defaultReadTimeout` to
-  the Fedora task's `CATALINA_OPTS`. Merge them into the existing string, which the ops module sets
-  and which also carries `fcrepo.home`. Don't replace it.
-- **Keep signed query strings out of logs and job results.** This is a hard requirement. Fedora logs
-  the full source URL at DEBUG and puts it in exception messages. `FedoraClient` copies Fedora's
-  error body into the import job's failure message, which reaches Preservation API callers. T10 turns
-  DEBUG off, and the importer must scrub URLs from any Fedora error it records.
-- **Choose per binary, with a fallback.** Streamed `PUT` stays available for anything without an S3
-  origin. Don't retry a failed fetch by another route inside the same transaction: a failure during
-  the fetch has already failed the transaction. A rejection before the fetch (allow-list mismatch,
-  malformed Link) happens outside Fedora's transaction wrapper and leaves the transaction usable,
-  but keep the rule simple and fail the job regardless.
-
-**The bounded spike, on an isolated dev setup.** It doesn't need T1 or T14. RFC 010A defines the
-full comparison; this is a delivery-and-capacity investigation, not just a check that the HTTPS
-route works.
-- **Image:** #2331 is on Fedora's `main`. The `7.1.0-SNAPSHOT` image was built on 24 September 2026,
-  after the merge. Pin the image by digest and record it.
-- **Data:** use a throwaway database and OCFL prefix, not the shared dev data. The snapshot bumps
-  Flyway, and a later downgrade is unverified.
-- **First check that the route works at all:**
-  - the allow-list entry matches the presigned URL's host;
-  - one `PUT` with `type` and `size` produces a `GET` and no `HEAD` at the source (the deposit buckets
-    have S3 server access logging on);
-  - a wrong digest is still rejected;
-  - an expired URL and a missing object fail cleanly.
-- **Compare** streamed `PUT`, HTTPS copy, and local-file copy; include a read-only S3-mount variant
-  where practical. Use equivalent manifests with multiple deposit buckets, a file over 5 GB,
-  many small files, and a realistic mixed deposit. Include source-preparation time and test a
-  uniform fetch route as well as per-binary selection.
-- **Measure** source preparation, binary staging and commit separately; record importer and Fedora
-  CPU and memory, S3 requests, NAT bytes, ALB traffic, peak disk use, cleanup and operational cost.
-- **Test failures and integrity:** source mutation, denied or expired access, interrupted and stalled
-  reads, client cancellation, mount loss where applicable, and importer failure during fetch or
-  commit. Verify recovery and reconciliation, and inspect logs and job results for signed URLs.
-- **Control capacity:** use isolated, controlled storage limits and measure peak use and cleanup.
-  Coordinated reservations must defer or reject work before writes begin before any route is
-  adopted in production.
-- **Agree the decision rule before the comparison:** what reduction would justify adopting it.
-
-RFC 010A sets out the detailed procedure, including correctness checks and exit criteria.
-
-**Adoption.** If the spike shows a gain worth the added failure mode, adopt it with the first release
-that contains #2331. Ask upstream whether #2331 can be backported to `6.5-maintenance`, as #2327 was
-(#2328). That would make it available without the 7.x upgrade.
-
-**Not proposed:**
-- **Patching our own Fedora build with #2331, or running a snapshot in production.** ADR 001's
-  principle is a standard, unmodified Fedora. The change itself is small, but we'd be building,
-  scanning and rebuilding our own image for every upstream release.
-- **A mount as the default route or a production hosting change.**
-  - Fedora's own storage would be untouched: a mount is only the source of a copy.
-  - Mountpoint is FUSE, which Fargate can't run. A mount comparison may therefore require ECS on
-    EC2, a hosting change that is not itself proposed for production.
-  - It moves the same bytes, as S3 GETs behind a file-system daemon, and turns S3's error codes into
-    generic I/O errors. Test its behaviour and failure recovery before treating it as equivalent to
-    direct S3 access.
-  - Multiple buckets may require additional mount configuration; the spike should test this against
-    the external-applications goal in #410 rather than assume that buckets must be consolidated.
-- **An interim on 6.5.1.** Unsigned S3 URLs plus a bucket policy allowing reads only through our
-  gateway endpoint (`aws:SourceVpce`) would get past the `HEAD` today. But anything in the private
-  subnets, including the pipeline hosts and every ECS task, could then read deposit objects without
-  credentials. The Goobi bucket holds another organisation's content, so that exposure would need
-  their agreement, not just ours. Only worth considering if a release is far off and the spike has
-  shown a gain.
-
-**Acceptance.**
-- **Spike:** a written comparison and a recommendation against the agreed decision rule.
-- **If adopted:**
-  - binaries assigned to a direct-fetch or local-file route no longer stream through the importer;
-  - mixed-route imports preserve target paths, metadata, digest verification and one version per import;
-  - no signed URL appears in Fedora logs, importer logs or job results;
-  - source bytes remain stable through reconciliation, and capacity is reserved before writes begin;
-  - the TODO in `MakeBinaryPut` is replaced by the implementation.
-
-### T13 (after T1): Simplify the transaction monitor
-
-**Problem.** Once the commit request no longer crosses NAT, the monitor's 30-minute status check
-guards against very little. Under T1's option (a) the ALB's 4,000 s idle cap remains, so #383's
-outcome verification still matters for commits longer than that. As 2.6 shows, it's a second long request.
-
-**Proposal.** Re-evaluate `FedoraTransactionMonitor`'s commit-started branch. Keep the pre-commit
-keep-alive, which Fedora needs (2.3), and keep #383's outcome verification, which is cheap and
-correct. Consider removing the commit-time poll and cancel, or lengthening it.
-
-**Acceptance.** A decision, and code and `deployment.md` brought into line with it.
-
-### T14: Upgrade Fedora to 7.x
-
-**Problem.** Fedora 7 is the upstream line: fixes land on `main` first, and only some are
-backported to 6.5.x. 7 also adds things we'd use:
-- Prometheus metrics, including the database connection pool;
-- faster reindexing;
-- fewer database calls per `GET`/`HEAD`.
-
-The release we pick matters for S3 (2.7, section 7):
-- **7.0.0** behaves like 6.5.1. None of the post-6.5.1 S3 changes are in it, so it doesn't have
-  6.5.2's 10-second acquisition timeout.
-- **A 7.x released from current `main`** will have all of them, including the #2327 fix.
-- **Avoid any build that has #2314 but not #2327.**
-
-**Proposal.**
-- Choose the release:
-  - a 7.x release that includes #2327, if one exists when we start;
-  - otherwise 7.0.0, keeping T4's setting.
-- Then, on dev:
-  - move the image to `fcrepo/fcrepo:<7.x>-tomcat10`, pinned by digest, keeping our bootstrap
-    container and `FC_*` properties;
-  - turn on `fcrepo.metrics.enabled` and scrape the metrics endpoint;
-  - run the e2e suite, the large-deposit import (2,797 files, 38.7 GB) and a file over 5 GB;
-  - check that our RDF parsing copes with 7's extra triples (`fedora:hasParent`, and membership and
-    containment from inbound references) and deduplicated types;
-  - confirm the health check still answers;
-  - on a release with #2327, set `fcrepo.ocfl.s3.timeout.acquisition.seconds`, and turn T4's property
-    back into what it now means, the TCP connect timeout.
-- Then test, then prod.
-
-Before prod, decide whether rolling back to 6.5.1 must be possible, and if so test it on dev. The
-database change is additive, but a rollback is unverified.
-
-**Acceptance.**
-- 7.x on all environments, with e2e and the large-deposit test green.
-- Metrics visible.
-- Section 2's behaviour re-checked against the 7.x tag, and this RFC updated if anything moved.
+**Order.** The epic [#439](https://github.com/digirati-co-uk/digital-preservation/issues/439) holds the working order and owners. In outline:
+1. **Alerts** for AWS task retirements and for two Fedoras running ([#464](https://github.com/digirati-co-uk/digital-preservation/issues/464)). They need no Fedora
+   restart, and T3 depends on them.
+2. **One Fedora change,** applied once with the importer idle: T3, T4 and T10. Each restarts Fedora.
+3. **T9, then T6** with the commit-check fix ([#459](https://github.com/digirati-co-uk/digital-preservation/issues/459)); the atomic active-job check ([#460](https://github.com/digirati-co-uk/digital-preservation/issues/460))
+   alongside.
+4. **T1,** once D3 is taken; T5 measured on dev; T13.
+5. **T14,** the move to Fedora 7 (section 7).
+6. **Capacity admission** ([#461](https://github.com/digirati-co-uk/digital-preservation/issues/461)), then T8.
+7. **T12:** first measure whether the importer is the constraint at all.
+
+T7 and T11 fit in anywhere.
+
+## 6. The proposals as issues
+
+Each proposal is an issue in digital-preservation, under the epic [#439](https://github.com/digirati-co-uk/digital-preservation/issues/439). The issue is the working
+text: what to do, and how to tell it's done. This section says what each is, and where review on 9 and
+10 November 2026 changed the proposal as first drafted here.
+
+| Id | Issue | Proposal | Changed after review |
+|---|---|---|---|
+| T1 | [#440](https://github.com/digirati-co-uk/digital-preservation/issues/440) | Reach Fedora on a private path, not through NAT and the internet-facing ALB. Proposed: an internal ALB, which the shared modules support from `v3.52` | The private hosted zone needs its own name; a second load balancer on Fedora's service restarts Fedora; the test is the ALB's access logs, since a large commit already returns its 204 with TCP keepalive |
+| T2 | – | Withdrawn (below) | – |
+| T3 | [#441](https://github.com/digirati-co-uk/digital-preservation/issues/441) | Minimum healthy 0%, maximum 100% on Fedora's service: stop-then-start, never two Fedoras | The health-check half is dropped (P3). AWS retirements make each replacement an outage at a time AWS chooses, so the alerts in [#464](https://github.com/digirati-co-uk/digital-preservation/issues/464) come first |
+| T4 | [#442](https://github.com/digirati-co-uk/digital-preservation/issues/442) | Skip 6.5.2; set `fcrepo.ocfl.s3.timeout.connection.seconds` to 300 on 6.5.1 | The variable goes on the bootstrap container, the only one that reads `FC_*`. Pin the module's floating default image |
+| T5 | [#443](https://github.com/digirati-co-uk/digital-preservation/issues/443) | Measure `fcrepo.ocfl.unsafe.write.enabled` on dev; decide D2 | Add a correctness check after the unsafe-write commit |
+| T6 | [#444](https://github.com/digirati-co-uk/digital-preservation/issues/444) | Record a commit in progress, and reconcile instead of reporting failure | Both reap paths; no reconcile at importer start-up; persist the result lists before the commit; decide with a check that asks Fedora as well as S3 ([#459](https://github.com/digirati-co-uk/digital-preservation/issues/459)) |
+| T7 | [#445](https://github.com/digirati-co-uk/digital-preservation/issues/445) | Two requests per new binary instead of four | The title `PATCH` also sets `createdBy`, so "is this new" must come from the job. Test the `PATCH` against a real Fedora |
+| T8 | [#446](https://github.com/digirati-co-uk/digital-preservation/issues/446) | Import jobs for different Archival Groups run concurrently; decide D4 | Needs [#460](https://github.com/digirati-co-uk/digital-preservation/issues/460) and [#461](https://github.com/digirati-co-uk/digital-preservation/issues/461) first. Two creates under one parent may queue on a database row |
+| T9 | [#447](https://github.com/digirati-co-uk/digital-preservation/issues/447) | Runbook for an Archival Group wedged by a half-written version | Three states, not one, with opposite repairs. Rehearsal needs a hard kill |
+| T10 | [#448](https://github.com/digirati-co-uk/digital-preservation/issues/448) | Fedora logs at INFO in deployed environments | Fedora logs commit start and end only at DEBUG; keep those lines if the volume allows |
+| T11 | [#449](https://github.com/digirati-co-uk/digital-preservation/issues/449) | Spike: is there a stale containment cache after a commit? | Applies to any new path, not only new Archival Groups |
+| T12 | [#450](https://github.com/digirati-co-uk/digital-preservation/issues/450) | Fedora fetches file bytes itself (external content, `handling=copy`, presigned URL); see [RFC 010A](010A-ingress-file-management.md) | Measure first whether the importer is the constraint. The deployed allow-list entry can never match. Fedora logs the signed URL on any failed fetch |
+| T13 | [#451](https://github.com/digirati-co-uk/digital-preservation/issues/451) | Simplify the transaction monitor's commit-time poll | Can be decided now; it doesn't depend on T1 |
+| T14 | [#452](https://github.com/digirati-co-uk/digital-preservation/issues/452) | Upgrade Fedora to 7.x; decide D5 | A rehearsed rollback is part of acceptance. Proposed target is 7.0.0 (section 7.5) |
+
+**T2, withdrawn.** This proposed an S3 gateway endpoint. Every environment already has one, created by
+the shared VPC module (`terraform-aws-modules`, `tf/modules/vpc`, `public-private-igw/vpc_endpoints.tf`),
+which isn't visible from preservation-ops alone. The id is kept so the other numbers don't change.
+
+**Work the review added:**
+
+| Issue | What |
+|---|---|
+| [#459](https://github.com/digirati-co-uk/digital-preservation/issues/459) | After an uncertain commit, confirm the outcome with Fedora as well as S3. If Fedora dies in the last moments of a commit, S3 can show a version Fedora doesn't have |
+| [#460](https://github.com/digirati-co-uk/digital-preservation/issues/460) | Make the one-active-import-per-group check atomic, with a unique index |
+| [#461](https://github.com/digirati-co-uk/digital-preservation/issues/461) | Capacity admission: reserve Fedora staging disk before an import writes |
+| [#462](https://github.com/digirati-co-uk/digital-preservation/issues/462) | Decide how to protect or pin deposit sources during an import |
+| [#463](https://github.com/digirati-co-uk/digital-preservation/issues/463) | Record the decisions in ADR 001 |
+| [#464](https://github.com/digirati-co-uk/digital-preservation/issues/464) | Alerts: AWS task retirements, two Fedoras running, Fedora down, staging disk |
+| [#465](https://github.com/digirati-co-uk/digital-preservation/issues/465) | The rollout and rollback plan for test and production |
 
 ## 7. Going straight to Fedora 7?
 
@@ -796,26 +413,62 @@ later. Whatever we choose, run T14's large-deposit test before production.
 | **D. 6.5.2** | None for us | Not recommended: it cuts the small-file acquisition timeout to a fixed 10 s (2.7) |
 | **E. Run a snapshot, or build from `main`** | Has everything | Not a release. Not for production |
 
-**Proposed: go to 7, and skip 6.5.2.** Take C if a 7.x release with #2327 is out by the time T1–T3
-are done; otherwise B. Either way, do T4's setting now. Take 6.5.3 (A) only if Fedora 7 work has to
-wait a long time.
+**Proposed: B. Go to 7.0.0 now, keep T4's setting, and skip 6.5.2.** Take a later 7.x as an ordinary
+upgrade when one is released. Section 7.5 says why waiting (C) isn't a plan. Take 6.5.3 (A) only if it
+appears and Fedora 7 work has to wait a long time.
+
+### 7.5 Upstream at 10 November 2026: is waiting for a later 7.x viable?
+
+**Releases.** Nothing new since this section was written.
+- The latest releases are still **7.0.0** (16 April 2026) and **6.5.2** (16 July 2026).
+- **No 6.5.3.** The `6.5-maintenance` branch has had no commit since the [#2328](https://github.com/fcrepo/fcrepo/pull/2328) backport on
+  9 October.
+- [#2327](https://github.com/fcrepo/fcrepo/pull/2327) and [#2331](https://github.com/fcrepo/fcrepo/pull/2331) are merged to `main` and in no release. Nobody has proposed backporting
+  #2331 to 6.5.
+- The only build with both is the `7.1.0-SNAPSHOT` Docker image, last rebuilt on 6 November. It is a
+  moving tag, not a release.
+- We found no announced date for a 7.1 or a 6.5.3.
+
+**`main` has moved a long way from 7.0.0.** Beyond the S3 and external-content changes above, since
+late October it has taken:
+- a 70-dependency update ([#2358](https://github.com/fcrepo/fcrepo/pull/2358)), Grizzly 5 ([#2345](https://github.com/fcrepo/fcrepo/pull/2345)) and Flyway 13 (7.0.0 has 11.20.3);
+- Artemis support for messaging ([#2306](https://github.com/fcrepo/fcrepo/pull/2306));
+- ocfl-java 2.2.3, up from 2.2.1 (its release notes list dependency updates only);
+- a fix for a race when resources with the same new RDF type are created concurrently ([#2352](https://github.com/fcrepo/fcrepo/pull/2352));
+- a fix for a containment index that isn't created on PostgreSQL 16 or later ([#2357](https://github.com/fcrepo/fcrepo/pull/2357)). Our
+  production database is PostgreSQL 14, so that matters to us only at the next major database upgrade.
+
+Jersey 4 and HikariCP 7 updates are open.
+
+**So, is waiting viable?** As a plan, no:
+- **There is no date to wait for.**
+- **The next 7.x won't be "7.0.0 plus two fixes".** It will be a larger change than 7.0.0 was from
+  6.5.1 in the areas we depend on, and will need the full T14 test whenever we take it. Going to 7.0.0
+  first doesn't add an upgrade we could otherwise avoid; it splits one large step into two smaller ones.
+- **Nothing in steps 1 to 4 of the order depends on a Fedora release.** They are our own configuration
+  and code.
+- **We can live without #2327 on 7.0.0.** Like 6.5.1, 7.0.0 has neither #2314 nor #2327, so T4's
+  setting works there unchanged.
+- **Only adopting T12 needs a future release,** for #2331. T12 is gated on measurements that may end it
+  anyway, and its spike can use a pinned snapshot.
+
+What to watch for: a 7.1 or 6.5.3 release announcement. When one appears, check that it carries #2327
+before considering it, and never run a build with #2314 and without #2327.
 
 ## 8. Decisions for Leeds and the team
 
 - **D1. Keep one Fedora transaction per import** (section 3). Proposed: yes.
 - **D2. Unsafe writes** (T5): accept skipping ocfl-java's commit-time re-hash, given the `PUT`-time
   digest check, if it makes a meaningful difference? Proposed: decide on the measurements.
-- **D3. Private path to Fedora** (T1). Proposed: decide between (a), an internal ALB, which is about
-  to be module-supported and is the pattern used for DLCS, but keeps the 4,000 s idle cap, and (b),
+- **D3. Private path to Fedora** (T1). Proposed: (a), an internal ALB, which the shared modules support
+  from `v3.52` and is the pattern used for DLCS, but keeps the 4,000 s idle cap. The alternative is (b),
   service discovery, which is cap-free only as DNS-only Cloud Map or with Service Connect's timeouts
   set to 0. Take (a) unless measured commits approach an hour. Sub-decision: HTTP or HTTPS on the
   internal ALB.
 - **D4. Import concurrency** (T8): how many concurrent imports? Proposed: start at 2.
-- **D5. Fedora version path** (section 7, T4, T14): go straight to Fedora 7 and skip 6.5.2?
-  Proposed: yes. Take a 7.x release that includes #2327 if one exists in time (any release cut from
-  current `main` also has #2331, for T12; if upstream backports #2331 to 6.5-maintenance, a 6.5.3
-  would serve T12 too), otherwise 7.0.0. Do
-  T4's setting in the meantime.
+- **D5. Fedora version path** (section 7, T4, T14): go to Fedora 7 and skip 6.5.2? Proposed: yes, to
+  7.0.0 now, with T4's setting, and a later 7.x as an ordinary upgrade when one is released
+  (section 7.5). Adopting T12 needs a release with #2331.
 
 ## 9. What this paper has not verified
 
@@ -827,10 +480,8 @@ wait a long time.
   semantics, a Phaser with no parent terminates once its party count reaches zero, so that wait may
   only protect the first operation. We haven't tested it. Our importer never commits with a request
   still in flight, so it doesn't affect us.
-- **How close the October commit test came to tripping the health check (T3).** That needs
-  CloudWatch.
-- **Whether ECS actually starts the second Fedora task during a deploy (T3).** We inferred it from
-  the defaults, not observed it.
+- **How long Fedora is unavailable when its task is replaced stop-then-start (T3).** Each new task
+  gets a new EBS volume. Measure it on dev.
 - **That the cost figures are current.** Check AWS pricing before using them in a business case.
 - **The S3 upload paths** (2.7) are read from code. That files over 5 GB commit cleanly through the
   CRT transfer manager on 6.5.1 or 7.0.0, and that 6.5.2's 10-second acquisition timeout would hurt our
@@ -844,7 +495,10 @@ wait a long time.
   The source comparison covered the transaction, storage and configuration classes this RFC relies on,
   not every module.
 - **T12 end to end.** That the `type` and `size` Link parameters suppress the `HEAD` is read from
-  fcrepo `main` and its unit tests, not exercised against S3. The `7.1.0-SNAPSHOT` image was built
-  after #2331 merged, but carries no commit label. The T12 spike is the test.
+  fcrepo `main` and its unit tests, not exercised against S3. The `7.1.0-SNAPSHOT` image is rebuilt
+  as `main` moves (last on 6 November 2026) and carries no commit label. The T12 spike is the test.
 - **That the presigner's URL form matches the allow-list entry.** Fedora's check is a string prefix,
   and the template and the SDK's default host form may differ.
+- **The commit-check gaps in digital-preservation#459.** That S3 can show a version Fedora doesn't
+  have, and what the platform then records, are read from ocfl-java's and our own source, not
+  reproduced.
