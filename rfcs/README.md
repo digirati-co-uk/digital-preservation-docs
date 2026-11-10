@@ -6,6 +6,8 @@
 1. [004 IIIF Manifests and Collections](004-storing-iiif-manifests-and-collections.md)
 1. [005 Access Control](005-access-control.md)
 1. [008 Editing METS the platform did not write](008-editing-third-party-mets.md)
+1. [010 Fedora transaction improvements](010-fedora-transaction-improvements.md)
+1. [010A Ingress file management](010A-ingress-file-management.md)
 
 * Fedora - linked data platform, Vanilla Fedora API.
 * Storage API - Sits in front of Fedora. API to organise a repository with Containers (folders), store versioned Archival Groups, that contain Binaries (and Containers).
@@ -17,4 +19,3 @@ Some applications in DLIP, like IIIF-Builder, have the privilege of calling the 
 
 The Storage API has no state of its own, it is a proxy to Fedora.
 But the Preservation API keeps track of things in a (relatively simple) database. It has more "model".
-
