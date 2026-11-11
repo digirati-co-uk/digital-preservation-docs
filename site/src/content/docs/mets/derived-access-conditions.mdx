@@ -59,7 +59,7 @@ a standard instance does not have:
 ## Worked example: the Leeds Access Tier
 
 Leeds choose a **Protected Access Level** (the restriction), a **copyright status** (the category) and a
-**Copyright Statement** (the rights statement), and derive an **Access Tier** from the first two. Its
+**Rights Statement**, and derive an **Access Tier** from the first two. Its
 profile, as `GET /access-conditions` returns it:
 
 ```json
@@ -83,17 +83,17 @@ profile, as `GET /access-conditions` returns it:
         "rightsStatements": ["NoC-US", "NoC-NC", "NoC-OKLR", "NoC-CR", "NKC", "CC0"] },
       { "value": "low-risk",           "label": "In Copyright: Assessed (Low Risk)",
         "rightsStatements": ["InC", "InC-EDU", "InC-NC", "InC-RUU", "InC-OW-EU", "CC-BY", "CC-BY-SA", "CC-BY-ND", "CC-BY-NC", "CC-BY-NC-SA", "CC-BY-NC-ND"] },
-      { "value": "restrictions-apply", "label": "In Copyright (restrictions apply)",
-        "rightsStatements": ["InC", "InC-OW-EU", "InC-RUU", "NoC-OKLR", "NoC-CR"] },
-      { "value": "medium-risk",        "label": "In Copyright (medium risk)",
+      { "value": "medium-risk",        "label": "In Copyright: Assessed (Medium Risk)",
         "rightsStatements": ["InC", "InC-OW-EU", "InC-RUU"] },
-      { "value": "unassessed",         "label": "In Copyright (Unassessed)",
+      { "value": "high-risk",          "label": "In Copyright: Assessed (High Risk)",
+        "rightsStatements": ["InC", "InC-OW-EU", "InC-RUU"] },
+      { "value": "unassessed",         "label": "In Copyright: Unassessed",
         "rightsStatements": ["CNE", "UND"] },
-      { "value": "high-risk",          "label": "In Copyright (High Risk)",
+      { "value": "holder-conditions",  "label": "In Copyright: Holder Conditions (High Risk)",
         "rightsStatements": ["InC", "InC-OW-EU", "InC-RUU"] }
     ]
   },
-  "rightsAxis": { "label": "Copyright Statement" },
+  "rightsAxis": { "label": "Rights Statement" },
   "derived": [
     {
       "type": "tier",
@@ -107,7 +107,7 @@ profile, as `GET /access-conditions` returns it:
         { "value": "5", "label": "Tier 5 - Unassessed" }
       ],
       "matrix": {
-        "PA1":           { "public-domain": "0", "low-risk": "1", "restrictions-apply": "2", "medium-risk": "2", "unassessed": "2", "high-risk": "3", "__none__": "2", "*": "3" },
+        "PA1":           { "public-domain": "0", "low-risk": "1", "medium-risk": "2", "high-risk": "2", "unassessed": "2", "holder-conditions": "3", "__none__": "2", "*": "3" },
         "PA2":           { "*": "3" },
         "PA3":           { "*": "3" },
         "PA4":           { "*": "4" },
@@ -126,8 +126,8 @@ This is Leeds' agreed master matrix: only the PA 1 row distinguishes the copyrig
 |---|---|---|
 | `PA1` | `public-domain` | 0 |
 | `PA1` | `low-risk` | 1 |
-| `PA1` | `restrictions-apply`, `medium-risk` or `unassessed` | 2 |
-| `PA1` | `high-risk` | 3 |
+| `PA1` | `medium-risk`, `high-risk` or `unassessed` | 2 |
+| `PA1` | `holder-conditions` | 3 |
 | `PA1` | none — nothing set, nothing inherited | 2 |
 | `PA1` | a value outside the vocabulary (mistyped by a caller, or renamed since) | 3, the `*` cell |
 | `PA2` or `PA3` | anything | 3 |
@@ -153,7 +153,7 @@ range:
 
 ```xml
 <mods:accessCondition type="restriction on access" xlink:type="simple">PA1</mods:accessCondition>
-<mods:accessCondition type="copyright status" xlink:type="simple">high-risk</mods:accessCondition>
+<mods:accessCondition type="copyright status" xlink:type="simple">holder-conditions</mods:accessCondition>
 <mods:accessCondition type="use and reproduction" xlink:type="simple">http://rightsstatements.org/vocab/InC/1.0/</mods:accessCondition>
 <mods:accessCondition type="tier" xlink:type="simple">3</mods:accessCondition>
 ```

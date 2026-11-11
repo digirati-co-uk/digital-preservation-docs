@@ -158,7 +158,7 @@ Neither button is enabled until you pick one. Things that cannot be deleted: any
 
 ### Access conditions, rights and record identifiers
 
-Clicking the **name** of a file or folder (rather than the row) opens the metadata dialogue for it. This is where the object is described for access purposes, and it holds up to six things. The access choices are labelled from the API's [access condition profile](../../preservation-api/vocabularies#access-conditions), so the names below are the defaults — at Leeds they read *Protected Access Level*, *Copyright status* and *Copyright Statement*.
+Clicking the **name** of a file or folder (rather than the row) opens the metadata dialogue for it. This is where the object is described for access purposes, and it holds up to six things. The access choices are labelled from the API's [access condition profile](../../preservation-api/vocabularies#access-conditions), so the names below are the defaults — at Leeds they read *Protected Access Level*, *Copyright status* and *Rights Statement*.
 
 **Access Restriction(s)** — the access conditions this platform recognises, fetched from the profile so the list is always the current one. Ordinarily a single choice, where *(inherit from parent)* clears the item's own value so it takes whatever applies further up. An instance whose profile allows several restrictions at once gets a multi-select instead, where Ctrl+click deselects.
 
@@ -169,11 +169,11 @@ Clicking the **name** of a file or folder (rather than the row) opens the metada
 | Choice | What it means |
 |---|---|
 | *(inherit from parent)* | This item asserts nothing. It takes whatever applies further up. |
-| *(none — do not inherit)* | This item asserts that it has **no** rights statement, and inheritance stops here. |
+| *(not chosen — do not inherit)* | No rights statement has been chosen for this item, and that is recorded: inheritance stops here. |
 
 Those two are not the same thing, and the difference survives into the preserved METS. The first leaves the item silent; the second records an explicit, empty assertion, which is the only way to say "the statement on the folder above does not apply to this file" without putting a different statement on it. With a category axis, choosing a statement that fits exactly one category selects that category for you if you have not chosen one.
 
-**Derived conditions** — only on an instance that has configured [derived access conditions](../../mets/derived-access-conditions); at Leeds, the **Access Tier**. You never choose this: the dialogue recomputes it as you change the restriction and category, so you can see the consequence of a decision before saving. The rights statement does not affect it. Where the result would depend on an inherited value the dialogue cannot know — you have just set the item back to *(inherit from parent)*, say — it says *(inherits; determined on save)* rather than guess. The value the platform writes always comes from the item's effective restriction and category, and every save recomputes the whole document, so changing a folder's restriction changes the tier of everything below it.
+**Derived conditions** — only on an instance that has configured [derived access conditions](../../mets/derived-access-conditions); at Leeds, the **Access Tier**. You never choose this: the dialogue recomputes it as you change the restriction and category, and marks it *(computed)*, so you can see the consequence of a decision before saving. The rights statement does not affect it. Where the result would depend on an inherited value the dialogue cannot know — you have just set the item back to *(inherit from parent)*, say — it says *(inherits; determined on save)* rather than guess. The value the platform writes always comes from the item's effective restriction and category, and every save recomputes the whole document, so changing a folder's restriction changes the tier of everything below it.
 
 **Record Identifiers** — pairs of a source and a value, identifying the catalogue record this item corresponds to. **Add another** adds a row; the sources offered are configured per instance (at Leeds, EMu and the Identity Service). If a file already carries an identifier from a source that is no longer in the list, that source is kept as an option so you do not lose it by saving.
 
@@ -194,7 +194,7 @@ The rules the platform follows are worth knowing, because they are not simply "n
 * A **folder** takes its own value if it has one, otherwise its parent's effective value. Straightforwardly upward.
 * A **file** takes its own value if it has one, then walks up the folder tree. For access and rights the physical tree always wins: only if nothing from the file up to the root says anything does the platform fall back to the [logical structure](#logical-structure), and then only when the file belongs to exactly one range — if two ranges disagree there is no safe answer, and the file is left with nothing.
 * **Record identifiers** are the exception and go the other way round: a file's single logical range is consulted *before* the folder tree, because the range is usually the catalogue record the file represents. A range with nothing to say does not erase what a folder above asserts.
-* An **explicitly empty rights statement** stops inheritance rather than passing it on — the *(none — do not inherit)* choice above.
+* An **explicitly empty rights statement** stops inheritance rather than passing it on — the *(not chosen — do not inherit)* choice above.
 * A **derived condition** is carried by every item that has an explicit access, category or rights choice of its own, computed from that item's effective restriction and category, and inherited per type by everything that has none.
 
 <Aside type="note">
