@@ -229,10 +229,13 @@ that reads only METS normally gets the same rights. The exception is a node belo
 kept a rights statement of its own from before the profile. Whether a tier stops an item being published, and with which authorisation
 roles, is the builder's decision. The platform doesn't know what a derived value *means*.
 
-A resource with **no derived value** at all, its own or inherited, has no access conditions on it or
-above it, and the platform derived nothing for it: the matrix's `__none__` row is not applied. What
-such content means is the builder's decision too. Leeds' material migrated from EPrints, for
-example, has no access conditions and is meant to be open.
+A resource with **no access conditions** on it or above it gets **no derived value**: the platform
+derives nothing for it, and the matrix's `__none__` row is not applied. The reverse does not hold. A
+resource can lack a derived value and still have access conditions: a Goobi export with a `status`
+restriction, or METS with a restriction or rights statement that has not been saved since the
+profile was configured. So don't read a missing derived value as "open". Check the effective
+restriction and statement, and decide what content with none of them means. Leeds' material
+migrated from EPrints, for example, has no access conditions and is meant to be open.
 
 ## Constraints
 
