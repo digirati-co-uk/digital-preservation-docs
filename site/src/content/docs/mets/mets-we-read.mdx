@@ -400,8 +400,8 @@ carry a `DMDID`. From the MODS inside the dmdSec the parser reads:
   explicitly addressed — which suppresses inheritance (below) — while leaving the rights value empty.
 - **Other typed access conditions**: every other `mods:accessCondition` that has a `type` — anything that
   is neither of the two above nor Goobi's `status` — as a map from `type` to value. This is where an
-  instance's chosen category and [derived conditions](../derived-access-conditions), such as the Leeds
-  copyright status and access tier, appear; a standard instance has none. The parser cannot know which
+  instance's chosen statement and [derived conditions](../derived-access-conditions), such as the Leeds
+  copyright statement and access tier, appear; a standard instance has none. The parser cannot know which
   types an instance uses, so a third party's other typed conditions land here too.
 - **Record identifiers**: every `mods:recordIdentifier`, with its `source` attribute.
 - For logical divs, the **title**: `mods:title`, falling back to the div's `LABEL`.
@@ -539,7 +539,7 @@ range's.
 **Other typed access conditions:** these inherit **per type**. A value set on a node overrides the ancestor's
 value for that type and the rest come through, so a file carrying only a `tier` still inherits its folder's
 other typed conditions, and a type the whole physical chain lacks comes from the file's logical range the
-same way access does (rule 3 above) — which is how a chosen category set only on a range reaches a file. Because the platform rewrites its derived types from each node's
+same way access does (rule 3 above) — which is how a statement set only on a range reaches a file. Because the platform rewrites its derived types from each node's
 effective inputs on every save, the explicit and effective derived values of METS it has written are
 consistent with the chosen ones by construction; these rules matter for documents written elsewhere.
 
