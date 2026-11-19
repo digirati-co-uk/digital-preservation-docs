@@ -28,10 +28,10 @@ if statements:
     # Chosen instead of a rights statement, written to METS under statements['type'] and inherited
     # like the restriction. Each names its category (a matrix column) and a IIIF entry: the
     # `rights` URI (also written to METS by the platform) and `requiredStatement` text it publishes.
-    iiif = {entry["id"]: entry for entry in statements["iiif"]["entries"]}
+    iiif = {entry["id"]: entry for entry in statements.get("iiif", {}).get("entries", [])}
     print(f"{len(statements['values'])} {statements['label']} values (METS type {statements['type']!r}):")
     for statement in statements["values"]:
-        rights = iiif[statement["iiif"]].get("rights", "-")
+        rights = iiif.get(statement.get("iiif"), {}).get("rights", "-")
         print(f"  {statement['value']:<28} {statement.get('category', ''):<18} {rights}")
 
     for derived in statements["derived"]:

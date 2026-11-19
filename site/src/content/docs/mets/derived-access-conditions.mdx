@@ -229,11 +229,17 @@ that reads only METS normally gets the same rights. The exception is a node belo
 kept a rights statement of its own from before the profile. Whether a tier stops an item being published, and with which authorisation
 roles, is the builder's decision. The platform doesn't know what a derived value *means*.
 
+A resource with **no derived value** at all, its own or inherited, has no access conditions on it or
+above it, and the platform derived nothing for it: the matrix's `__none__` row is not applied. What
+such content means is the builder's decision too. Leeds' material migrated from EPrints, for
+example, has no access conditions and is meant to be open.
+
 ## Constraints
 
 - A derived value is a single matrix cell. So an instance that derives anything must allow only one
   restriction per resource (`allowMultipleRestrictions` false). Legacy content carrying several
-  restrictions uses the most restrictive of them, by the order of the restriction vocabulary.
+  restrictions gets the most restrictive result: of the values its restrictions give, the one
+  latest in the derived condition's `values`.
 - The profile is validated when the Preservation API starts. A reference to an unknown category, IIIF
   entry, row, column or value, a matrix that leaves any restriction without a value for any category, or
   a `rights` URI that isn't one of the platform's rights statements stops the service. So a client can
