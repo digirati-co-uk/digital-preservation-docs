@@ -542,6 +542,9 @@ other typed conditions, and a type the whole physical chain lacks comes from the
 same way access does (rule 3 above) — which is how a statement set only on a range reaches a file. Because the platform rewrites its derived types from each node's
 effective inputs on every save, the explicit and effective derived values of METS it has written are
 consistent with the chosen ones by construction; these rules matter for documents written elsewhere.
+The parser also follows Goobi's idioms - files associated with a range through `smLink`, and Goobi's
+`status` element as a restriction - which the writer never meets, since Goobi METS is never edited
+here.
 
 A worked example, from the "Women of Westminster" METS in the writer's
 [complete example](../mets-we-write-descriptive#a-complete-example): `objects/` carries access `Level1`,
