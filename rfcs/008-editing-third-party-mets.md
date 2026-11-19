@@ -286,9 +286,8 @@ python mets_editability.py judge path/to/folder --json
 ```
 
 The Python judge, with its README and the full contract it implements, is at
-[`src/mets-editability/`](https://github.com/digirati-co-uk/digital-preservation/blob/feat/223-editability-judge/src/mets-editability/README.md)
-(on the `feat/223-editability-judge` branch until PR #238 merges; the path is the same on
-`main` afterwards). It needs only Python and `lxml`, touches nothing — it reads a file and
+[`src/mets-editability/`](https://github.com/digirati-co-uk/digital-preservation/blob/main/src/mets-editability/README.md)
+(merged in PR #238). It needs only Python and `lxml`, touches nothing — it reads a file and
 prints a judgement — and its verdicts are pinned by tests to agree with the .NET
 implementation the platform will use. Or send us item references and we will run it for you.
 The editing capability itself ships after the current METS identifier migration has fully
