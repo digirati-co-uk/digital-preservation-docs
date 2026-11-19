@@ -126,7 +126,6 @@ Documentation follow-ups that are correct today and will stop being correct on a
 
 | When | Do |
 |---|---|
-| PR #238 (editability judge) merges | `mets/editability` says the judge is designed, not shipped, and links the PR; flip it. RFC 008 on the docs repo links the judge on the branch - point it at `main`. (findings-F) |
 | The production METS-ID migration completes | `mets/identifiers` and the 02d banner: the mixed-form rules stop being load-bearing and the two legacy fallbacks named on the identifiers page become removable. (findings-F) |
 | `docs/rfc-0001-api-caller-identity.md` reaches `main` on the code repo | Link it from the "transitional arrangement" note on `preservation-api/authentication`; left unlinked because it would 404. Not on `main` as of 2026-09-15. (findings-original-list) |
 | A second deposit backing store lands (`file:///` workspaces) | `preservation-api/deposits`, `deposit-files` and the samples' `s3_helpers.py` all assume S3; a mounted drive needs to be a first-class case. Tom's decision was to write S3 concretely until then. (findings-original-list) |

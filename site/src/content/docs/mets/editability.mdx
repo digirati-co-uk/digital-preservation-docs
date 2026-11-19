@@ -19,8 +19,10 @@ output, which is also the shape an edited document ends up in — and
 This page records the criteria Leeds agreed in November 2026 (issue
 [#223](https://github.com/digirati-co-uk/digital-preservation/issues/223); plan in
 [`docs/issues/223/issue-223-editability-plan.md`](https://github.com/digirati-co-uk/digital-preservation/blob/main/docs/issues/223/issue-223-editability-plan.md)).
-The judge that applies them is [PR #238](https://github.com/digirati-co-uk/digital-preservation/pull/238);
-it is not yet wired into the platform.
+The judge that applies them is in the code repository
+([`src/mets-editability/`](https://github.com/digirati-co-uk/digital-preservation/blob/main/src/mets-editability/README.md),
+[PR #238](https://github.com/digirati-co-uk/digital-preservation/pull/238)), but it is not yet wired into
+the platform.
 The platform's *current* behaviour is simpler and stricter: a METS file is editable if and only if its
 `mets:agent` name is exactly the platform's own (see [Current behaviour](#current-behaviour-for-completeness)).
 The conformance-based rules below replace that gate once the #188 ID migration has bedded in and the
@@ -273,9 +275,11 @@ Schematron cannot see (reading the document the way the parser does, path normal
 the deposit-relative guard, NCName legality, a dmdSec shared between divs) is native code on each side,
 specified by this page. Both implementations are tested against one shared set of expected judgements.
 
-The judge is not yet part of the platform. It is in
-[PR #238](https://github.com/digirati-co-uk/digital-preservation/pull/238); until it is wired in, the
-platform's shipped behaviour is the agent-name rule in the next section.
+Both judges are in the code repository: the Python one, with the contract it implements, in
+[`src/mets-editability/`](https://github.com/digirati-co-uk/digital-preservation/blob/main/src/mets-editability/README.md),
+and the .NET one in `DigitalPreservation.Mets.Conformance`. Neither is part of the platform's behaviour
+yet: until the judge is wired in, the platform's shipped behaviour is the agent-name rule in the next
+section.
 
 ## Current behaviour, for completeness
 
