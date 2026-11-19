@@ -20,8 +20,9 @@ state must be recoverable from the OCFL object alone. So:
 - fixity (SHA256), size and PRONOM format for every file are held as PREMIS objects in the METS;
 - tool output from the pipeline (format identification, virus scanning, Exif extraction) is written back
   into it;
-- descriptive metadata — titles, access restrictions, rights statements, catalogue record identifiers —
-  is held as small MODS records attached to directories, files and logical divisions;
+- descriptive metadata — titles, access restrictions, rights statements, catalogue record identifiers,
+  and on some instances [conditions derived](../derived-access-conditions) from them — is held as small
+  MODS records attached to directories, files and logical divisions;
 - logical structure (the arrangement of files into items, ranges, time segments and image regions) is
   expressed as logical structMaps, from which the iiif-builder generates IIIF manifests.
 

@@ -158,16 +158,16 @@ Neither button is enabled until you pick one. Things that cannot be deleted: any
 
 ### Access conditions, rights and record identifiers
 
-Clicking the **name** of a file or folder (rather than the row) opens the metadata dialogue for it. This is where the object is described for access purposes, and it holds four things.
+Clicking the **name** of a file or folder (rather than the row) opens the metadata dialogue for it. This is where the object is described for access purposes. The access choices are labelled from the API's [access condition profile](../../preservation-api/vocabularies#access-conditions), so the names below are the defaults. At Leeds they read *Protected Access Level* and *Copyright Statement*.
 
-**Access Restriction(s)** — a multi-select of the access conditions this platform recognises, fetched from the API's [vocabulary](../../preservation-api/vocabularies) so the list is always the current one. Ctrl+click deselects.
+**Access Restriction(s)** — the access conditions this platform recognises, fetched from the profile so the list is always the current one. Ordinarily a single choice, where *(inherit from parent)* clears the item's own value so it takes whatever applies further up. An instance whose profile allows several restrictions at once gets a multi-select instead, where Ctrl+click deselects.
 
 **Rights statement** — a single choice from the rightsstatements.org and Creative Commons vocabularies, plus two special entries at the top which are the subtle part:
 
 | Choice | What it means |
 |---|---|
 | *(inherit from parent)* | This item asserts nothing. It takes whatever applies further up. |
-| *(none — do not inherit)* | This item asserts that it has **no** rights statement, and inheritance stops here. |
+| *(not chosen — do not inherit)* | No rights statement has been chosen for this item, and that is recorded: inheritance stops here. |
 
 Those two are not the same thing, and the difference survives into the preserved METS. The first leaves the item silent; the second records an explicit, empty assertion, which is the only way to say "the statement on the folder above does not apply to this file" without putting a different statement on it.
 
@@ -175,9 +175,19 @@ Those two are not the same thing, and the difference survives into the preserved
 
 **File Links**, for files only, relate one file to another — a transcript to its recording, captions to a video. Choose a role and a target file and click **Add**. Linked files show arrows in the table's links column: → from the file that declares the link, ← on the file it points at, and hovering either highlights the other row.
 
+#### On an instance with a statement profile
+
+An instance can configure a [statement profile](../../mets/derived-access-conditions), as Leeds does. The dialogue then changes:
+
+**Statement** (at Leeds, **Copyright Statement**) replaces the rights statement dropdown. It's a single choice from the instance's own statements, grouped by category, with *(inherit from parent)* to clear the item's own value. It's inherited like the restriction. The chosen statement's description appears beneath it. You don't choose a rights statement: the platform writes the one the statement implies.
+
+**Derived conditions** (at Leeds, the **Access Tier**) — you never choose these. The dialogue recomputes them as you change the restriction and statement, and marks them *(computed)*, so you can see the consequence of a decision before saving. If you set the item back to *(inherit from parent)*, it shows what the item will have from what it inherits. An item with no access conditions on it or above it gets no tier, and the dialogue says so. Every save recomputes the whole document, so changing a folder's restriction changes the tier of everything below it.
+
+**Preview IIIF rights** shows what a IIIF manifest will say for the item: the `rights` URI and the `requiredStatement` text for its effective statement, and which statement that is when it's inherited. **Preview METS access conditions**, at the end of the dialogue, shows the `mods:accessCondition` elements the item will carry after saving, with a note on each computed one. Nothing in either preview is saved, and the IIIF text is never written to METS.
+
 #### How inheritance works
 
-Access conditions, rights and record identifiers are all inherited, and the file table shows you the result: a value in **bold italics** is set on that item itself. An *inherited* value is there too, but it is **hidden until you hover over the row** (or move focus into it), when it fades in. So in the ordinary Leeds arrangement — access set once on `objects/` — the one file you have restricted shows its own value in bold at all times, and the rest look blank until you hover.
+Access conditions, rights, statements, derived conditions and record identifiers are all inherited, and the file table shows you the result: a value in **bold italics** is set on that item itself. It uses the profile's short labels where it has them (at Leeds `PA1`, `InC low risk, orphan 2039`, `Tier 1`), with the full label on hover. With a statement profile, the rights statement is shown only when it isn't the one the statement implies. An *inherited* value is there too, but it is **hidden until you hover over the row** (or move focus into it), when it fades in. So in the ordinary Leeds arrangement — access set once on `objects/` — the one file you have restricted shows its own value in bold at all times, and the rest look blank until you hover.
 
 <Aside type="caution">
 Because an inherited value is invisible at rest, a blank metadata cell does not mean "no value": it
@@ -190,7 +200,8 @@ The rules the platform follows are worth knowing, because they are not simply "n
 * A **folder** takes its own value if it has one, otherwise its parent's effective value. Straightforwardly upward.
 * A **file** takes its own value if it has one, then walks up the folder tree. For access and rights the physical tree always wins: only if nothing from the file up to the root says anything does the platform fall back to the [logical structure](#logical-structure), and then only when the file belongs to exactly one range — if two ranges disagree there is no safe answer, and the file is left with nothing.
 * **Record identifiers** are the exception and go the other way round: a file's single logical range is consulted *before* the folder tree, because the range is usually the catalogue record the file represents. A range with nothing to say does not erase what a folder above asserts.
-* An **explicitly empty rights statement** stops inheritance rather than passing it on — the *(none — do not inherit)* choice above.
+* An **explicitly empty rights statement** stops inheritance rather than passing it on — the *(not chosen — do not inherit)* choice above.
+* A **derived condition** is carried by every item that has an access level, statement or rights statement of its own (a rights statement kept from before the profile counts), computed from that item's effective restriction and statement, and inherited per type by everything that has none. An item with no access conditions on it or above it gets none.
 
 <Aside type="note">
 A file that ends up with no effective access condition at all, in a deposit where other files have one, is almost certainly a mistake — a file added to the workspace but left out of the logical structure that was carrying the access. It is worth checking the metadata column for blanks before you preserve.
