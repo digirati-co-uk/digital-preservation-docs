@@ -1,0 +1,139 @@
+---
+title: Saving and updating an e-thesis
+sidebar:
+  label: E-theses
+  order: 8
+---
+
+import { Aside, LinkCard, Steps } from '@astrojs/starlight/components';
+
+Use case: a script deposits theses from a repository such as White Rose. Each thesis is one or more files and a *sidecar* file of metadata about it. The script should not have to write any XML.
+
+This is the [managed METS deposit](../managed-mets-deposit) applied to one kind of object. The platform writes the METS; the script makes API calls and uploads files. That page explains each step in more detail. This one shows the two things the script does: save a new thesis, and update one.
+
+## What a thesis looks like
+
+Theses live under an `etheses` Container. Each is an Archival Group, with its files under `objects/`:
+
+```
+etheses/
+   my-thesis/
+      objects/
+         thesis.pdf
+         thesis-metadata.json
+      metadata/
+      mets.xml
+```
+
+The sidecar sits beside the thesis because it is part of the object, not something derived from the files. In `objects/` it is listed in the METS, scanned and identified like any other file, and can be replaced like any other file.
+
+<Aside type="note">
+The sidecar's name and format here are placeholders, to be settled with Leeds.
+</Aside>
+
+## Saving a new thesis
+
+<Steps>
+
+1. ### Create a Deposit from the `RootLevel` template
+
+   ```
+   POST /deposits
+   ```
+
+   ```json
+   {
+     "type": "Deposit",
+     "template": "RootLevel",
+     "archivalGroup": "https://preservation-api.example/repository/etheses/my-thesis",
+     "archivalGroupName": "On the preservation of theses",
+     "submissionText": "Deposited by the e-theses script"
+   }
+   ```
+
+   The Deposit's `files` property is the S3 location of its workspace, which already holds `objects/`, `metadata/` and a `mets.xml`.
+
+2. ### Upload the thesis and the sidecar
+
+   Into `objects/`, with the S3 API. No checksums are needed: the pipeline produces them.
+
+3. ### Run the pipeline, and wait for it
+
+   ```
+   POST /deposits/e56fb7yg/pipeline
+   ```
+
+   Then poll `GET /deposits/e56fb7yg/pipelinerunjobs` until the newest job's `status` is `completed`. The pipeline identifies each file's format, scans it for viruses, and adds every file under `objects/` to the METS with what it found.
+
+4. ### Make sure the METS describes everything
+
+   ```
+   POST /deposits/e56fb7yg/mets
+   If-Match: "bfc13a64729c4290ef5b2c2730249c88ca92d82d"
+   ```
+
+   The body is the list of paths under `objects/` and `metadata/`, taken from `GET /deposits/e56fb7yg/filesystem`. The `If-Match` is the Deposit's `metsETag`; fetch the Deposit again to get it, because the pipeline has changed the METS. Entries already present are updated, so this is safe to call after the pipeline.
+
+5. ### Preserve it, or leave it for a person
+
+   The script can do either.
+
+   **The script preserves.** Get the diff, check it, run it, and poll the result until it is `completed`:
+
+   ```
+   GET /deposits/e56fb7yg/importjobs/diff
+   POST /deposits/e56fb7yg/importjobs
+   ```
+
+   The thesis is now version `v1`.
+
+   **A person preserves.** The script stops after step 4. The Deposit is left unlocked, with status `new`, and a member of staff opens it in the UI, checks it, and preserves it there.
+
+</Steps>
+
+## Updating a thesis
+
+To correct the metadata, replace the sidecar in a new version.
+
+<Steps>
+
+1. ### Export the thesis into a new Deposit
+
+   ```
+   POST /deposits/export
+   ```
+
+   ```json
+   {
+     "type": "Deposit",
+     "archivalGroup": "https://preservation-api.example/repository/etheses/my-thesis"
+   }
+   ```
+
+   Poll the Deposit until its `status` is `new`. Its workspace then holds every file of the thesis.
+
+2. ### Replace the sidecar
+
+   Upload the new sidecar to the same path under `objects/`.
+
+3. ### Pipeline, METS, preserve
+
+   Steps 3 to 5 of saving, unchanged.
+
+</Steps>
+
+The diff for this update patches the sidecar, the METS, and several of the pipeline's own output files under `metadata/`, which are rewritten on every run. The thesis file itself is not touched, and nothing is deleted.
+
+<Aside type="note" title="Why export, when only one file is changing?">
+A Deposit can be made against an existing object [without exporting it](../update-without-export), which copies only the METS. But the pipeline writes its results for whatever is in the workspace. Run over a workspace that held only the new sidecar, its output would no longer cover the thesis. Theses are small, so exporting the whole object costs little and keeps the pipeline's output complete.
+</Aside>
+
+## What the script can't do yet
+
+Access conditions and rights statements can be set on a file in the UI, but there is no API operation for them yet. Until there is, a thesis that needs them is finished by a person in the UI, before it is preserved.
+
+<LinkCard
+  title="💻 End-to-end example: save and update an e-thesis"
+  href="https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/preservation-docs-client/workflows/w09_etheses.py"
+  description="save, update, and --review to leave the deposit for a person to preserve."
+/>
