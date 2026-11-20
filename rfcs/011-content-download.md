@@ -284,6 +284,18 @@ This is for dev, for Leeds to try while reading this RFC:
   Downloads page of requests with their state, a link and a delete button;
 * single files, up to the platform's current 5 GB, from the current version of an Archival Group.
 
+A file's page, with the *Request download* action and a reason:
+
+![A file's page in the UI. The Content row has a reason box and a Request download button](011-files/request-download.png)
+
+The Downloads page, with one request ready and two whose copies have been deleted:
+
+![The Downloads page, listing three requests with file, size, requester, reason, status, expiry and links issued. The ready one has a Delete copy button](011-files/downloads-page.png)
+
+Following the link of a request whose copy has been deleted:
+
+![The Downloads page with a message saying the copy has been deleted and the file must be requested again](011-files/downloads-deleted.png)
+
 It doesn't include carts, zips or whole Archival Groups; roles by tier; the rule that makes a
 reason compulsory; a lifetime chosen by the user; links for people who aren't signed in; or staged
 delivery. It doesn't switch anything on in production, where the setting stays empty.
