@@ -7,13 +7,13 @@ sidebar:
 
 import { Aside, LinkCard, Steps } from '@astrojs/starlight/components';
 
-Use case: a script deposits theses from a repository such as White Rose. Each thesis is one or more files and a *sidecar* file of metadata about it. The script should not have to write any XML.
+Use case: a script deposits theses from a repository such as White Rose. A thesis might be a single document. It might be many files in folders, especially when research data comes with it. Either way there is also a *sidecar* file of metadata about it. The script should not have to write any XML.
 
 This is the [managed METS deposit](../managed-mets-deposit) applied to one kind of object. The platform writes the METS; the script makes API calls and uploads files. That page explains each step in more detail. This one shows the two things the script does: save a new thesis, and update one.
 
 ## What a thesis looks like
 
-Theses live under an `etheses` Container. Each is an Archival Group, with its files under `objects/`:
+Theses live under an `etheses` Container. Each is an Archival Group, with its files under `objects/`, in whatever folders the material calls for:
 
 ```
 etheses/
@@ -21,6 +21,13 @@ etheses/
       objects/
          thesis.pdf
          thesis-metadata.json
+         appendices/
+            interview-schedule.txt
+         data/
+            readme.txt
+            survey/
+               codebook.txt
+               responses.csv
       metadata/
       mets.xml
 ```
@@ -53,9 +60,11 @@ The sidecar's name and format here are placeholders, to be settled with Leeds.
 
    The Deposit's `files` property is the S3 location of its workspace, which already holds `objects/`, `metadata/` and a `mets.xml`.
 
-2. ### Upload the thesis and the sidecar
+2. ### Upload the thesis files and the sidecar
 
-   Into `objects/`, with the S3 API. No checksums are needed: the pipeline produces them.
+   Into `objects/`, with the S3 API, keeping the folders. Nothing has to be done to make a folder: uploading `objects/data/survey/responses.csv` is enough. No checksums are needed: the pipeline produces them.
+
+   Set each file's content type as you upload it, and take care that it is right. The pipeline works out each file's type for itself, and a file whose two content types disagree stops the diff in step 5. A CSV file uploaded from Windows is a common case: Windows calls it `application/vnd.ms-excel`, and the pipeline calls it `text/csv`.
 
 3. ### Run the pipeline, and wait for it
 
@@ -72,7 +81,7 @@ The sidecar's name and format here are placeholders, to be settled with Leeds.
    If-Match: "bfc13a64729c4290ef5b2c2730249c88ca92d82d"
    ```
 
-   The body is the list of paths under `objects/` and `metadata/`, taken from `GET /deposits/e56fb7yg/filesystem`. The `If-Match` is the Deposit's `metsETag`; fetch the Deposit again to get it, because the pipeline has changed the METS. Entries already present are updated, so this is safe to call after the pipeline.
+   The body is the list of every file under `objects/` and `metadata/`, taken from `GET /deposits/e56fb7yg/filesystem`. List files, not folders: a file's folders are added for it. The `If-Match` is the Deposit's `metsETag`; fetch the Deposit again to get it, because the pipeline has changed the METS. Entries already present are updated, so this is safe to call after the pipeline.
 
 5. ### Preserve it, or leave it for a person
 
@@ -122,10 +131,10 @@ To correct the metadata, replace the sidecar in a new version.
 
 </Steps>
 
-The diff for this update patches the sidecar, the METS, and several of the pipeline's own output files under `metadata/`, which are rewritten on every run. The thesis file itself is not touched, and nothing is deleted.
+The diff for this update patches the sidecar, the METS, and several of the pipeline's own output files under `metadata/`, which are rewritten on every run. The thesis and its other files are not touched, and nothing is deleted.
 
 <Aside type="note" title="Why export, when only one file is changing?">
-A Deposit can be made against an existing object [without exporting it](../update-without-export), which copies only the METS. But the pipeline writes its results for whatever is in the workspace. Run over a workspace that held only the new sidecar, its output would no longer cover the thesis. Theses are small, so exporting the whole object costs little and keeps the pipeline's output complete.
+A Deposit can be made against an existing object [without exporting it](../update-without-export), which copies only the METS. But the pipeline writes its results for whatever is in the workspace. Run over a workspace that held only the new sidecar, its output would no longer cover the rest of the thesis. Exporting the whole object keeps the pipeline's output complete. For most theses that costs little; for one with a lot of research data, the export and the pipeline both take longer.
 </Aside>
 
 ## What the script can't do yet

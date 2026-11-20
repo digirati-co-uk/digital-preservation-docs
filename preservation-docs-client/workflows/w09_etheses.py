@@ -10,8 +10,9 @@ METS, because the deposit is made from a template.
 Add --review to stop once the files are described, and leave a person to preserve the deposit in
 the UI. Without it, the script preserves the deposit itself.
 
-A thesis here is two files under objects/: the thesis, and a "sidecar" file of metadata about it.
-The sidecar's name and format below are placeholders.
+A thesis here is the files in sample_files/thesis - the thesis itself, and some research data and
+appendices in folders - plus a "sidecar" file of metadata about it. Everything goes under
+objects/, in the same folders. The sidecar's name and format below are placeholders.
 
 Set ETHESES_CONTAINER_PATH (default "etheses") for where theses live in the repository, and
 DOCS_ARCHIVAL_GROUP_NAME (default "my-thesis") for which thesis this run works on.
@@ -20,12 +21,13 @@ import json
 import os
 import sys
 import time
+from pathlib import Path
 
 import s3_helpers
 import settings
 from preservation import get, head, post, pprint, put, wait_for_value
 
-THESIS = ("sample_files/thesis.pdf", "objects/thesis.pdf")
+THESIS_FOLDER = Path("sample_files/thesis")
 SIDECAR = "objects/thesis-metadata.json"
 
 container = os.environ.get("ETHESES_CONTAINER_PATH", "etheses")
@@ -49,9 +51,11 @@ def save():
     })
     deposit = created(r, "Deposit not created")
 
-    # The thesis and its sidecar. No checksums needed: the pipeline produces them.
-    local_path, relative_path = THESIS
-    s3_helpers.upload_file(deposit["files"], local_path, relative_path)
+    # The thesis files, in their folders, and the sidecar. No checksums needed: the pipeline
+    # produces them.
+    for local_path in sorted(path for path in THESIS_FOLDER.rglob("*") if path.is_file()):
+        relative_path = "objects/" + local_path.relative_to(THESIS_FOLDER).as_posix()
+        s3_helpers.upload_file(deposit["files"], str(local_path), relative_path)
     upload_sidecar(deposit, {"title": "On the preservation of theses", "author": "A. Student"})
 
     describe_and_finish(deposit)
@@ -59,8 +63,8 @@ def save():
 
 def update():
     """A new version of a thesis that is already preserved, with its sidecar replaced."""
-    # Export the thesis into a new deposit: every file is copied into the workspace. Theses are
-    # small, so this is cheap, and it means the pipeline sees the whole object again.
+    # Export the thesis into a new deposit: every file is copied into the workspace, so the
+    # pipeline sees the whole object again.
     r = post("/deposits/export", {"type": "Deposit", "archivalGroup": archival_group})
     deposit = created(r, "Export not accepted")
     deposit = wait_for_value(f"/deposits/{slug_of(deposit)}", "status", "new", interval=5, retries=60)
