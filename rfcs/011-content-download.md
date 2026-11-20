@@ -325,10 +325,8 @@ We'd also like to know:
 
 * The gate has been tested with roles in a token, but not with a real Entra role assigned to a
   real person.
-* The first build passes its automated tests, but the copy and the signed link haven't yet been
-  exercised on dev against real S3.
-* "Seconds for most files" is what S3 copies normally take. It isn't a measurement on this
-  platform.
+* The first build has been tried on dev with one 3 MB file: the copy was ready in about a second,
+  and the download worked through the signed link. Larger files haven't been tried.
 
 ## Appendix: rejected approaches
 
