@@ -11,6 +11,10 @@ import boto3
 
 import settings
 
+# Windows calls a .csv file an Excel document. The platform's tools will identify it as text/csv,
+# and a file whose two content types disagree stops the diff.
+mimetypes.add_type("text/csv", ".csv")
+
 _session = boto3.Session(profile_name=settings.AWS_PROFILE, region_name=settings.AWS_REGION)
 s3 = _session.client("s3")
 
