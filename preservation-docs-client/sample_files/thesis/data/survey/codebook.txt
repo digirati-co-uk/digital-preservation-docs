@@ -1,0 +1,3 @@
+respondent        a number given to each respondent
+years_in_post     whole years in their current post
+preserves_theses  whether their institution preserves e-theses (yes or no)
