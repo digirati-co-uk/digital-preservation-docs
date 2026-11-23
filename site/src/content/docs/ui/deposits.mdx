@@ -160,7 +160,7 @@ Neither button is enabled until you pick one. Things that cannot be deleted: any
 
 Clicking the **name** of a file or folder (rather than the row) opens the metadata dialogue for it. This is where the object is described for access purposes. The access choices are labelled from the API's [access condition profile](../../preservation-api/vocabularies#access-conditions), so the names below are the defaults. At Leeds they read *Protected Access Level* and *Copyright Statement*.
 
-**Access Restriction(s)** — the access conditions this platform recognises, fetched from the profile so the list is always the current one. Ordinarily a single choice, where *(inherit from parent)* clears the item's own value so it takes whatever applies further up. An instance whose profile allows several restrictions at once gets a multi-select instead, where Ctrl+click deselects.
+**Access Restriction(s)** — the access conditions this platform recognises, fetched from the profile so the list is always the current one. Ordinarily a single choice, where *(inherit from parent)* clears the item's own value so it takes whatever applies further up. An instance whose profile allows several restrictions at once gets a multi-select instead, where Ctrl+click deselects. So does an item that already carries several restrictions, whatever the profile says, so that saving the dialogue never drops one.
 
 **Rights statement** — a single choice from the rightsstatements.org and Creative Commons vocabularies, plus two special entries at the top which are the subtle part:
 
@@ -226,7 +226,7 @@ A logical structure is a tree of *ranges*, each with a name, a type (from the vo
 
 Files can also be dragged: onto another file to place them precisely, or onto a range to move them into it.
 
-Edits here are held **in your browser** until you save. The tab shows a pulsing dot while there are unsaved changes, the **Save** button turns amber, and the browser warns you if you try to leave the page. **Delete** removes the whole structure, and does not touch the files or the physical structure.
+Edits here are held **in your browser** until you save. The tab shows a pulsing dot while there are unsaved changes, the **Save** button turns amber, and the browser warns you if you try to leave the page. **Delete** removes the whole structure, and does not touch the files or the physical structure. On an instance with a statement profile, a range's derived conditions (at Leeds, its tier) are computed when you save: after you change a range's access, its row and the rows below it show none until then, though the dialogue still previews them.
 
 <Aside type="tip">
 Time segments are entered as `HH:MM:SS` (or `MM:SS`), and image regions as four pixel coordinates. If a file pointer came from a third-party METS with area attributes the editor does not understand, it says so and leaves them alone — unless you set a time or region yourself, which replaces them.
