@@ -10,6 +10,9 @@ later.
 A depositor has a deposit with three 10 GB files in it, and some much smaller ones. The small files
 are no problem. The three large ones cannot be preserved today.
 
+This is no longer a hypothetical deposit. A thesis can arrive with its research data, and a
+research dataset can easily include a file of this size.
+
 The 5 GB line comes from S3, not from us:
 
 - A single `PutObject` is limited to 5 GB, so anything larger has to be uploaded as a **multipart
@@ -26,7 +29,9 @@ attribute as the SHA-256 of the file, everywhere:
 
 - when it reads the deposit's files, the S3 checksum becomes the file's digest;
 - the UI upload asks S3 for a SHA-256 and compares it with the one the browser computed;
-- export copies each file and checks the SHA-256 S3 returns against the one in the OCFL inventory.
+- export copies each file and checks the SHA-256 S3 returns against the one in the OCFL inventory;
+- content download ([RFC 011](https://github.com/digirati-co-uk/digital-preservation-docs/pull/87))
+  copies a file for a user in the same way, with the same check.
 
 Above 5 GB, that assumption cannot hold, whatever tool uploads the file.
 
@@ -52,9 +57,11 @@ preserved are the bytes the agreed digest describes.
 | Upload through the UI | Limit 2 GB; the browser reads the whole file into memory to hash it | Not possible |
 | Upload directly to S3 | Works | Works, but the object has only a composite SHA-256, or none |
 | Reading the deposit | S3 SHA-256 taken as the file's digest | A composite value is not a file digest. How the current code handles one is untested: it may fail to parse, or be read as a wrong digest that conflicts with every real one |
-| Virus scan | See [#371](https://github.com/digirati-co-uk/digital-preservation/issues/371): files over 25 MB are currently skipped and recorded as clean | ClamAV cannot scan any file over 2 GB, at any setting. See section 4 |
+| Pipeline, deposit in a caller's own bucket | The deposit is copied to scratch disk for the job, up to 2 GB by default ([#410](https://github.com/digirati-co-uk/digital-preservation/issues/410)) | Refused: the deposit is over the limit. A deposit in the platform's own bucket is read through a mount and has no such limit |
+| Virus scan | A file ClamAV cannot scan is recorded as `Not scanned` (since v1.3.2) | ClamAV cannot scan any file over 2 GB, at any setting. See section 4 |
 | Import | Streams from S3 into Fedora, which verifies the digest | Should work, but no single file over 5 GB is known to have been imported |
 | Export | One `CopyObject` per file, verified against the SHA-256 S3 returns | `CopyObject` fails over 5 GB, and a multipart copy returns no whole-file SHA-256 to verify against |
+| Download (RFC 011) | The same copy and check as export, into the downloads bucket | The same failure |
 
 ## Proposal
 
@@ -110,17 +117,29 @@ moment the file reached S3, but not that the upload itself was faithful. Today t
 route is already possible for files of any size uploaded directly to S3, and the nightly e2e suite
 exercises it.
 
-### 3. Multipart export
+### 3. Multipart copy, for export and download
 
-Export must use a multipart copy (`UploadPartCopy`, or the SDK's transfer utility) for objects over
-5 GB. A multipart copy returns no whole-file SHA-256, so verification has to change. The proposal:
+The platform copies a preserved file out of the repository in two places: export, into a deposit,
+and download, into the downloads bucket (RFC 011). Both must use a multipart copy
+(`UploadPartCopy`, or the SDK's transfer utility) for objects over 5 GB. A multipart copy returns
+no whole-file SHA-256, so verification has to change. The proposal, for both:
 
 - copy with a multipart copy;
 - then verify by streaming the copy and hashing it, comparing against the OCFL inventory's digest;
-- write the result to the copy as its declared digest (change 1), so the exported deposit's files
-  carry a usable digest when it comes back for a new version.
+- write the result to the copy as its declared digest (change 1). An exported deposit's files then
+  carry a usable digest when the deposit comes back for a new version.
 
 Re-reading 10 GB costs time. It is only needed above 5 GB, where it is the only check available.
+For a download it adds to the wait before the link is ready, which RFC 011 already allows for: the
+user asks, and comes back.
+
+### 3a. The pipeline's scratch copy
+
+A deposit in a caller's own bucket is copied to the pipeline's scratch disk before the tools run,
+and refused if the whole deposit is larger than `ScratchCopyMaxBytes`, 2 GB by default. So today
+the pipeline will not run on a caller's deposit with a large file in it. Raising the limit is a
+matter of disk on the pipeline host, and of copying time. It should be sized from the largest
+deposit a caller expects to send, which for eTheses with research data is a question for Leeds.
 
 ### 4. Virus scanning: say what wasn't scanned
 
@@ -128,22 +147,21 @@ ClamAV cannot scan a single file over 2 GB. Its own configuration documentation 
 design limitations prevent ClamAV from scanning files greater than 2 GB". No setting changes that,
 so every file this RFC is about will go unscanned by the pipeline.
 
-The fix for #371 ([#372](https://github.com/digirati-co-uk/digital-preservation/pull/372),
-[#373](https://github.com/digirati-co-uk/digital-preservation/pull/373)) makes that visible. With
-`AlertExceedsMax` on, ClamAV reports such a file as `Heuristics.Limits.Exceeded.MaxFileSize`, and
-the platform records a third PREMIS outcome, `Not scanned`, instead of `Pass`. Tested locally with
-ClamAV 1.5.4, the version in the pipeline image: files of 2.5 GB, 4.1 GB and 5 GB were each refused
-at once, without being read.
+The fix for [#371](https://github.com/digirati-co-uk/digital-preservation/issues/371), released in
+v1.3.2, makes that visible. With `AlertExceedsMax` on, ClamAV reports such a file as
+`Heuristics.Limits.Exceeded.MaxFileSize`, and the platform records a third PREMIS outcome,
+`Not scanned`, instead of `Pass`. Tested locally with ClamAV 1.5.4, the version in the pipeline
+image: files of 2.5 GB, 4.1 GB and 5 GB were each refused at once, without being read.
 
-"Too big to scan" starts well below 5 GB in practice. ClamAV also stops any scan that runs past
-`MaxScanTime`, which is 2 minutes by default, and reports that as not scanned too. Locally, on one
-CPU, ClamAV scanned at about 15–25 MB/s:
+"Too big to scan" can start below 2 GB. ClamAV also stops any scan that runs past `MaxScanTime`,
+and reports that as not scanned too. Locally, on one CPU, ClamAV scanned at about 15–25 MB/s:
 
-- a 1.9 GB file took 80–119 seconds, so only just finished;
-- four 600 MB files, scanned in parallel as the pipeline does, all ran out of time together.
+- a 1.9 GB file took 80–119 seconds;
+- four 600 MB files, scanned in parallel as the pipeline does, each took longer than two minutes.
 
-Raising `MaxScanTime` is a #371 matter. The point for this RFC is that *not scanned* is a normal
-outcome for large files, whatever its cause, and the platform should treat it as one.
+`MaxScanTime` was 2 minutes, and v1.3.2 raised it to 30. Several large files scanned together can
+still run past it. The point for this RFC is that *not scanned* is a normal outcome for large
+files, whatever its cause, and the platform should treat it as one.
 
 For a file ClamAV can't scan, the options are:
 
@@ -174,16 +192,20 @@ Before this is offered to depositors, one 10 GB file goes through every step on 
 
 1. The BagIt variant of the operator route, with today's code.
 2. The same with change 1 in place, using declared metadata.
-3. Pipeline: the time for three such files. The pipeline reads deposit files through an S3 mount,
-   so it needs no local copy, but Siegfried hashes every byte through it. The virus scan should
-   record each file as *not scanned* (depends on #371).
-4. Import: the Fedora PUT and transaction commit at this size, and the OCFL write to S3.
+3. Pipeline: the time for three such files. For a deposit in the platform's bucket the pipeline
+   reads files through an S3 mount, so it needs no local copy, but Siegfried hashes every byte
+   through it. The virus scan should record each file as *not scanned*.
+4. Import: the Fedora PUT and transaction commit at this size, and the OCFL write to S3. A commit
+   that ran for 22 minutes has completed on dev
+   ([RFC 010](https://github.com/digirati-co-uk/digital-preservation-docs/pull/67)), but not with
+   a single file of this size.
 5. Export of the preserved file, then a new version built from that export.
+6. Download of the preserved file (RFC 011).
 
 ## Not in this RFC
 
 - **Uploading large files through the UI.** That needs the browser to hash the file in chunks
   rather than all at once, and to upload parts directly to S3 through presigned URLs rather than
   through the UI server. It builds on change 1, and deserves its own paper when it is needed.
-- **The virus-scan limits for files under 2 GB**, which are part of
-  [#371](https://github.com/digirati-co-uk/digital-preservation/issues/371). That includes `MaxScanTime`.
+- **The virus-scan limits for files under 2 GB**, which were settled in
+  [#371](https://github.com/digirati-co-uk/digital-preservation/issues/371).
