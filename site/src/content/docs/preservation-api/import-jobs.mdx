@@ -160,6 +160,8 @@ A rename changes the `name` of a Container or Binary — its `dc:title`, the UTF
 
 So an entry in `binariesToRename` or `containersToRename` is the resource as it should now be: the same `id` as the existing one, with a different `name`. A generated diff populates these lists by comparing the name in the Deposit's METS with the name currently recorded in the Archival Group.
 
+**Renames are not carried out yet.** The diff still lists them, so you can see that a name differs, but executing a job with anything in either list is refused with `400 Bad Request` before anything is created. The detail names the items and says how to proceed: make the name in the METS match the name the Archival Group already has, or remove the rename entries from the job. A diff reference is no way round this: the diff is generated first, and refused if it contains renames.
+
 ### BagIt deposits
 
 In a [BagIt-layout Deposit](../deposits#templates) the object's content lives under `data/`. That prefix does not appear in the Import Job at all: the diff is generated from `data/` downwards, so the `id` paths are `.../objects/…` and `.../metadata/…` exactly as they would be for a `RootLevel` Deposit, and the target Archival Group looks the same whichever layout you deposited from.

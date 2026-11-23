@@ -131,7 +131,7 @@ GET /deposits?status=error&showAll=true
 
 **My `If-Match` keeps being rejected.**
 
-Re-read the deposit and use its `metsETag`. It is null in the response to *creating* a deposit, and it changes on every successful write, so it goes stale between edits. [Editing METS](../../preservation-api/editing-mets#the-etag-and-why-every-write-needs-one)
+Re-read the deposit and use its `metsETag`. It changes on every successful write, so it goes stale between edits. [Editing METS](../../preservation-api/editing-mets#the-etag-and-why-every-write-needs-one)
 
 **I get `409` creating a deposit for an object.**
 

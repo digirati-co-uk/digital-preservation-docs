@@ -104,7 +104,7 @@ Every METS-editing step below needs a METS file whose `mets:agent` says the plat
    ]
    ```
 
-   A list of paths relative to the root of the Deposit. Parent folders are created for you; folders are not expanded, so list every file you want. The `If-Match` is the Deposit's `metsETag` — **fetch the Deposit again to get it**. It is null in the response to creating one, and a pipeline run will have changed it since, so an ETag held from earlier in this walk-through is stale and will be refused with a `409`.
+   A list of paths relative to the root of the Deposit. Parent folders are created for you; folders are not expanded, so list every file you want. The `If-Match` is the Deposit's `metsETag` — **fetch the Deposit again to get it**. A pipeline run will have changed it since you created the Deposit, so an ETag held from earlier in this walk-through is stale and will be refused with a `409`.
 
    The platform adds each file to the METS *with all the metadata it has collected for it* — which is why this step comes after the pipeline and not before. See [Editing the METS](../../preservation-api/editing-mets) for the rules and the response.
 

@@ -365,7 +365,7 @@ function updateIngestStatus(existingManifest: any, newManifest: any) {
         if(seenIds.indexOf(newPaintedResource.asset.id) == -1){
             seenIds.push(newPaintedResource.asset.id);
             const existingPaintedResource = existingManifest.paintedResources.find(
-                pr => pr.asset.id == newPaintedResource.asset.id);
+                (pr: any) => pr.asset.id == newPaintedResource.asset.id);
             if(!existingPaintedResource){
                 newPaintedResource.reingest = true;
                 continue;

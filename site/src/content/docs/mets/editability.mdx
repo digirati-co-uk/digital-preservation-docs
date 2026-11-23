@@ -16,9 +16,13 @@ output, which is also the shape an edited document ends up in — and
 [What the METS parser can read](../mets-we-read), which is a much wider set than what can be edited.
 
 <Aside type="note" title="Status">
-This page records the *agreed direction* (issue
+This page records the criteria Leeds agreed in November 2026 (issue
 [#223](https://github.com/digirati-co-uk/digital-preservation/issues/223); plan in
 [`docs/issues/223/issue-223-editability-plan.md`](https://github.com/digirati-co-uk/digital-preservation/blob/main/docs/issues/223/issue-223-editability-plan.md)).
+The judge that applies them is in the code repository
+([`src/mets-editability/`](https://github.com/digirati-co-uk/digital-preservation/blob/main/src/mets-editability/README.md),
+[PR #238](https://github.com/digirati-co-uk/digital-preservation/pull/238)), but it is not yet wired into
+the platform.
 The platform's *current* behaviour is simpler and stricter: a METS file is editable if and only if its
 `mets:agent` name is exactly the platform's own (see [Current behaviour](#current-behaviour-for-completeness)).
 The conformance-based rules below replace that gate once the #188 ID migration has bedded in and the
@@ -85,22 +89,28 @@ agent name counts as editable while being unsafe to edit.
 ## The EPrints tier: editable under declared assumptions
 
 EPrints-migrated METS is flat: a root div and one div per file, no directory divs, every
-`FLocat/@xlink:href` already a deposit-relative path under `objects/`. Measured against the real corpus (a
+`FLocat/@xlink:href` already a deposit-relative path directly in `objects/`, not in a subfolder of it
+(the save creates one directory, `objects`, and nothing deeper). Measured against the real corpus (a
 410-file document: 410 paths resolved, zero diagnostics), it is fully navigable under these reading rules
 — each a tolerance for something METS makes optional, none changing a byte on disk:
 
-1. **An untyped `structMap` is read as physical** when it is the only candidate. METS makes `TYPE`
-   optional; absence is not contradiction.
-2. **`TYPE` comparison is case-insensitive** on `structMap` and `div` alike.
-3. **An untyped `div` carrying an `fptr` is read as an Item.**
+1. **An untyped `structMap` is read as physical** when no map is typed physical and it is the first
+   map not typed logical, the one the platform's parser walks. METS makes `TYPE` optional; absence is not
+   contradiction. If that first map has some other `TYPE` (`OTHER`, or an empty one), nothing says it is
+   the physical map, and the document is not editable.
+2. **`TYPE` comparison is case-insensitive** on `structMap` and `div` alike (ASCII case only).
+3. **The root div is untyped or a Directory, and points at no file itself; every file div is untyped or
+   an Item.** An untyped `div` carrying an `fptr` is read as an Item. A file div typed with some other
+   word (EPrints' own `eprint` or `page`) falls outside the tier: the save does not retype those.
 4. **The `objects` container is implied.** No div for `objects/` exists, but every file path is under it;
    the root container is synthesised on read from the paths. Reading never writes it back.
 5. **The file groups are mapped.** These documents carry fileGrps with USE values like `reference`,
    `original` or `DEFAULT` — EPrints writes *one group per file*, all `USE="reference"` — rather than the
-   platform's single `USE="OBJECTS"`. All the groups the physical structMap references are treated
-   together as the OBJECTS-equivalent, and consolidated into one `USE="OBJECTS"` group on save. What fails
-   the tier is genuine ambiguity: referenced files sitting in groups with *different* USE values (which
-   copy is the content?), or two referenced entries resolving to the same deposit-relative path.
+   platform's single `USE="OBJECTS"`. All the groups are treated together as the OBJECTS-equivalent, and
+   every one of them, referenced or not, is consolidated into one `USE="OBJECTS"` group on save. What
+   fails the tier is genuine ambiguity: groups with *different* USE values (which copy is the content?),
+   groups nested in other groups, or two referenced entries resolving to the same deposit-relative
+   path.
 6. **Every resolved path is deposit-relative** — the standing guard.
 
 Because these documents have no directory divs, nothing in them needs `premis:originalName` on read. The
@@ -116,15 +126,15 @@ machinery must handle:
   file's path on the EPrints server it was migrated from. It is historical provenance, not a live
   location, and it is never rewritten; when the platform records a storage location of its own (on
   Archival Group export) it adds a separate `premis:storage` marked with its own `storageMedium`,
-  alongside. The editing stack already reads storage assertions by `storageMedium`; the parser currently
-  does not (it takes any single `contentLocation`, and fails on two), which must be corrected before
-  third-party editing is enabled.
+  alongside. The parser reads only the storage marked as the platform's
+  ([#236](https://github.com/digirati-co-uk/digital-preservation/issues/236)), so the EPrints locations are
+  kept as history and never read as a location.
 - **EPrints writes its record identifiers in the METS namespace, not MODS** —
   `recordInfo`/`recordIdentifier` elements carrying the EPrints id, the EMu number, and the
-  `id.library.leeds.ac.uk` PID. The parser currently reads only `mods:recordIdentifier`, so these are
-  invisible to the platform today. The judge, and eventually the parser, should read them; an edit that
-  sets record info through the platform writes standard `mods:recordInfo` while the original EPrints
-  elements are preserved untouched in place.
+  `id.library.leeds.ac.uk` PID. The parser reads them when the dmdSec claims MODS
+  ([#237](https://github.com/digirati-co-uk/digital-preservation/issues/237)); an edit that sets record
+  info through the platform writes standard `mods:recordInfo` while the original EPrints elements are
+  preserved untouched in place.
 - **The referenced dmdSec claims MODS but is not MODS** — `mdWrap MDTYPE="MODS"` with no `mods:mods`
   record. Such a section is not editable as MODS and the platform never edits it; see the foreign-dmdSec
   rule in the save contract below.
@@ -140,32 +150,49 @@ machinery must handle:
 metadata (titles, access conditions, rights, record identifiers), **logical structMaps** (whole-file
 pointers, time segments, image regions), and **file-to-file links** — not just the physical tree the tiers
 are named for. Editability means the platform understands the document and can change it; it cannot
-safely change linkage it cannot resolve. So both editable tiers also require, for every document:
+safely change linkage it cannot resolve.
 
+**First, the platform must be able to open it.** Anything that would stop the platform's parser loading
+the document makes it **not editable**, not even navigable-read-only, because the platform could not show
+it either. That covers:
+
+- an `fptr` in the judged *physical* structMap without a `FILEID` of its own — area-only pointers belong
+  in logical structMaps, where the platform itself writes them;
+- one file referenced from more than one physical `fptr`, or two files resolving to the same path;
+- a referenced file without exactly one `FLocat` carrying an `xlink:href`;
+- an href that is not already normalised: a backslash, an empty, `.` or `..` segment, or an encoded
+  separator, whether written plainly or percent-encoded. The platform's path cache does not normalise
+  paths, so `objects//a.jpg` is a real entry the platform can never reach;
+- a directory div without a `LABEL`, in any tier, or whose `premis:originalName` would point outside the
+  deposit;
+- a PREMIS element the parser reads once (fixity, size, original name, format) repeated in one section;
+- a `mods:recordIdentifier` without a `source`, or a blank time code;
+- a DTD, elements nested more than 256 deep, or more than one `mets:mets` element in the document.
+
+**Then both editable tiers also require**, for every document:
+
+- the judged structMap has exactly one root div;
 - every `fptr` and every `area` in **every** structMap — logical included — resolves through the fileSec;
-- every `fptr` in the judged *physical* structMap carries a `FILEID` of its own — the platform's physical
-  walk requires it; area-only pointers belong in logical structMaps, where the platform itself writes
-  them;
-- every file has exactly one `FLocat`, carrying an `xlink:href` — the platform's parser reads the single
-  location of each file and cannot load zero, several, or one without an href;
-- every href is already normalised — no empty or `.` segments — because the platform's path cache does
-  not normalise paths, so `objects//a.jpg` is a real entry the platform can never reach;
-- every directory div in the platform tier carries a `LABEL` — adding into a LABEL-less parent fails;
+- every file in the fileSec, referenced or not, has exactly one `FLocat`, carrying an `xlink:href`;
 - both ends of every `structLink/smLink` resolve, whether they point at files (the platform's own arcrole
   style) or at divs (Goobi's logical-to-physical style);
-- every logical structMap's root div has an ID — logical structure is edited *by address* (replaced,
-  reordered and removed by root div ID), so an ID-less logical map is present but unchangeable, which is
-  exactly what editable must not mean;
-- SHA256 fixity per file **with an actual digest value**, in both tiers — every edit ends in an import
-  job, and import jobs require it; an algorithm label with an empty digest is a record of having lost the
-  checksum, not of having one.
+- every logical structMap's root div has a non-empty ID — logical structure is edited *by address*
+  (replaced, reordered and removed by root div ID), so an ID-less logical map is present but
+  unchangeable, which is exactly what editable must not mean;
+- SHA256 fixity per file **with an actual digest value** of 64 hex digits, in both tiers — every edit
+  ends in an import job, and import jobs require it; an algorithm label with an empty digest is a record
+  of having lost the checksum, not of having one.
 
 When a document holds more than one physical-candidate structMap, **only the judged one is judged**: an
 unchosen sibling map — preserved as parsed, never edited — can neither demote the verdict nor satisfy a
 tier on the judged map's behalf.
 
-A failure of any of these leaves the document navigable-read-only at best: its files can be listed, but
-its structure cannot be safely mutated.
+A failure of any of these second rules leaves the document navigable-read-only at best: its files can be
+listed, but its structure cannot be safely mutated.
+
+**A document with no files yet is editable.** The platform's own freshly created deposit skeleton is
+exactly this: structure, no files. It must be editable, or nothing could add the first file. An
+EPrints-shaped document with no files is not in the EPrints tier: there is nothing to restructure.
 
 Deliberately *not* required: DMDID resolution. A dangling `DMDID` is by design in the platform's own
 skeleton — dmdSecs are created lazily, references first — so it can never be a conformance rule; what a
@@ -194,12 +221,13 @@ tooling touches these documents:
 
 Concretely, the first save:
 
-1. writes `TYPE="PHYSICAL"` onto the structMap and gives divs their types (`Directory`/`Item`);
+1. writes `TYPE="PHYSICAL"` onto the structMap, gives divs their types (`Directory`/`Item`), and gives
+   the root div the `LABEL` the platform writes (`__ROOT`) if it has none;
 2. **materialises the implied `objects` div**: a real Directory div with an `amdSec`/`techMD` carrying
    `premis:originalName` (`objects`), exactly as the platform profile specifies for any directory, and
    re-parents the file divs under it — where their paths always said they were;
-3. consolidates the referenced fileGrps into the single `USE="OBJECTS"` group, moving the `mets:file`
-   elements unchanged;
+3. consolidates every fileGrp into the single `USE="OBJECTS"` group, moving the `mets:file` elements
+   unchanged;
 4. **wraps any bare `mdWrap` payload in the `mets:xmlData` element the schema requires** — EPrints puts
    `premis:object` directly inside `mdWrap`, which is schema-invalid and, left as-is, would be silently
    dropped by any schema-typed round trip. The wrapped content itself is preserved verbatim; only the
@@ -216,9 +244,7 @@ An edit that sets metadata on such a div creates a *new* platform dmdSec and **a
 div's `DMDID` — `DMDID` is IDREFS, so `DMDID="DMD_eprint_10315 DMD_PHYS_ROOT"` is legal METS; the
 original section stays byte for byte, and effective-metadata resolution reads both. (One prerequisite:
 the parser currently reads only the *first-resolving* dmdSec of several — identifier-audit finding M10 —
-so fixing that joins [#236](https://github.com/digirati-co-uk/digital-preservation/issues/236) and
-[#237](https://github.com/digirati-co-uk/digital-preservation/issues/237) as work the editing capability
-depends on.)
+so fixing that is work the editing capability depends on.)
 
 The mirror-image rule: a **MODS-editable dmdSec referenced from more than one div** makes the document
 read-only, because editing metadata on one div would rewrite the shared section in place and silently
@@ -233,9 +259,8 @@ if it happens anyway, what it finds is legal METS stating outright what the orig
 
 ## The judge
 
-The editability decision is designed as a runnable check — one behaviour, two implementations (.NET and
-Python), so that both the platform and external tooling can ask the same question and get the same
-answer. Given a METS document it returns:
+The editability decision is a runnable check — one behaviour, two implementations (.NET and Python), so
+that both the platform and external tooling can ask the same question and get the same answer. Given a METS document it returns:
 
 - a **verdict**: `editable` (platform tier) · `editable-with-normalisation` (EPrints tier — a save will
   restructure as above) · `navigable-read-only` (Archivematica tier) · `not-editable`;
@@ -243,15 +268,18 @@ answer. Given a METS document it returns:
 - for `editable-with-normalisation`, the **list of mutations a save would perform** on this document — a
   dry run of the contract above.
 
-Structural rules that XML can answer (typing per tier, fileSec shape, header requirements,
-ADMID/DMDID/FILEID referential integrity, SHA256 fixity presence) are expressed once as Schematron and
-shared by both implementations; what Schematron cannot see (path normalisation and uniqueness, the
-deposit-relative guard, implied-`objects` inference, fileGrp ambiguity) is native code on each side,
-specified by this page.
+Structural rules that XML can answer (typing per tier, fileSec shape and fileGrp ambiguity, header
+requirements, FILEID and `smLink` resolution, directory ADMIDs, SHA256 fixity) are written once as
+Schematron and compiled once to XSLT, and both implementations run that same compiled form. What
+Schematron cannot see (reading the document the way the parser does, path normalisation and uniqueness,
+the deposit-relative guard, NCName legality, a dmdSec shared between divs) is native code on each side,
+specified by this page. Both implementations are tested against one shared set of expected judgements.
 
-The judge is not yet part of the platform. It is being built in
-[PR #238](https://github.com/digirati-co-uk/digital-preservation/pull/238), which was still open when
-this page was written; the platform's shipped behaviour is the agent-name rule in the next section.
+Both judges are in the code repository: the Python one, with the contract it implements, in
+[`src/mets-editability/`](https://github.com/digirati-co-uk/digital-preservation/blob/main/src/mets-editability/README.md),
+and the .NET one in `DigitalPreservation.Mets.Conformance`. Neither is part of the platform's behaviour
+yet: until the judge is wired in, the platform's shipped behaviour is the agent-name rule in the next
+section.
 
 ## Current behaviour, for completeness
 

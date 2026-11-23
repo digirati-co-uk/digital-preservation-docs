@@ -21,12 +21,12 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
 
+  // The demo is tests/iiif-builder.spec.ts. (This project used to match only files under a
+  // /main/ folder, which does not exist, so Playwright found no tests at all.)
   projects: [
     {
       name: 'main',
-      testMatch: [
-        new RegExp('/main/.*')
-      ]
+      testMatch: 'iiif-builder.spec.ts'
     }
   ],
 });
