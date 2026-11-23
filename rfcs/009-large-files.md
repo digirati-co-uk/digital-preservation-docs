@@ -5,6 +5,9 @@ export individual files larger than 5 GB, which it cannot handle today. It cover
 changes and an operator route that works without any UI work. A UI for large uploads is left for
 later.
 
+The three decisions it asked for were made on 23 November 2026, and are recorded where they arise:
+A in section 1, B in section 2 and C in section 4.
+
 ## The situation
 
 A depositor has a deposit with three 10 GB files in it, and some much smaller ones. The small files
@@ -89,10 +92,10 @@ Two concrete changes follow:
 Every SHA-256 the platform holds about a file still has to agree. A declared digest that the
 pipeline contradicts stops the deposit at the diff, exactly as a mismatch does today.
 
-**Decision A.** User metadata or an object tag for the declared digest? Metadata can only be set
-when the object is written. A tag can be added afterwards without rewriting the object, which is
-how AWS's own large-file example stores a full-object SHA-256. Metadata is proposed, because a
-declaration should be made by whoever uploads the file, at the time they upload it.
+**Decision A: metadata** (decided 23 November 2026). The alternative was an object tag. Metadata
+can only be set when the object is written. A tag can be added afterwards without rewriting the
+object, which is how AWS's own large-file example stores a full-object SHA-256. Metadata it is,
+because a declaration should be made by whoever uploads the file, at the time they upload it.
 
 ### 2. An operator route, before any UI work
 
@@ -111,11 +114,24 @@ The BagIt variant may already work today. An upload with no checksum options get
 CRC64 checksum, so it has no SHA-256 for the deposit reader to misread. Trying that first is part
 of the validation below.
 
-**Decision B.** Should the platform require a *declared* digest for files above some size, rather
-than accept the pipeline's observed hash alone? Without one, preservation proves fixity from the
-moment the file reached S3, but not that the upload itself was faithful. Today the pipeline-only
-route is already possible for files of any size uploaded directly to S3, and the nightly e2e suite
-exercises it.
+**Decision B: a declared digest is not required, at any size, but its absence is recorded and
+shown** (decided 23 November 2026). The question was whether to require one above some size,
+rather than accept the pipeline's observed hash alone. The answer is no:
+
+- A size is the wrong place for the line. The gap is any file uploaded directly to S3 without a
+  checksum, large or small. A rule at 5 GB would refuse a 5.1 GB file and accept a 4.9 GB one with
+  the same weakness.
+- The pipeline-only route already exists for files of any size, and the nightly e2e suite
+  exercises it.
+- What a declared digest adds is narrower than it looks. S3's default checksum already protects
+  the upload in transit, so the pipeline's hash shows the file is what reached S3. A declared
+  digest also shows it is what left the depositor's disk. That is the depositor's assurance to
+  give, not the platform's to demand.
+
+So the platform records which digests a file had when it was preserved, declared or only observed,
+and shows that on the deposit and in the import job. An institution can then make a declared digest
+its own policy for its own depositors, a script that deposits theses for example, without the
+platform refusing anything.
 
 ### 3. Multipart copy, for export and download
 
@@ -180,11 +196,17 @@ For a file ClamAV can't scan, the options are:
 A later scan event supersedes an earlier one. So a file recorded `Not scanned` today can be scanned
 again if a better option arrives, and the new outcome becomes its current status.
 
-**Decision C.** Should preserving a file with a `Not scanned` outcome need an explicit
-acknowledgement? For example, a flag on the preserve request, or a confirmation in the UI. The
-proposal is yes. The outcome should be shown on the deposit and in the import job, and the preserve
-request should say that it accepts it. A result that is recorded but never looked at is how #371
-went unnoticed.
+**Decision C: a confirmation in the UI, and no flag on the API** (decided 23 November 2026). The
+question was whether preserving a file with a `Not scanned` outcome needs an explicit
+acknowledgement. A result that is recorded but never looked at is how #371 went unnoticed.
+
+- **In the UI, yes.** The deposit shows which files were not scanned, and the person preserving it
+  confirms that they have seen that. This is a prompt, not a control: the UI calls the same API as
+  everyone else.
+- **On the API, no.** A flag on the preserve request would be set to true once by whoever wrote the
+  script, and mean nothing after that. The API tells the caller all the same: the diff and the
+  import job list the files that were not scanned. A caller that cares can check, and nothing
+  is refused.
 
 ### 5. Validate on dev before promising anything
 
