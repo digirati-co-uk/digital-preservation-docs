@@ -38,7 +38,8 @@ below).
 
 Zero or more `mods:accessCondition` elements with `type="restriction on access"`. The values are
 access-control tokens meaningful to downstream delivery systems (not to the preservation platform
-itself); see the [access-conditions vocabulary](../../preservation-api/vocabularies):
+itself); the vocabulary, and whether a div may carry more than one, come from the instance's
+[access condition profile](../../preservation-api/vocabularies#access-conditions):
 
 ```xml
 <mods:accessCondition type="restriction on access" xlink:type="simple">Level1</mods:accessCondition>
@@ -68,6 +69,62 @@ There are three distinct states, because rights are *inherited* down the physica
 <!-- state 3: this file must NOT inherit the parent's rights statement -->
 <mods:accessCondition type="use and reproduction" xlink:type="simple">null</mods:accessCondition>
 ```
+
+### Statements and derived access conditions
+
+The two elements above are the ones a person *chooses*, and on a standard instance they are all there is.
+An instance can instead configure a [statement profile](../derived-access-conditions), and then three things
+change:
+
+- A person chooses a **statement** (for Leeds, a copyright statement) instead of a rights statement. It
+  is written as a key, under a `type` the instance picks, and inherited like the restriction.
+- The **rights statement** is written by the platform, from the statement.
+- Any number of **derived** access conditions are computed by a lookup over the effective restriction and
+  the category of the effective statement. Each is written under a `type` of the instance's choosing.
+  For Leeds this is the Access Tier, the 0-5 value that downstream delivery maps to IIIF authorisation
+  roles.
+
+```xml
+<mods:accessCondition type="restriction on access" xlink:type="simple">PA1</mods:accessCondition>
+<mods:accessCondition type="copyright statement" xlink:type="simple">inc-low-risk-orphan-2039</mods:accessCondition>
+<mods:accessCondition type="use and reproduction" xlink:type="simple">http://rightsstatements.org/vocab/InC-RUU/1.0/</mods:accessCondition>
+<mods:accessCondition type="tier" xlink:type="simple">1</mods:accessCondition>
+```
+
+The statement is set like the restriction: setting it replaces the element, and clearing it removes the
+element so that the node inherits. The other two are never set directly, through the API or in the UI.
+The rules:
+
+- **The rights statement follows the statement.** A div with a statement of its own carries the
+  statement's rights statement as `use and reproduction`. If the statement has none, the div gets the
+  `null` sentinel, which stops a parent's rights being inherited. Clearing the statement removes the
+  rights written from it. A statement the profile doesn't know leaves the div's rights as found, and so
+  does a div with no statement of its own (rights written before the profile, or by another producer).
+- **A derived value is written on every div**, physical or logical, that carries at least one explicit
+  chosen element. It is computed from that div's **effective** restriction and statement, so a file that
+  sets only a statement gets a tier that reflects the restriction it inherits from its folder.
+- **It is also written on every file whose effective inputs come partly from its logical range.** The
+  reader falls back to the range for an input the folders are silent on. So a file in a range that sets
+  the restriction, under a folder that sets only the statement, couldn't inherit the right value from the
+  folder; it gets its own.
+- **Every write recomputes the whole document.** Changing a folder's restriction rewrites the tier on
+  every descendant that carries one, a changed statement's rights reach the METS the next time it is
+  saved, and a derived element whose source has gone is removed. A stale value can't survive a save.
+- **Any other div carries no derived element**, and inherits one on read like everything else (see
+  [effective metadata inheritance](../mets-we-read#effective-metadata-inheritance)). Nothing is written
+  for a node with no effective input at all.
+- **The writer touches only the types the instance currently derives, plus the rights statement**, and
+  only in `dmdSec`s it created itself or that carry a chosen element. Any other typed `accessCondition`
+  in the document is left exactly as found: a third party's, or one under a type this instance used to
+  derive and no longer does. So is a third party's derived element on a div with no chosen ones. A Goobi
+  export that carries only its resulting tier keeps it, on a physical div indefinitely and on a logical
+  div until the logical structure is saved (see [below](#logical-structmaps)).
+
+The statements, their categories and rights, and the lookup for each derived type are configuration of
+the Preservation API, exposed in its
+[access condition profile](../../preservation-api/vocabularies#access-conditions). The mechanism and the
+Leeds example are on [Statements and derived access conditions](../derived-access-conditions). An
+instance without a statement profile gets exactly the two chosen elements.
 
 ### Catalogue record identifiers
 
@@ -125,7 +182,10 @@ Each div in a logical structMap:
 
 Replacing a logical structMap (matched by root div ID) removes the old one *and* the dmdSecs it
 referenced, then writes the new tree; removing one cleans up its dmdSecs the same way. The physical
-structMap is never affected.
+structMap is never affected. The new dmdSecs are built from what the client sent — title, record
+identifiers, restriction, rights statement and (with a statement profile) statement — so anything else a third party's logical
+dmdSec held, including a [derived access condition](../derived-access-conditions) such as a Goobi tier,
+is not carried over.
 
 ### File pointers: whole files, time segments, image regions
 
