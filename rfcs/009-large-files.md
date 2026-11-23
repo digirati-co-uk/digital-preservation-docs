@@ -30,7 +30,7 @@ attribute as the SHA-256 of the file, everywhere:
 - when it reads the deposit's files, the S3 checksum becomes the file's digest;
 - the UI upload asks S3 for a SHA-256 and compares it with the one the browser computed;
 - export copies each file and checks the SHA-256 S3 returns against the one in the OCFL inventory;
-- content download ([RFC 011](https://github.com/digirati-co-uk/digital-preservation-docs/pull/87))
+- content download ([RFC 011](011-content-download.md))
   copies a file for a user in the same way, with the same check.
 
 Above 5 GB, that assumption cannot hold, whatever tool uploads the file.
