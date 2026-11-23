@@ -1,0 +1,2 @@
+# Keep the sample PDF byte for byte: line-ending conversion would break its offsets.
+*.pdf binary
