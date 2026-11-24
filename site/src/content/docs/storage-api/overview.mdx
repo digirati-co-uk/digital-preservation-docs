@@ -36,10 +36,10 @@ The resource types are the same, and so is most of the browsing. What is missing
 
 | Concept | In the Storage API |
 |---|---|
-| [Container, Binary, ArchivalGroup](../../preservation-api/repository#resource-types) | The same JSON shapes, with `id` and related URIs on the Storage API host. The Preservation API rewrites `id`, `partOf`, `createdBy` and `lastModifiedBy` to its own host when it passes a resource through - but not a Binary's `content`, which stays as the Storage API minted it. |
+| [Container, Binary, ArchivalGroup](../../preservation-api/repository#resource-types) | The same JSON shapes, with `id` and related URIs on the Storage API host. The Preservation API rewrites `id`, `partOf`, `createdBy` and `lastModifiedBy` to its own host when it passes a resource through, and removes a Binary's `content`, which only the Storage API can serve. |
 | [Browsing the repository](../../preservation-api/repository#walking-the-tree) | The same. `GET /repository/...`, the same `view=lightweight` and `version` parameters, the same `HEAD` behaviour and `X-Preservation-Resource-Type` header, the same `PUT`/`DELETE` for organisational Containers with `?purge=true`. |
 | [`view=mets` and `view=parsed-mets`](../../preservation-api/repository#the-view-and-version-parameters) | Not supported - the Storage API never parses a METS file. Any `view` other than `lightweight` is a `400`. |
-| [Fetching file content](../../preservation-api/repository#fetching-file-content) | This is where the `/content/...` path is actually served. See [Activity and content](../activity-and-content#fetching-file-content). |
+| [Fetching file content](../../preservation-api/repository#fetching-file-content) | The `/content/...` path is served here and only here. See [Activity and content](../activity-and-content#fetching-file-content). |
 | [Deposits](../../preservation-api/deposits) | Do not exist. The Storage API takes file locations, not workspaces. |
 | [METS](../../mets/overview) and [editing METS](../../preservation-api/editing-mets) | Do not exist. |
 | [Import Jobs](../../preservation-api/import-jobs) | The Storage API cannot generate one for you - there is no diff. It only executes jobs you construct and send. See [Import](../import). |
