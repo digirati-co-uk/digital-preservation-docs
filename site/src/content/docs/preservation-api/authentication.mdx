@@ -130,8 +130,8 @@ Authentication is currently the whole of the access decision: any caller holding
 
 Two groups of routes are anonymous by design, because they are read by a IIIF viewer in a browser that has no token of its own:
 
-* `GET`/`POST /deposits/{id}/iiif-token/{token}` — a Deposit as a IIIF Manifest, reached by first calling `GET /deposits/{id}/iiif` *with* your token, which redirects to a one-off tokenised URL.
-* `GET /media/{token}/...` — the images referenced by such a Manifest.
+* `GET /deposits/{id}/iiif-token/{token}` — a Deposit as a IIIF Manifest, reached by first calling `GET /deposits/{id}/iiif` *with* your token, which redirects to a one-off tokenised URL.
+* `GET /media/{token}/...` — the placeholder images and files referenced by such a Manifest.
 
 Both are guarded by that short-lived URL token rather than by a bearer token, and both are behind the `EnableIiifMediaEndpoints` feature flag, so they may not be switched on in your instance. See [IIIF](../iiif). Every other operation requires a bearer token.
 
