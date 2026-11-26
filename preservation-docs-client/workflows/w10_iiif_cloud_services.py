@@ -20,17 +20,34 @@ from pathlib import Path
 
 from preservation import get
 
-# An example rule, for an installation (like Leeds) that derives an Access Tier, type "tier".
-# None means "publish with no roles"; NOT_PUBLISHED means "leave the file out".
+# An example rule: what each placeholder role the platform puts on an asset means here. On Leeds
+# instances (Iiif:RoleConditionTypes = tier) every asset has exactly one token, its tier.
+# OPEN means "remove the token: no roles"; NOT_PUBLISHED means "leave the file out".
+OPEN = "open"
 NOT_PUBLISHED = "not published"
-ROLES_BY_TIER = {
-    "0": None,
-    "1": None,
-    "2": "https://api.example/customers/7/roles/clickthrough",
-    "3": "https://api.example/customers/7/roles/staff",
-    "4": NOT_PUBLISHED,
-    "5": NOT_PUBLISHED,
+ROLE_FOR_TOKEN = {
+    "urn:x-access-condition:tier:0": OPEN,
+    "urn:x-access-condition:tier:1": OPEN,
+    "urn:x-access-condition:tier:2": "https://api.example/customers/7/roles/clickthrough",
+    "urn:x-access-condition:tier:3": "https://api.example/customers/7/roles/staff",
+    "urn:x-access-condition:tier:4": NOT_PUBLISHED,
+    "urn:x-access-condition:tier:5": NOT_PUBLISHED,
 }
+
+
+def real_roles(tokens):
+    """The asset's roles with every token mapped, or NOT_PUBLISHED. An unmapped token is an error:
+    the platform's tokens exist so that a gap in this table fails rather than publishing openly."""
+    roles = []
+    for token in tokens:
+        if token not in ROLE_FOR_TOKEN:
+            raise SystemExit(f"No rule for {token}: add it to ROLE_FOR_TOKEN")
+        role = ROLE_FOR_TOKEN[token]
+        if role == NOT_PUBLISHED:
+            return NOT_PUBLISHED
+        if role != OPEN:
+            roles.append(role)
+    return roles
 PRESERVATION_PREFIX = "Preservation: "
 
 
@@ -41,14 +58,6 @@ def find_first_archival_group(container):
         found = find_first_archival_group(get(child["id"]).json())
         if found:
             return found
-    return None
-
-
-def condition(resource, condition_type):
-    """The value of one access condition on a canvas, range or manifest, or None."""
-    for entry in resource.get("accessConditions", []):
-        if entry["type"] == condition_type:
-            return entry["value"]
     return None
 
 
@@ -86,20 +95,29 @@ keep = {PRESERVATION_PREFIX + "Format", PRESERVATION_PREFIX + "Size"}
 for canvas in manifest["items"]:
     canvas["metadata"] = [p for p in canvas.get("metadata", []) if label_of(p) in keep]
 
-# --- 3. Access: roles per asset, from each canvas's resolved conditions ------------------------
+# --- 3. Access: replace each asset's placeholder roles with real ones -------------------------
 
 canvases = {canvas["id"]: canvas for canvas in manifest["items"]}
 published = []
 for painted in manifest.get("paintedResources", []):
-    canvas = canvases[painted["canvasPainting"]["canvasId"]]
-    tier = condition(canvas, "tier")
-    role = ROLES_BY_TIER.get(tier) if tier is not None else None
-    print(f"  {painted['asset']['id'][-50:]:<50} tier={tier}  ->  {role or 'open'}")
-    if role == NOT_PUBLISHED:
-        canvases.pop(canvas["id"])
+    asset = painted["asset"]
+    roles = real_roles(asset.get("roles", []))
+    print(f"  {asset['id'][-50:]:<50} {asset.get('roles')}  ->  {roles or 'open'}")
+    if roles == NOT_PUBLISHED:
+        canvases.pop(painted["canvasPainting"]["canvasId"])
         continue
-    if role:
-        painted["asset"]["roles"] = [role]
+    if roles:
+        asset["roles"] = roles
+    else:
+        asset.pop("roles", None)
+    asset.pop("accessConditions", None)   # the builder's, not IIIF Cloud Services'
+    for adjunct in asset.get("adjuncts", []):
+        # IIIF Cloud Services gives an adjunct its asset's access; say so where that isn't what METS says.
+        if adjunct.get("accessDiffersFromAsset"):
+            print(f"      adjunct {adjunct['id'][-40:]} has its own access conditions: {adjunct.get('accessConditions')}")
+        adjunct.pop("roles", None)
+        adjunct.pop("accessConditions", None)
+        adjunct.pop("accessDiffersFromAsset", None)
     published.append(painted)
 
 # Leaving a file out means leaving out its canvas too, and renumbering what remains.

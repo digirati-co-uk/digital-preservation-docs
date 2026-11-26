@@ -91,7 +91,8 @@ The builder adds:
          "asset": {
            "id": "library_x002F_manuscripts_x002F_ms-342_x002F_objects_x002F_001.tif",
            "mediaType": "image/tiff",
-           "origin": "s3://preservation-bucket/initial/1a2/b3c/4d5/1a2b3c4d5…/v1/content/objects/001.tif"
+           "origin": "s3://preservation-bucket/initial/1a2/b3c/4d5/1a2b3c4d5…/v1/content/objects/001.tif",
+           "roles": [ "urn:x-access-condition:tier:3" ]
          }
        }
      ],
@@ -102,7 +103,8 @@ The builder adds:
    - **`items`** has one canvas per file, with no painting: IIIF Cloud Services paints each from its asset. Every `metadata` label we add starts with `Preservation: `.
    - **`paintedResources`** pairs each canvas with its asset: `id`, `mediaType` and `origin`. The asset `id` is the same as the canvas `id`, and stays the same for the file in later versions.
    - **`accessConditions`** on every canvas, Range and the Manifest are covered under [Access and rights](#access-and-rights) below.
-   - **A transcript or captions** belonging to a file is an `adjunct` of that file's asset, which IIIF Cloud Services ingests and turns into a supplementing annotation on the canvas.
+   - **`roles`** on each asset are placeholders made from that file's own access conditions, for the builder to replace with real roles. The asset has those `accessConditions` beside them too, the same as its canvas's.
+   - **A transcript or captions** belonging to a file is an `adjunct` of that file's asset, which IIIF Cloud Services ingests and turns into a supplementing annotation on the canvas. It has its own `accessConditions` and placeholder `roles`.
 
    [IIIF](../../preservation-api/iiif) describes every part of it.
 
@@ -110,9 +112,9 @@ The builder adds:
 
    Look the object up in the catalogue by its record identifier, and add what a public Manifest needs: `label`, `summary`, `metadata`, `homepage`. The `rights` and `requiredStatement` are already there (see [Access and rights](#access-and-rights)). Remove the `Preservation: ` metadata, or keep what is useful to the public: the file format and size, say.
 
-4. ### Decide access, file by file
+4. ### Turn the placeholder roles into real ones
 
-   For each painted resource, read the `accessConditions` of the canvas it paints, and set the asset's `roles` accordingly — or leave the file out. See [Access and rights](#access-and-rights).
+   Replace each `urn:x-access-condition:…` token in an asset's `roles` with the IIIF Cloud Services role it means, remove the tokens that mean open access, and leave out the files that aren't to be published. Then remove the platform's own properties from each asset and adjunct (`accessConditions`, and `accessDiffersFromAsset`, and an adjunct's `roles` while IIIF Cloud Services has none for adjuncts): they are for the builder, not for IIIF Cloud Services. See [Access and rights](#access-and-rights).
 
 5. ### Say where it goes
 
@@ -149,26 +151,27 @@ Every canvas, every Range and the Manifest itself carry the access conditions th
 
 The values are the installation's own codes. `GET /access-conditions` gives their labels and, for statements, what a public Manifest should say. See [Vocabularies](../../preservation-api/vocabularies).
 
-**Access control.** The builder turns conditions into IIIF Cloud Services `roles` on each asset. The rule is the institution's; the platform only makes sure every file's conditions are resolved, so the builder never repeats the inheritance. For Leeds the Access Tier already combines the restriction and the copyright statement, so a builder can work from the tier alone. A rule might look like this (the roles are examples):
+**Access control.** Every asset arrives with placeholder `roles` made from its own conditions, one token per condition: `urn:x-access-condition:{type}:{value}`, percent-encoded. Which condition types become tokens is the platform's configuration (`Iiif:RoleConditionTypes`). For Leeds it is the tier alone, since the Access Tier already combines the restriction and the copyright statement, so every Leeds asset has exactly one token, `urn:x-access-condition:tier:0` to `…:tier:5`.
 
-| `tier` | The asset |
+The builder's whole job here is a lookup table from token to role. What each means is the institution's decision; the platform has already resolved every file's conditions, so the builder never repeats the inheritance or cross-references canvases. For example (the roles are made up):
+
+| Token | The asset |
 |---|---|
-| `0`, `1` | No `roles`: open to everyone. |
-| `2` | `roles`: a role behind a click-through agreement. |
-| `3` | `roles`: a staff-only role. |
-| `4`, `5` | Not published: leave the canvas and its painted resource out of the Manifest. |
+| `urn:x-access-condition:tier:0`, `…:tier:1` | Remove the token: no `roles`, open to everyone. |
+| `urn:x-access-condition:tier:2` | `https://api.example/customers/7/roles/clickthrough` |
+| `urn:x-access-condition:tier:3` | `https://api.example/customers/7/roles/staff` |
+| `urn:x-access-condition:tier:4`, `…:tier:5` | Not published: leave the canvas and its painted resource out of the Manifest. |
 
 ```jsonc
-// tier 3: the asset gets a role
-"asset": {
-  "id": "library_x002F_manuscripts_x002F_ms-342_x002F_objects_x002F_001.tif",
-  "mediaType": "image/tiff",
-  "origin": "s3://…/v1/content/objects/001.tif",
-  "roles": [ "https://api.example/customers/7/roles/staff" ]
-}
+// as projected                                     // as submitted
+"roles": [ "urn:x-access-condition:tier:3" ]        "roles": [ "https://api.example/customers/7/roles/staff" ]
 ```
 
+Two safeguards are built in. An asset with none of the configured conditions gets `urn:x-access-condition:none` rather than no roles. And an unmapped token is not a role IIIF Cloud Services knows. Either way, a gap in the builder's table is refused when the Manifest is submitted, instead of publishing a file openly.
+
 IIIF Cloud Services then adds the IIIF Auth services for those roles to the published Manifest itself.
+
+**Linked files.** A transcript or captions file is an adjunct of its file's asset, with its own `accessConditions` and placeholder `roles`. Usually they are the same as the asset's, by inheritance. IIIF Cloud Services gives an adjunct its asset's access today, so where an adjunct's conditions differ it is marked `"accessDiffersFromAsset": true`. How to handle that is the builder's choice: register the file as an asset in its own right, say, or leave it out. If IIIF Cloud Services comes to support roles on adjuncts, they are already there.
 
 **Rights statements.** Every canvas, Range and the Manifest carry their effective `use and reproduction` URI as `rights`. On an installation with copyright statements, the Manifest also carries the object's statement wording as `requiredStatement`, exactly as the access dialogue previews it, and a canvas or Range carries its own only where its wording differs — IIIF applies the Manifest's to everything else. A builder can publish them as they come, with nothing to look up. A rights statement from before the profile is still published as `rights`, but has no `requiredStatement`. What the profile holds for each statement is in [For a IIIF builder](../../mets/derived-access-conditions#for-a-iiif-builder).
 

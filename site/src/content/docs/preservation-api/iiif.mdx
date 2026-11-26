@@ -85,6 +85,8 @@ A file that another file [links to](../deposit-files) — a transcript, closed c
 
 In the IIIF Cloud Services manifest it becomes an **adjunct** of the main file's asset, so IIIF Cloud Services ingests and serves it and makes the annotation itself (`iiifLink: "inlineAnnotation"`, `motivation: "supplementing"`, and `provides`).
 
+A linked file needs access control as much as the file it belongs to, so it carries its own effective `accessConditions`: on the annotation's body in the vanilla manifest, and on the adjunct in the IIIF Cloud Services manifest. They are usually the same as its file's, by inheritance, but not always.
+
 <Aside type="note">
 `provides` comes from IIIF Presentation 4, and is included now because it is so useful. IIIF Cloud
 Services keeps it on the adjunct, but will only write it into its own manifests once it supports
@@ -169,7 +171,10 @@ The `?view=iiif-cs` manifest adds what IIIF Cloud Services needs to register and
 
 * **`canvasId`** is the canvas's `id`, which in this manifest is the short identifier, and **`canvasOrder`** is the canvas's place in `items`.
 * **`asset.origin`** is where the file's content is in the preservation store's OCFL layout. That location never changes: a new version of the file is a new location, so a changed `origin` means changed content. A delivery platform integrated with the platform has read access to the store for this.
-* **`asset.id`** is a suggestion — the same identifier as the canvas. `space`, delivery channels and roles are left to the builder.
+* **`asset.id`** is a suggestion — the same identifier as the canvas. `space` and delivery channels are left to the builder.
+* **`asset.accessConditions`** are the file's own, the same as its canvas's, so each asset has them beside the roles made from them. Like the adjuncts' (below), they are for the builder: remove them before submitting.
+* **`asset.roles`** holds placeholders made from the file's own access conditions, one per condition: `urn:x-access-condition:{type}:{value}`, both parts percent-encoded, such as `urn:x-access-condition:tier:3`. A builder replaces each with a real IIIF Cloud Services role, or removes it for open access: a lookup table, with nothing to cross-reference. An asset with none of the conditions gets `urn:x-access-condition:none`, never an empty list, so a builder that forgets a mapping is refused by IIIF Cloud Services rather than publishing the file openly. Which condition types become tokens is configuration (`Iiif:RoleConditionTypes`); by default every type except `use and reproduction`, and for Leeds the tier alone.
+* **Each adjunct** has its own `accessConditions` and placeholder `roles` too. IIIF Cloud Services gives an adjunct its asset's access today, so where an adjunct's conditions differ from its asset's it has `"accessDiffersFromAsset": true`, for the builder to deal with: by registering that file as an asset of its own, say. If IIIF Cloud Services comes to support roles on adjuncts, they are ready.
 
 It also has **`formerAssets`**: every file below `objects/` that an earlier version of the Archival Group had and this one doesn't — removed, or renamed from that path — with the last version it was in and its last `origin`:
 
