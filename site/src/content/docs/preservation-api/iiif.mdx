@@ -81,7 +81,7 @@ These routes are **anonymous**, because a viewer has no way to send a token, and
 
 ### Linked files
 
-A file that another file [links to](../deposit-files) — a transcript, closed captions, OCR — gets no canvas. In the vanilla manifest it becomes a supplementing annotation on the canvas of the file it belongs to, with a `provides` value from the link's role (`transcript`, `closedCaptions` and so on). In an Archival Group manifest the annotation's body is the Binary's URI; in a Deposit manifest it is an identifier, not a link.
+A file that another file [links to](../deposit-files) — a transcript, closed captions, OCR — gets no canvas. In the vanilla manifest it becomes a supplementing annotation on the canvas of the file it belongs to, with a `provides` value from the link's role (`transcript`, `closedCaptions` and so on). In an Archival Group manifest the annotation's body is the Binary's URI; in a Deposit manifest it is an identifier, not a link. So a viewer showing a Deposit finds nothing at a caption file's address: the Deposit manifest is shaped like the one the preserved object will have, not made to play.
 
 In the IIIF Cloud Services manifest it becomes an **adjunct** of the main file's asset, so IIIF Cloud Services ingests and serves it and makes the annotation itself (`iiifLink: "inlineAnnotation"`, `motivation: "supplementing"`, and `provides`).
 
@@ -106,14 +106,14 @@ Every canvas, every Range and the manifest itself carry the access conditions th
 
 ```json
 "accessConditions": [
-  { "type": "restriction on access", "value": "Open" },
+  { "type": "restriction on access", "value": "PA3" },
   { "type": "use and reproduction", "value": "http://rightsstatements.org/vocab/InC/1.0/" },
-  { "type": "copyright statement", "value": "In copyright" },
-  { "type": "Access Tier", "value": "2", "derived": true }
+  { "type": "copyright statement", "value": "inc-low-risk" },
+  { "type": "tier", "value": "3", "derived": true }
 ]
 ```
 
-Each entry is a `mods:accessCondition` from the METS: its `@type` and its value. Conditions an installation computes from the others — for Leeds, the Access Tier — are marked `derived`. The effective `use and reproduction` statement is also given as IIIF `rights`.
+Each entry is a `mods:accessCondition` from the METS: its `@type` and its value. Conditions an installation computes from the others — for Leeds, the Access Tier, type `tier` — are marked `derived`. The values are the profile's own codes (`PA3`, `inc-low-risk`, `3`); `GET /access-conditions` gives their labels. The effective `use and reproduction` statement is also given as IIIF `rights`.
 
 The point is that a builder registering assets doesn't need its own copy of the platform's inheritance rules. What the archivist saw on the deposit is what the builder turns into roles and other access configuration on the delivery platform. The shape is the same whatever an installation's [access condition profile](../vocabularies) is; the types and values are its own.
 
@@ -139,6 +139,8 @@ A JSON consumer can ignore all of that and key on the property names. The contex
 GET /repository/library/manuscripts/ms-342?view=iiif
 GET /repository/library/manuscripts/ms-342?view=iiif-cs
 ```
+
+An Archival Group links to both, as its `iiif` and `iiifCs` properties; a Deposit links to its own as `iiif`. For the whole path from a preserved object to IIIF published by IIIF Cloud Services, see [IIIF from preserved objects](../../workflows/iiif-cloud-services).
 
 The path must be an Archival Group: a Container or a Binary gives `404`, as does an Archival Group with no METS file in it. A `version` parameter is a `400`. The manifest's `id` is the request URI. These need the same bearer token as the rest of the API.
 

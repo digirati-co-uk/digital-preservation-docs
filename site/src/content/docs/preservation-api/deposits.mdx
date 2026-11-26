@@ -92,6 +92,7 @@ The response body is the created Deposit, which you can also fetch at that locat
 | `archivalGroupName` | The name of the Archival Group. If new, this will be given to the Archival Group when it is created by an Import Job generated from this Deposit. It is not required (it can be set on the Import Job directly), but is useful for clarity. |
 | `submissionText` | A space to leave notes for colleagues or your future self. |
 | `files` | An S3 key prefix that represents a parent location. Use the workspace under this key to assemble files for an Import Job. |
+| `iiif` | The Deposit as a IIIF Manifest: an authenticated address that redirects to a short-lived one a IIIF viewer can load. Absent when the instance has the Deposit IIIF view switched off. See [IIIF](../iiif#a-deposit-as-a-manifest). |
 | `status` | `new`, `exporting`, `preserved`, `error` or `archived`. See [The life of a Deposit](#the-life-of-a-deposit). |
 | `active` | Whether the Deposit can still be worked on. Once an Import Job has run for a deposit it is no longer active, but may still be retrieved from the API for a time. |
 | `preserved` | When an Import Job from this deposit resulted in a new Archival Group, or a new version of one. |

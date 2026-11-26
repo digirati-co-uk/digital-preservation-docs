@@ -31,6 +31,14 @@ GET /repository/my-collection/my-object?view=mets
 ```
 Returns the XML. [Repository](../../preservation-api/repository#the-view-and-version-parameters)
 
+**Give me the object as IIIF.**
+
+```
+GET /repository/my-collection/my-object?view=iiif        # plain IIIF, every canvas a placeholder
+GET /repository/my-collection/my-object?view=iiif-cs     # for IIIF Cloud Services, with paintedResources
+```
+The Archival Group links to both, as `iiif` and `iiifCs`. [IIIF](../../preservation-api/iiif), and the whole path to published IIIF in [IIIF from preserved objects](../iiif-cloud-services).
+
 **What versions does it have, and what changed in each?**
 
 ```
