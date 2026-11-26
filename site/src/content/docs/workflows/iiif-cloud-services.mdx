@@ -105,6 +105,8 @@ The builder adds:
    - **`accessConditions`** on every canvas, Range and the Manifest are covered under [Access and rights](#access-and-rights) below.
    - **`roles`** on each asset are placeholders made from that file's own access conditions, for the builder to replace with real roles. The asset has those `accessConditions` beside them too, the same as its canvas's.
    - **A transcript or captions** belonging to a file is an `adjunct` of that file's asset, which IIIF Cloud Services ingests and turns into a supplementing annotation on the canvas. It has its own `accessConditions` and placeholder `roles`.
+   - **A page's OCR** (ALTO) is an adjunct too, but as a `seeAlso` with the ALTO `profile`, for IIIF Cloud Services' text pipeline to index rather than to show as a transcript.
+   - **`contentVersion`** on each asset and adjunct, and **`objectVersion`** on the Manifest, say which files changed in this version. See [Changed files](#changed-files).
 
    [IIIF](../../preservation-api/iiif) describes every part of it.
 
@@ -114,11 +116,11 @@ The builder adds:
 
 4. ### Turn the placeholder roles into real ones
 
-   Replace each `urn:x-access-condition:…` token in an asset's `roles` with the IIIF Cloud Services role it means, remove the tokens that mean open access, and leave out the files that aren't to be published. Then remove the platform's own properties from each asset and adjunct (`accessConditions`, and `accessDiffersFromAsset`, and an adjunct's `roles` while IIIF Cloud Services has none for adjuncts): they are for the builder, not for IIIF Cloud Services. See [Access and rights](#access-and-rights).
+   Replace each `urn:x-access-condition:…` token in an asset's `roles` with the IIIF Cloud Services role it means, remove the tokens that mean open access, and leave out the files that aren't to be published. Then remove the platform's own properties from each asset and adjunct (`accessConditions`, `contentVersion`, and `accessDiffersFromAsset`, and an adjunct's `roles` while IIIF Cloud Services has none for adjuncts), and `formerAssets` and `objectVersion` from the Manifest: they are for the builder, not for IIIF Cloud Services. See [Access and rights](#access-and-rights).
 
 5. ### Say where it goes
 
-   Add the IIIF Cloud Services properties the platform can't know: `slug` and `parent` for the Manifest, and if you need them, a `space` and `deliveryChannels` on each asset. Without `deliveryChannels`, IIIF Cloud Services uses the space's or customer's defaults for the file's media type.
+   Add the IIIF Cloud Services properties the platform can't know: `slug` and `parent` for the Manifest, and if you need them, a `space` and `deliveryChannels` on each asset. Without `deliveryChannels`, IIIF Cloud Services uses the space's or customer's defaults for the file's media type. Add `"reingest": true` to each painted resource whose content changed in this version (see [Changed files](#changed-files)).
 
 6. ### Submit it
 
@@ -208,14 +210,32 @@ but its path hasn't gone. If your objects can change that way, compare the asset
 with the `paintedResources` you are about to submit.
 </Aside>
 
-**Changed files.** A file whose content changes keeps its asset id, and gets a new `origin`: OCFL writes the new content into the new version's directory, and never changes old ones. So a changed `origin` always means changed content.
+### Changed files
+
+A file whose content changes keeps its asset id, and gets a new `origin`: OCFL writes the new content into the new version's directory, and never changes old ones. So a changed `origin` always means changed content.
+
+The builder doesn't have to remember the `origin` it submitted to see that. Each asset and adjunct has a `contentVersion`, the version its content was written in, and the Manifest has an `objectVersion`, the object's current one:
+
+```json
+"objectVersion": "v3",
+"paintedResources": [
+  { "asset": { "id": "…_x002F_001.tif", "contentVersion": "v1", "origin": "s3://…/v1/content/objects/001.tif" } },
+  { "asset": { "id": "…_x002F_002.tif", "contentVersion": "v3", "origin": "s3://…/v3/content/objects/002.tif" } }
+]
+```
+
+`002.tif` is new or changed in v3; `001.tif` hasn't changed since v1. Until [dlcs/iiif-presentation#727](https://github.com/dlcs/iiif-presentation/issues/727), add `"reingest": true` to the painted resources whose `contentVersion` equals `objectVersion`. This assumes the builder processes every version. One that skips versions — say it saw v3 and is now at v5 — would miss a file changed in v4, so it should compare `contentVersion` with the last version it processed (`contentVersion` later than v3), not with `objectVersion`.
+
+### A deleted Archival Group
+
+When an Archival Group is deleted, the [Activity Stream](../../preservation-api/activity-stream) says so, but there is no projection left to list its assets. The builder deletes the Manifest it made, and the assets it registered for it: keep the ids you submitted for each Manifest, or read them back from IIIF Cloud Services before deleting the Manifest.
 
 ## Not finished yet
 
 Two parts of this rely on changes to IIIF Cloud Services that are not yet released:
 
 - [dlcs/iiif-presentation#726](https://github.com/dlcs/iiif-presentation/issues/726): IIIF Cloud Services rewrites each canvas's short `id` into its own full form. Until it rewrites the references to it in `structures` as well, the Ranges in a published Manifest point at ids that no longer exist.
-- [dlcs/iiif-presentation#727](https://github.com/dlcs/iiif-presentation/issues/727): until a changed `origin` is passed on to the asset, re-submitting a Manifest after a file has changed doesn't re-ingest that file. Meanwhile, add `"reingest": true` to the painted resource of a file whose `origin` differs from what you last submitted.
+- [dlcs/iiif-presentation#727](https://github.com/dlcs/iiif-presentation/issues/727): until a changed `origin` is passed on to the asset, re-submitting a Manifest after a file has changed doesn't re-ingest that file. Meanwhile, add `"reingest": true` to the painted resource of each file that changed (see [Changed files](#changed-files)).
 
 And one in IIIF itself: `provides` (marking an annotation as a transcript, closed captions and so on) is part of IIIF Presentation 4. IIIF Cloud Services keeps it on the adjunct, but won't write it into the published Manifest until it supports Presentation 4.
 

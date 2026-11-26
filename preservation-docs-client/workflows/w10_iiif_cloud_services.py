@@ -111,6 +111,10 @@ for painted in manifest.get("paintedResources", []):
     else:
         asset.pop("roles", None)
     asset.pop("accessConditions", None)   # the builder's, not IIIF Cloud Services'
+    # Content new or changed in this version: ask IIIF Cloud Services to ingest it again
+    # (needed until dlcs/iiif-presentation#727 passes a changed origin on by itself).
+    if asset.pop("contentVersion", None) == manifest.get("objectVersion"):
+        painted["reingest"] = True
     for adjunct in asset.get("adjuncts", []):
         # IIIF Cloud Services gives an adjunct its asset's access; say so where that isn't what METS says.
         if adjunct.get("accessDiffersFromAsset"):
@@ -118,6 +122,7 @@ for painted in manifest.get("paintedResources", []):
         adjunct.pop("roles", None)
         adjunct.pop("accessConditions", None)
         adjunct.pop("accessDiffersFromAsset", None)
+        adjunct.pop("contentVersion", None)
     published.append(painted)
 
 # Leaving a file out means leaving out its canvas too, and renumbering what remains.
@@ -130,6 +135,7 @@ manifest["paintedResources"] = published
 
 # formerAssets is for the builder, not for IIIF Cloud Services: take it out before sending.
 former = manifest.pop("formerAssets", [])
+manifest.pop("objectVersion", None)
 out = Path(tempfile.gettempdir()) / "w10-iiif-cs-manifest.json"
 out.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 print(f"\nWould PUT {len(manifest['items'])} canvases: {out}")

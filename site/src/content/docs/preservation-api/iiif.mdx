@@ -85,6 +85,8 @@ A file that another file [links to](../deposit-files) — a transcript, closed c
 
 In the IIIF Cloud Services manifest it becomes an **adjunct** of the main file's asset, so IIIF Cloud Services ingests and serves it and makes the annotation itself (`iiifLink: "inlineAnnotation"`, `motivation: "supplementing"`, and `provides`).
 
+**OCR is different.** A page's ALTO is not a transcript to show beside it but text to index and search, so it becomes a `seeAlso` on the canvas, with `"profile": "http://www.loc.gov/standards/alto/"`, which is what text services look for. In the IIIF Cloud Services manifest it is an adjunct with `iiifLink: "seeAlso"` and that `profile`, which IIIF Cloud Services' text pipeline can index. A linked file is taken to be ALTO when the METS puts it in an `ALTO` fileGrp (as Goobi does), or when format identification says it is ALTO; its media type can't tell, as it is just XML.
+
 A linked file needs access control as much as the file it belongs to, so it carries its own effective `accessConditions`: on the annotation's body in the vanilla manifest, and on the adjunct in the IIIF Cloud Services manifest. They are usually the same as its file's, by inheritance, but not always.
 
 <Aside type="note">
@@ -176,6 +178,8 @@ The `?view=iiif-cs` manifest adds what IIIF Cloud Services needs to register and
 * **`asset.roles`** holds placeholders made from the file's own access conditions, one per condition: `urn:x-access-condition:{type}:{value}`, both parts percent-encoded, such as `urn:x-access-condition:tier:3`. A builder replaces each with a real IIIF Cloud Services role, or removes it for open access: a lookup table, with nothing to cross-reference. An asset with none of the conditions gets `urn:x-access-condition:none`, never an empty list, so a builder that forgets a mapping is refused by IIIF Cloud Services rather than publishing the file openly. Which condition types become tokens is configuration (`Iiif:RoleConditionTypes`); by default every type except `use and reproduction`, and for Leeds the tier alone.
 * **Each adjunct** has its own `accessConditions` and placeholder `roles` too. IIIF Cloud Services gives an adjunct its asset's access today, so where an adjunct's conditions differ from its asset's it has `"accessDiffersFromAsset": true`, for the builder to deal with: by registering that file as an asset of its own, say. If IIIF Cloud Services comes to support roles on adjuncts, they are ready.
 
+Each asset and adjunct has **`contentVersion`**: the version its content was written in, which is also the version in its `origin`. The manifest has **`objectVersion`**, the Archival Group's current version. Where an asset's `contentVersion` equals `objectVersion`, its content is new or changed in this version, so IIIF Cloud Services should ingest it again; elsewhere it has not changed. A builder can tell what to re-ingest without remembering anything it submitted before.
+
 It also has **`formerAssets`**: every file below `objects/` that an earlier version of the Archival Group had and this one doesn't — removed, or renamed from that path — with the last version it was in and its last `origin`:
 
 ```json
@@ -189,7 +193,7 @@ It lists them all, every time, so a builder doesn't need to know which versions 
 Two parts of this rely on changes to IIIF Cloud Services that are not yet released:
 
 * [dlcs/iiif-presentation#726](https://github.com/dlcs/iiif-presentation/issues/726): IIIF Cloud Services rewrites a matched canvas's `id` into its own form. Until it rewrites references to that canvas in `structures` too, the Ranges in a submitted manifest point at ids that no longer exist.
-* [dlcs/iiif-presentation#727](https://github.com/dlcs/iiif-presentation/issues/727): until a changed `origin` reaches the asset, re-submitting the manifest after a file has changed does not re-ingest it unless the builder adds `"reingest": true` to that painted resource.
+* [dlcs/iiif-presentation#727](https://github.com/dlcs/iiif-presentation/issues/727): until a changed `origin` reaches the asset, re-submitting the manifest after a file has changed does not re-ingest it unless the builder adds `"reingest": true` to that painted resource: to each one whose `contentVersion` equals `objectVersion`.
 
 ## A Deposit as a Manifest
 
