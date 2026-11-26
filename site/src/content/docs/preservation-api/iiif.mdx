@@ -113,7 +113,7 @@ Every canvas, every Range and the manifest itself carry the access conditions th
 ]
 ```
 
-Each entry is a `mods:accessCondition` from the METS: its `@type` and its value. Conditions an installation computes from the others — for Leeds, the Access Tier, type `tier` — are marked `derived`. The values are the profile's own codes (`PA3`, `inc-low-risk`, `3`); `GET /access-conditions` gives their labels. The effective `use and reproduction` statement is also given as IIIF `rights`.
+Each entry is a `mods:accessCondition` from the METS: its `@type` and its value. Conditions an installation computes from the others — for Leeds, the Access Tier, type `tier` — are marked `derived`. The values are the profile's own codes (`PA3`, `inc-low-risk`, `3`); `GET /access-conditions` gives their labels. The effective `use and reproduction` statement is also given as IIIF `rights`. On an installation with copyright statements, the manifest also has the object's statement wording as its `requiredStatement`, under the profile's label: what the access dialogue's *Preview IIIF rights* shows for `objects/`. That applies to everything in the manifest, so a canvas or Range has a `requiredStatement` of its own only where its statement's wording differs. The wording is looked up from the statement and isn't what access is decided by; the statement itself is in each canvas's `accessConditions`.
 
 The point is that a builder registering assets doesn't need its own copy of the platform's inheritance rules. What the archivist saw on the deposit is what the builder turns into roles and other access configuration on the delivery platform. The shape is the same whatever an installation's [access condition profile](../vocabularies) is; the types and values are its own.
 

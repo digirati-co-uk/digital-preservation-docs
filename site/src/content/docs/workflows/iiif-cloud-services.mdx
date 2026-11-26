@@ -108,7 +108,7 @@ The builder adds:
 
 3. ### Decorate it
 
-   Look the object up in the catalogue by its record identifier, and add what a public Manifest needs: `label`, `summary`, `metadata`, `homepage`, a `requiredStatement`. Remove the `Preservation: ` metadata, or keep what is useful to the public: the file format and size, say.
+   Look the object up in the catalogue by its record identifier, and add what a public Manifest needs: `label`, `summary`, `metadata`, `homepage`. The `rights` and `requiredStatement` are already there (see [Access and rights](#access-and-rights)). Remove the `Preservation: ` metadata, or keep what is useful to the public: the file format and size, say.
 
 4. ### Decide access, file by file
 
@@ -170,7 +170,7 @@ The values are the installation's own codes. `GET /access-conditions` gives thei
 
 IIIF Cloud Services then adds the IIIF Auth services for those roles to the published Manifest itself.
 
-**Rights statements.** The canvas's `rights` is its effective `use and reproduction` URI. For a published Manifest you will usually want the object's `rights`, and a `requiredStatement` with the institution's wording. An installation with copyright statements says what each one publishes: see [For a IIIF builder](../../mets/derived-access-conditions#for-a-iiif-builder).
+**Rights statements.** Every canvas, Range and the Manifest carry their effective `use and reproduction` URI as `rights`. On an installation with copyright statements, the Manifest also carries the object's statement wording as `requiredStatement`, exactly as the access dialogue previews it, and a canvas or Range carries its own only where its wording differs — IIIF applies the Manifest's to everything else. A builder can publish them as they come, with nothing to look up. A rights statement from before the profile is still published as `rights`, but has no `requiredStatement`. What the profile holds for each statement is in [For a IIIF builder](../../mets/derived-access-conditions#for-a-iiif-builder).
 
 **Structure.** A Range's conditions are those of its logical division. A Range doesn't restrict access to the canvases in it; access is always per file, on the asset.
 
