@@ -11,7 +11,7 @@ A preserved object and a [IIIF](https://iiif.io/) Manifest describe overlapping 
 
 <Aside type="caution" title="Read this before using these manifests">
 This is **new**. The design is on [#261](https://github.com/digirati-co-uk/digital-preservation/issues/261).
-Two parts of the IIIF Cloud Services manifest depend on changes to IIIF Cloud Services that are not
+Three parts of the IIIF Cloud Services manifest depend on changes to IIIF Cloud Services that are not
 yet released: see [Submitting to IIIF Cloud Services](#submitting-to-iiif-cloud-services).
 </Aside>
 
@@ -56,7 +56,7 @@ Both kinds are built from the [METS](../../mets/overview) file: its physical str
 ### Canvases
 
 * **One per file below `objects/`**, in METS order. A file is skipped if the platform does not know its media type, or if it is the *target* of a link from another file — a transcript, a caption file or OCR, which belongs with the file it describes rather than on a canvas of its own.
-* **The canvas `id`** ends with an identifier made from the file's full path under `/repository` — the same identifier a builder is given as the asset's suggested `id`, so the two line up. It is the path encoded the way METS IDs are (`/` becomes `_x002F_`, and so on), made ASCII by folding accents and escaping anything else, and with a hash on the end whenever folding lost something or the path is too long. So `library/ms-342/objects/page-001.tif` gives `library_x002F_ms-342_x002F_objects_x002F_page-001.tif`. Two files whose ids would differ only by case (`A.tif` and `a.tif`, which Fedora and S3 keep apart) both get the hash too, because IIIF Cloud Services compares canvas ids ignoring case. Treat it as opaque: don't read a path back out of one. A renamed file gets a new identifier; a changed file keeps its identifier.
+* **The canvas `id`** ends with an identifier made from the file's full path under `/repository` — the same identifier a builder is given as the asset's suggested `id`, so the two line up. It is the path encoded the way METS IDs are (`/` becomes `_x002F_`, and so on), made ASCII by folding accents and escaping anything else, and with a hash on the end whenever folding lost something or the path is too long. So `library/manuscripts/ms-342/objects/page-001.tif` gives `library_x002F_manuscripts_x002F_ms-342_x002F_objects_x002F_page-001.tif`. Two files whose ids would differ only by case (`A.tif` and `a.tif`, which Fedora and S3 keep apart) both get the hash too, because IIIF Cloud Services compares canvas ids ignoring case. Treat it as opaque: don't read a path back out of one. A renamed file gets a new identifier; a changed file keeps its identifier. The one exception: a file's id gains the hash when a file differing from it only by case is added, and loses it when that file goes.
 * **`metadata`** describes the file: its original name and path, size, format name, PRONOM key, media type, SHA-256 digest, the result and date of its virus check, and its extents. Every label starts with `Preservation: `, so a builder adding its own metadata from the catalogue can find and remove ours. Record identifiers recorded for the file in METS appear here too.
 * **`accessConditions`** and **`rights`** — see [Access conditions](#access-conditions).
 
@@ -77,7 +77,7 @@ GET /placeholders/thumb/image
 
 The canvas image shows the media type and the PRONOM key (or "Unknown format", as `fmt/0`). It has the canvas's aspect ratio, within limits: its long side is 1000 pixels, the ratio is held between 1:4 and 4:1, and both sides are multiples of 50. That leaves room for a thumbnail made later to be painted in its place without the canvas changing. The thumbnail is one of four, `image`, `video`, `audio` or `file`.
 
-These routes are **anonymous**, because a viewer has no way to send a token, and they can be, because an image is chosen by a file's format and never by the file: it says nothing about what is preserved. Any size, key or media type the projection would not use is a `404`. The images are set in [Public Sans](https://github.com/uswds/public-sans), under the SIL Open Font Licence.
+These routes are **anonymous**, because a viewer has no way to send a token, and they can be, because an image is chosen by a file's format and never by the file: it says nothing about what is preserved. A size the projection would not use, or a malformed PRONOM key or media type, is a `404`. The images are set in [Public Sans](https://github.com/uswds/public-sans), under the SIL Open Font Licence.
 
 ### Linked files
 
@@ -85,7 +85,7 @@ A file that another file [links to](../deposit-files) — a transcript, closed c
 
 In the IIIF Cloud Services manifest it becomes an **adjunct** of the main file's asset, so IIIF Cloud Services ingests and serves it and makes the annotation itself (`iiifLink: "inlineAnnotation"`, `motivation: "supplementing"`, and `provides`).
 
-**OCR is different.** A page's ALTO is not a transcript to show beside it but text to index and search, so it becomes a `seeAlso` on the canvas, with `"profile": "http://www.loc.gov/standards/alto/"`, which is what text services look for. In the IIIF Cloud Services manifest it is an adjunct with `iiifLink: "seeAlso"` and that `profile`, which IIIF Cloud Services' text pipeline can index. A linked file is taken to be ALTO when the METS puts it in an `ALTO` fileGrp (as Goobi does), or when format identification says it is ALTO; its media type can't tell, as it is just XML.
+**OCR is different.** A page's ALTO is not a transcript to show beside it but text to index and search, so it becomes a `seeAlso` on the canvas, with `"profile": "http://www.loc.gov/standards/alto/"`, which is what text services look for. In the IIIF Cloud Services manifest it is an adjunct with `iiifLink: "seeAlso"` and that `profile`, which IIIF Cloud Services' text pipeline can index. A linked file is taken to be ALTO when the METS pairs it with a page by putting both in one physical division, the page in the `OBJECTS` fileGrp and the OCR in the `ALTO` one (as Goobi does), or when format identification says it is ALTO; its media type can't tell, as it is just XML.
 
 Only one level of linking is followed. A file linked from a file that is itself linked — a translation of a transcript, say — is neither a canvas, because it is a link's target, nor an annotation or adjunct, because the file it belongs to isn't a canvas. It doesn't appear in either manifest. Link it from the main file as well if it should.
 
@@ -99,8 +99,8 @@ Presentation 4.
 
 ### Ranges
 
-* **Logical structure**: one top-level Range per logical structMap, nested as deeply as the METS nests them. A Range's items are canvases, with a [media fragment](https://www.w3.org/TR/media-frags/) where the METS file pointer gives an area (`#t=10,20`, `#xywh=0,0,500,400`). Each Range carries its structure type and name, its record identifiers, and its access conditions.
-* **Folders**: when some file below `objects/` sits in a subfolder, the folder tree becomes one more top-level Range, after the logical ones, with each folder's files in METS order and then its subfolders. It records the original arrangement, and it is there even when there are logical structMaps; a consumer that doesn't want it can drop it. A flat `objects/` has no folder Range — including the common case of images with their OCR files beside them — and nor does a folder whose files are all linked files.
+* **Logical structure**: one top-level Range per logical structMap, nested as deeply as the METS nests them. A Range with nothing in it that has a canvas — its files are all linked files, say — is left out, at any depth, because a IIIF Range must have items. A Range's items are canvases, with a [media fragment](https://www.w3.org/TR/media-frags/) where the METS file pointer gives an area (`#t=10,20`, `#xywh=0,0,500,400`). Each Range carries its structure type and name, its record identifiers, and its access conditions.
+* **Folders**: when some file with a canvas sits in a subfolder of `objects/`, the folder tree becomes one more top-level Range, after the logical ones, with each folder's files in METS order and then its subfolders. It records the original arrangement, and it is there even when there are logical structMaps; a consumer that doesn't want it can drop it. A flat `objects/` has no folder Range — including the common case of images with their OCR files beside them — and nor does a folder whose files are all linked files.
 
 ### The manifest
 
@@ -123,7 +123,7 @@ Each entry is a `mods:accessCondition` from the METS: its `@type` and its value.
 
 The point is that a builder registering assets doesn't need its own copy of the platform's inheritance rules. What the archivist saw on the deposit is what the builder turns into roles and other access configuration on the delivery platform. The shape is the same whatever an installation's [access condition profile](../vocabularies) is; the types and values are its own.
 
-`accessConditions` (and, in the IIIF Cloud Services manifest, `formerAssets`) are defined in a JSON-LD [context document](https://digirati-co-uk.github.io/digital-preservation-docs/ns/iiif/context.json), declared once at the head of the manifest as a scoped term, before the Presentation context:
+`accessConditions` (and, in the IIIF Cloud Services manifest, `formerAssets` and `objectVersion`) are defined in a JSON-LD [context document](https://digirati-co-uk.github.io/digital-preservation-docs/ns/iiif/context.json), declared once at the head of the manifest as a scoped term, before the Presentation context:
 
 ```json
 "@context": [
@@ -139,7 +139,7 @@ The point is that a builder registering assets doesn't need its own copy of the 
 
 A JSON consumer can ignore all of that and key on the property names. The context's address is configuration (`Iiif:ExtensionContext`), because this site's address may change.
 
-IIIF Cloud Services can't yet read an `@context` with an object in it: the IIIF library it uses expects every entry to be a string ([digirati-co-uk/iiif-net#111](https://github.com/digirati-co-uk/iiif-net/issues/111)). So a builder submitting to it replaces `@context` with just `"http://iiif.io/api/presentation/3/context.json"`. It removes the extension properties anyway, so nothing is lost.
+IIIF Cloud Services can't yet read an `@context` with an object in it: the IIIF library it uses expects every entry to be a string ([digirati-co-uk/iiif-net#111](https://github.com/digirati-co-uk/iiif-net/issues/111)). So a builder submitting to it replaces `@context` with just `"http://iiif.io/api/presentation/3/context.json"`, and removes the properties that context declared, which are for the builder, not for IIIF Cloud Services: see [IIIF from preserved objects](../../workflows/iiif-cloud-services).
 
 ## An Archival Group as a Manifest
 
@@ -148,9 +148,9 @@ GET /repository/library/manuscripts/ms-342?view=iiif
 GET /repository/library/manuscripts/ms-342?view=iiif-cs
 ```
 
-An Archival Group links to both, as its `iiif` and `iiifCs` properties; a Deposit links to its own as `iiif`. For the whole path from a preserved object to IIIF published by IIIF Cloud Services, see [IIIF from preserved objects](../../workflows/iiif-cloud-services).
+An Archival Group links to both, as its `iiif` and `iiifCs` properties; a Deposit links to its own as `iiif`, when the Deposit view is switched on (see [A Deposit as a Manifest](#a-deposit-as-a-manifest)). For the whole path from a preserved object to IIIF published by IIIF Cloud Services, see [IIIF from preserved objects](../../workflows/iiif-cloud-services).
 
-The path must be an Archival Group: a Container or a Binary gives `404`, as does an Archival Group with no METS file in it. A `version` parameter is a `400`. The manifest's `id` is the request URI. These need the same bearer token as the rest of the API.
+The path must be an Archival Group: a Container or a Binary gives `404`, as does an Archival Group with no METS file in it. A `version` parameter is a `400`. The manifest's `id` is the Archival Group's own URI plus `?view=…`, on the API's configured address, so it is the same whichever hostname you used; canvas and Range ids are on that address too. These need the same bearer token as the rest of the API.
 
 <LinkCard
   title="💻 Example: an Archival Group as a Manifest"
@@ -165,9 +165,9 @@ The `?view=iiif-cs` manifest adds what IIIF Cloud Services needs to register and
 ```json
 "paintedResources": [
   {
-    "canvasPainting": { "canvasId": "library_x002F_ms-342_x002F_objects_x002F_page-001.tif", "canvasOrder": 0 },
+    "canvasPainting": { "canvasId": "library_x002F_manuscripts_x002F_ms-342_x002F_objects_x002F_page-001.tif", "canvasOrder": 0 },
     "asset": {
-      "id": "library_x002F_ms-342_x002F_objects_x002F_page-001.tif",
+      "id": "library_x002F_manuscripts_x002F_ms-342_x002F_objects_x002F_page-001.tif",
       "mediaType": "image/tiff",
       "origin": "s3://preservation-bucket/…/v3/content/objects/page-001.tif"
     }
@@ -188,7 +188,7 @@ It also has **`formerAssets`**: every file below `objects/` that an earlier vers
 
 ```json
 "formerAssets": [
-  { "id": "library_x002F_ms-342_x002F_objects_x002F_page-099.tif", "lastVersion": "v2", "origin": "s3://…/v1/content/objects/page-099.tif" }
+  { "id": "library_x002F_manuscripts_x002F_ms-342_x002F_objects_x002F_page-099.tif", "lastVersion": "v2", "origin": "s3://…/v1/content/objects/page-099.tif" }
 ]
 ```
 
@@ -197,7 +197,7 @@ It lists them all, every time, so a builder doesn't need to know which versions 
 Three parts of this rely on changes to IIIF Cloud Services that are not yet released:
 
 * [dlcs/iiif-presentation#726](https://github.com/dlcs/iiif-presentation/issues/726): IIIF Cloud Services rewrites a matched canvas's `id` into its own form. Until it rewrites references to that canvas in `structures` too, the Ranges in a submitted manifest point at ids that no longer exist.
-* [dlcs/iiif-presentation#727](https://github.com/dlcs/iiif-presentation/issues/727): until a changed `origin` reaches the asset, re-submitting the manifest after a file has changed does not re-ingest it unless the builder adds `"reingest": true` to that painted resource: to each one whose `contentVersion` equals `objectVersion`.
+* [dlcs/iiif-presentation#727](https://github.com/dlcs/iiif-presentation/issues/727): until a changed `origin` reaches the asset, re-submitting the manifest after a file has changed does not re-ingest it unless the builder adds `"reingest": true` to that painted resource: to each one whose asset's `contentVersion`, or any of its adjuncts', equals `objectVersion`.
 * [digirati-co-uk/iiif-net#111](https://github.com/digirati-co-uk/iiif-net/issues/111): IIIF Cloud Services can't read this manifest's `@context`; replace it before submitting (see [Access conditions](#access-conditions)).
 
 And one limit with no fix on our side yet: an adjunct's `origin` is its S3 key exactly as stored, which IIIF Cloud Services takes literally. For a linked file whose name has a character outside Unicode's Basic Multilingual Plane, such as an emoji, that `origin` is not a well-formed URI, and IIIF Cloud Services refuses it as an adjunct's (it doesn't check an asset's). Accented letters and CJK characters are fine. See [dlcs/protagonist#1362](https://github.com/dlcs/protagonist/issues/1362). Escaping it would name a different key. Such a file can be registered as an asset of its own instead.
@@ -225,7 +225,7 @@ GET /deposits/e56fb7yg/iiif-token/9f3c1a4b7d2e8065c4a1b9f70d3e2a18
 
 A caller that can't stop its HTTP client following redirects, and only wants the address, can ask for `GET /deposits/e56fb7yg/iiif?redirect=false`. That answers `200` with `{ "id": "https://…/deposits/e56fb7yg/iiif-token/9f3c…" }` instead, without building the manifest. The Preservation UI's IIIF link does this.
 
-The tokenised URL needs no `Authorization` header, so you can hand it to a viewer running in a browser, which has no way to obtain your token. The manifest links to none of the deposit's files, so the token opens the manifest and nothing else. Canvas ids use the path of the Archival Group the deposit will become, when it names one, so they match what the preserved object's manifest will say.
+The tokenised URL needs no `Authorization` header, so you can hand it to a viewer running in a browser, which has no way to obtain your token. The manifest links to none of the deposit's files, so the token opens the manifest and nothing else. Canvas ids end with an identifier made from the path of the Archival Group the deposit will become, when it names one, so the last part of each canvas id is the one the preserved object's canvases and assets will have.
 
 <Aside type="caution">
 The token is the *only* protection on the manifest, which describes every file in the deposit. Treat it like a password: do not put it in a bug report, a shared document or a URL you paste into a chat. It lasts eight hours from last use, and at most a week however often it is used, and it does not survive a restart of the API. Fetch `/deposits/{id}/iiif` again to get a fresh one.

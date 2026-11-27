@@ -111,9 +111,10 @@ for painted in manifest.get("paintedResources", []):
     else:
         asset.pop("roles", None)
     asset.pop("accessConditions", None)   # the builder's, not IIIF Cloud Services'
-    # Content new or changed in this version: ask IIIF Cloud Services to ingest it again
-    # (needed until dlcs/iiif-presentation#727 passes a changed origin on by itself).
-    if asset.pop("contentVersion", None) == manifest.get("objectVersion"):
+    # Content new or changed in this version, the file's or a linked file's: ask IIIF Cloud
+    # Services to ingest it again (until dlcs/iiif-presentation#727 passes a changed origin on).
+    changed = [asset.pop("contentVersion", None)] + [a.get("contentVersion") for a in asset.get("adjuncts", [])]
+    if manifest.get("objectVersion") in changed:
         painted["reingest"] = True
     for adjunct in asset.get("adjuncts", []):
         # IIIF Cloud Services gives an adjunct its asset's access; say so where that isn't what METS says.
@@ -125,19 +126,41 @@ for painted in manifest.get("paintedResources", []):
         adjunct.pop("contentVersion", None)
     published.append(painted)
 
-# Leaving a file out means leaving out its canvas too, and renumbering what remains.
+# Leaving a file out means leaving out its canvas too, and renumbering what remains, and taking
+# it out of the Ranges (a Range left empty goes as well: a IIIF Range must have items).
 manifest["items"] = [c for c in manifest["items"] if c["id"] in canvases]
 for order, painted in enumerate(published):
     painted["canvasPainting"]["canvasOrder"] = order
 manifest["paintedResources"] = published
+
+
+def prune(ranges):
+    kept = []
+    for item in ranges:
+        if item.get("type") == "Range":
+            item["items"] = prune(item.get("items", []))
+            item.pop("accessConditions", None)
+            if item["items"]:
+                kept.append(item)
+        elif item["id"].split("#")[0] in canvases:
+            kept.append(item)
+    return kept
+
+
+manifest["structures"] = prune(manifest.get("structures", []))
+if not manifest["structures"]:
+    manifest.pop("structures")
+for canvas in manifest["items"]:
+    canvas.pop("accessConditions", None)
+manifest.pop("accessConditions", None)
 
 # --- 4. What would be sent, and what would be deleted ------------------------------------------
 
 # formerAssets is for the builder, not for IIIF Cloud Services: take it out before sending.
 former = manifest.pop("formerAssets", [])
 manifest.pop("objectVersion", None)
-# IIIF Cloud Services can't read an @context with an object in it (digirati-co-uk/iiif-net#111), and
-# the object only declares the properties removed above.
+# IIIF Cloud Services can't read an @context with an object in it (digirati-co-uk/iiif-net#111);
+# the object only declares the platform's own properties, all removed above.
 manifest["@context"] = "http://iiif.io/api/presentation/3/context.json"
 out = Path(tempfile.gettempdir()) / "w10-iiif-cs-manifest.json"
 out.write_text(json.dumps(manifest, indent=2), encoding="utf-8")

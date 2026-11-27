@@ -50,13 +50,14 @@ The builder adds:
    GET /repository/library/manuscripts/ms-342?view=iiif-cs
    ```
 
-   What comes back is a IIIF Presentation 3 Manifest with three additions IIIF Cloud Services understands, or that are for you:
+   What comes back is a IIIF Presentation 3 Manifest with additions IIIF Cloud Services understands, or that are for you. Abridged: one canvas, a few `metadata` entries, no Ranges:
 
    ```jsonc
    {
      "@context": [
        { "accessConditions": { "@id": "…/ns/iiif#accessConditions", "@context": "…/ns/iiif/context.json" },
-         "formerAssets": { "@id": "…/ns/iiif#formerAssets", "@context": "…/ns/iiif/context.json" } },
+         "formerAssets": { "@id": "…/ns/iiif#formerAssets", "@context": "…/ns/iiif/context.json" },
+         "objectVersion": { "@id": "…/ns/iiif#objectVersion" } },
        "http://iiif.io/api/presentation/3/context.json"
      ],
      "id": "https://preservation-api.example/repository/library/manuscripts/ms-342?view=iiif-cs",
@@ -92,16 +93,19 @@ The builder adds:
            "id": "library_x002F_manuscripts_x002F_ms-342_x002F_objects_x002F_001.tif",
            "mediaType": "image/tiff",
            "origin": "s3://preservation-bucket/initial/1a2/b3c/4d5/1a2b3c4d5…/v1/content/objects/001.tif",
+           "contentVersion": "v1",
+           "accessConditions": [ "…the same as the canvas's…" ],
            "roles": [ "urn:x-access-condition:tier:3" ]
          }
        }
      ],
+     "objectVersion": "v1",
      "formerAssets": [ ]
    }
    ```
 
    - **`items`** has one canvas per file, with no painting: IIIF Cloud Services paints each from its asset. Every `metadata` label we add starts with `Preservation: `.
-   - **`paintedResources`** pairs each canvas with its asset: `id`, `mediaType` and `origin`. The asset `id` is the same as the canvas `id`, and stays the same for the file in later versions.
+   - **`paintedResources`** pairs each canvas with its asset: `id`, `mediaType` and `origin`. The asset `id` is the same as the canvas `id`, and stays the same for the file in later versions, unless a file whose id would differ from it only by case comes or goes (see [IIIF](../../preservation-api/iiif#canvases)).
    - **`accessConditions`** on every canvas, Range and the Manifest are covered under [Access and rights](#access-and-rights) below.
    - **`roles`** on each asset are placeholders made from that file's own access conditions, for the builder to replace with real roles. The asset has those `accessConditions` beside them too, the same as its canvas's.
    - **A transcript or captions** belonging to a file is an `adjunct` of that file's asset, which IIIF Cloud Services ingests and turns into a supplementing annotation on the canvas. It has its own `accessConditions` and placeholder `roles`.
@@ -116,7 +120,7 @@ The builder adds:
 
 4. ### Turn the placeholder roles into real ones
 
-   Replace each `urn:x-access-condition:…` token in an asset's `roles` with the IIIF Cloud Services role it means, remove the tokens that mean open access, and leave out the files that aren't to be published. Then remove the platform's own properties from each asset and adjunct (`accessConditions`, `contentVersion`, and `accessDiffersFromAsset`, and an adjunct's `roles` while IIIF Cloud Services has none for adjuncts), and `formerAssets` and `objectVersion` from the Manifest: they are for the builder, not for IIIF Cloud Services. Replace the Manifest's `@context` with `"http://iiif.io/api/presentation/3/context.json"`: IIIF Cloud Services can't yet read the platform's, which declares those properties ([digirati-co-uk/iiif-net#111](https://github.com/digirati-co-uk/iiif-net/issues/111)). See [Access and rights](#access-and-rights).
+   Replace each `urn:x-access-condition:…` token in an asset's `roles` with the IIIF Cloud Services role it means, remove the tokens that mean open access, and leave out the files that aren't to be published. Then remove the platform's own properties, which are for the builder, not for IIIF Cloud Services: `accessConditions` wherever it is (the Manifest, each canvas, Range, asset and adjunct); `contentVersion` and `accessDiffersFromAsset` from assets and adjuncts; an adjunct's `roles`, while IIIF Cloud Services has none for adjuncts; and `formerAssets` and `objectVersion` from the Manifest. Replace the Manifest's `@context` with `"http://iiif.io/api/presentation/3/context.json"`: IIIF Cloud Services can't yet read the platform's, which declares those properties ([digirati-co-uk/iiif-net#111](https://github.com/digirati-co-uk/iiif-net/issues/111)). See [Access and rights](#access-and-rights).
 
 5. ### Say where it goes
 
@@ -162,7 +166,7 @@ The builder's whole job here is a lookup table from token to role. What each mea
 | `urn:x-access-condition:tier:0`, `…:tier:1` | Remove the token: no `roles`, open to everyone. |
 | `urn:x-access-condition:tier:2` | `https://api.example/customers/7/roles/clickthrough` |
 | `urn:x-access-condition:tier:3` | `https://api.example/customers/7/roles/staff` |
-| `urn:x-access-condition:tier:4`, `…:tier:5` | Not published: leave the canvas and its painted resource out of the Manifest. |
+| `urn:x-access-condition:tier:4`, `…:tier:5` | Not published: leave the canvas and its painted resource out of the Manifest, and take it out of any Range that refers to it (dropping a Range left empty). |
 
 ```jsonc
 // as projected                                     // as submitted
@@ -224,7 +228,7 @@ A file whose content changes keeps its asset id, and usually gets a new `origin`
 ]
 ```
 
-`002.tif` is new or changed in v3; `001.tif` hasn't changed since v1. Until [dlcs/iiif-presentation#727](https://github.com/dlcs/iiif-presentation/issues/727), add `"reingest": true` to the painted resources whose `contentVersion` equals `objectVersion`. This assumes the builder processes every version. One that skips versions — say it saw v3 and is now at v5 — would miss a file changed in v4, so it should compare `contentVersion` with the last version it processed (`contentVersion` later than v3), not with `objectVersion`.
+`002.tif` is new or changed in v3; `001.tif` hasn't changed since v1. Until [dlcs/iiif-presentation#727](https://github.com/dlcs/iiif-presentation/issues/727), add `"reingest": true` to the painted resources whose asset's `contentVersion`, or any of its adjuncts', equals `objectVersion`. This assumes the builder processes every version. One that skips versions — say it saw v3 and is now at v5 — would miss a file changed in v4, so it should compare `contentVersion` with the last version it processed (`contentVersion` later than v3), not with `objectVersion`.
 
 ### A deleted Archival Group
 
