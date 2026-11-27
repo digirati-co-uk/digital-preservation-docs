@@ -154,6 +154,8 @@ The dimensions of an image, or the duration of a time-based file.
 | `pixelHeight` | Height in pixels. |
 | `duration` | Duration in seconds. |
 
+This is what tools measured. A file can also have an `enteredExtent` — the same three properties, entered by a person for a file the pipeline couldn't measure, and kept in the METS apart from measured values (see [extents entered by hand](../../mets/mets-we-write-descriptive#extents-entered-by-hand)). A measured value always wins: an entered one is used, by the [IIIF projection](../iiif) for a canvas's `duration` say, only where nothing was measured.
+
 ### StorageMetadata
 
 Where a file was, and what it was called, before it arrived here.
