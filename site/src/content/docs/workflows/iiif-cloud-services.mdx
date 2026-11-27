@@ -116,7 +116,7 @@ The builder adds:
 
 4. ### Turn the placeholder roles into real ones
 
-   Replace each `urn:x-access-condition:…` token in an asset's `roles` with the IIIF Cloud Services role it means, remove the tokens that mean open access, and leave out the files that aren't to be published. Then remove the platform's own properties from each asset and adjunct (`accessConditions`, `contentVersion`, and `accessDiffersFromAsset`, and an adjunct's `roles` while IIIF Cloud Services has none for adjuncts), and `formerAssets` and `objectVersion` from the Manifest: they are for the builder, not for IIIF Cloud Services. See [Access and rights](#access-and-rights).
+   Replace each `urn:x-access-condition:…` token in an asset's `roles` with the IIIF Cloud Services role it means, remove the tokens that mean open access, and leave out the files that aren't to be published. Then remove the platform's own properties from each asset and adjunct (`accessConditions`, `contentVersion`, and `accessDiffersFromAsset`, and an adjunct's `roles` while IIIF Cloud Services has none for adjuncts), and `formerAssets` and `objectVersion` from the Manifest: they are for the builder, not for IIIF Cloud Services. Replace the Manifest's `@context` with `"http://iiif.io/api/presentation/3/context.json"`: IIIF Cloud Services can't yet read the platform's, which declares those properties ([digirati-co-uk/iiif-net#111](https://github.com/digirati-co-uk/iiif-net/issues/111)). See [Access and rights](#access-and-rights).
 
 5. ### Say where it goes
 
@@ -169,7 +169,7 @@ The builder's whole job here is a lookup table from token to role. What each mea
 "roles": [ "urn:x-access-condition:tier:3" ]        "roles": [ "https://api.example/customers/7/roles/staff" ]
 ```
 
-Two safeguards are built in. An asset with none of the configured conditions gets `urn:x-access-condition:none` rather than no roles. And an unmapped token is not a role IIIF Cloud Services knows. Either way, a gap in the builder's table is refused when the Manifest is submitted, instead of publishing a file openly.
+Two safeguards are built in. An asset with none of the configured conditions gets `urn:x-access-condition:none` rather than no roles. And an unmapped token is not a role anyone has. IIIF Cloud Services doesn't check roles when they are assigned, so the Manifest is accepted, but the file is refused to everyone when it is requested, instead of being published openly. Check that every token was mapped before submitting: the refusal comes later, and it is quiet.
 
 IIIF Cloud Services then adds the IIIF Auth services for those roles to the published Manifest itself.
 
@@ -212,9 +212,9 @@ with the `paintedResources` you are about to submit.
 
 ### Changed files
 
-A file whose content changes keeps its asset id, and gets a new `origin`: OCFL writes the new content into the new version's directory, and never changes old ones. So a changed `origin` always means changed content.
+A file whose content changes keeps its asset id, and usually gets a new `origin`: OCFL writes the new content into the new version's directory, and never changes old ones. So a changed `origin` always means changed content. The reverse isn't true: OCFL stores identical bytes once, so a file changed back to content it had before points at the old copy again. Its `origin` may even be the one you submitted two versions ago.
 
-The builder doesn't have to remember the `origin` it submitted to see that. Each asset and adjunct has a `contentVersion`, the version its content was written in, and the Manifest has an `objectVersion`, the object's current one:
+`contentVersion` covers both cases, and the builder doesn't have to remember the `origin` it submitted. Each asset and adjunct has a `contentVersion`, the version in which the file last got its current content, and the Manifest has an `objectVersion`, the object's current one:
 
 ```json
 "objectVersion": "v3",
@@ -232,10 +232,14 @@ When an Archival Group is deleted, the [Activity Stream](../../preservation-api/
 
 ## Not finished yet
 
-Two parts of this rely on changes to IIIF Cloud Services that are not yet released:
+Three parts of this rely on changes to IIIF Cloud Services that are not yet released:
 
 - [dlcs/iiif-presentation#726](https://github.com/dlcs/iiif-presentation/issues/726): IIIF Cloud Services rewrites each canvas's short `id` into its own full form. Until it rewrites the references to it in `structures` as well, the Ranges in a published Manifest point at ids that no longer exist.
 - [dlcs/iiif-presentation#727](https://github.com/dlcs/iiif-presentation/issues/727): until a changed `origin` is passed on to the asset, re-submitting a Manifest after a file has changed doesn't re-ingest that file. Meanwhile, add `"reingest": true` to the painted resource of each file that changed (see [Changed files](#changed-files)).
+
+- [digirati-co-uk/iiif-net#111](https://github.com/digirati-co-uk/iiif-net/issues/111): IIIF Cloud Services can't read an `@context` with an object in it, so the builder replaces the platform's (step 4).
+
+An adjunct whose file name has characters outside ASCII can't be registered: its `origin` has to be the S3 key exactly as stored, which isn't a well-formed URI, and IIIF Cloud Services requires one for an adjunct. Register such a file as an asset instead.
 
 And one in IIIF itself: `provides` (marking an annotation as a transcript, closed captions and so on) is part of IIIF Presentation 4. IIIF Cloud Services keeps it on the adjunct, but won't write it into the published Manifest until it supports Presentation 4.
 

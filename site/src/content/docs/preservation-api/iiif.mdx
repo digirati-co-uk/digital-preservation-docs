@@ -56,7 +56,7 @@ Both kinds are built from the [METS](../../mets/overview) file: its physical str
 ### Canvases
 
 * **One per file below `objects/`**, in METS order. A file is skipped if the platform does not know its media type, or if it is the *target* of a link from another file — a transcript, a caption file or OCR, which belongs with the file it describes rather than on a canvas of its own.
-* **The canvas `id`** ends with an identifier made from the file's full path under `/repository` — the same identifier a builder is given as the asset's suggested `id`, so the two line up. It is the path encoded the way METS IDs are (`/` becomes `_x002F_`, and so on), made ASCII by folding accents and escaping anything else, and with a hash on the end whenever folding lost something or the path is too long. So `library/ms-342/objects/page-001.tif` gives `library_x002F_ms-342_x002F_objects_x002F_page-001.tif`. Treat it as opaque: don't read a path back out of one. A renamed file gets a new identifier; a changed file keeps its identifier.
+* **The canvas `id`** ends with an identifier made from the file's full path under `/repository` — the same identifier a builder is given as the asset's suggested `id`, so the two line up. It is the path encoded the way METS IDs are (`/` becomes `_x002F_`, and so on), made ASCII by folding accents and escaping anything else, and with a hash on the end whenever folding lost something or the path is too long. So `library/ms-342/objects/page-001.tif` gives `library_x002F_ms-342_x002F_objects_x002F_page-001.tif`. Two files whose ids would differ only by case (`A.tif` and `a.tif`, which Fedora and S3 keep apart) both get the hash too, because IIIF Cloud Services compares canvas ids ignoring case. Treat it as opaque: don't read a path back out of one. A renamed file gets a new identifier; a changed file keeps its identifier.
 * **`metadata`** describes the file: its original name and path, size, format name, PRONOM key, media type, SHA-256 digest, the result and date of its virus check, and its extents. Every label starts with `Preservation: `, so a builder adding its own metadata from the catalogue can find and remove ours. Record identifiers recorded for the file in METS appear here too.
 * **`accessConditions`** and **`rights`** — see [Access conditions](#access-conditions).
 
@@ -137,6 +137,8 @@ The point is that a builder registering assets doesn't need its own copy of the 
 
 A JSON consumer can ignore all of that and key on the property names. The context's address is configuration (`Iiif:ExtensionContext`), because this site's address may change.
 
+IIIF Cloud Services can't yet read an `@context` with an object in it: the IIIF library it uses expects every entry to be a string ([digirati-co-uk/iiif-net#111](https://github.com/digirati-co-uk/iiif-net/issues/111)). So a builder submitting to it replaces `@context` with just `"http://iiif.io/api/presentation/3/context.json"`. It removes the extension properties anyway, so nothing is lost.
+
 ## An Archival Group as a Manifest
 
 ```
@@ -175,10 +177,10 @@ The `?view=iiif-cs` manifest adds what IIIF Cloud Services needs to register and
 * **`asset.origin`** is where the file's content is in the preservation store's OCFL layout. That location never changes: a new version of the file is a new location, so a changed `origin` means changed content. A delivery platform integrated with the platform has read access to the store for this.
 * **`asset.id`** is a suggestion — the same identifier as the canvas. `space` and delivery channels are left to the builder.
 * **`asset.accessConditions`** are the file's own, the same as its canvas's, so each asset has them beside the roles made from them. Like the adjuncts' (below), they are for the builder: remove them before submitting.
-* **`asset.roles`** holds placeholders made from the file's own access conditions, one per condition: `urn:x-access-condition:{type}:{value}`, both parts percent-encoded, such as `urn:x-access-condition:tier:3`. A builder replaces each with a real IIIF Cloud Services role, or removes it for open access: a lookup table, with nothing to cross-reference. An asset with none of the conditions gets `urn:x-access-condition:none`, never an empty list, so a builder that forgets a mapping is refused by IIIF Cloud Services rather than publishing the file openly. Which condition types become tokens is configuration (`Iiif:RoleConditionTypes`); by default every type except `use and reproduction`, and for Leeds the tier alone.
+* **`asset.roles`** holds placeholders made from the file's own access conditions, one per condition: `urn:x-access-condition:{type}:{value}`, both parts percent-encoded, such as `urn:x-access-condition:tier:3`. A builder replaces each with a real IIIF Cloud Services role, or removes it for open access: a lookup table, with nothing to cross-reference. An asset with none of the conditions gets `urn:x-access-condition:none`, never an empty list. IIIF Cloud Services doesn't check that a role exists when it is assigned, so a token a builder forgot to map is stored as a role nobody has: the file is refused to everyone when it is requested, rather than published openly. Which condition types become tokens is configuration (`Iiif:RoleConditionTypes`); by default every type except `use and reproduction`, and for Leeds the tier alone.
 * **Each adjunct** has its own `accessConditions` and placeholder `roles` too. IIIF Cloud Services gives an adjunct its asset's access today, so where an adjunct's conditions differ from its asset's it has `"accessDiffersFromAsset": true`, for the builder to deal with: by registering that file as an asset of its own, say. If IIIF Cloud Services comes to support roles on adjuncts, they are ready.
 
-Each asset and adjunct has **`contentVersion`**: the version its content was written in, which is also the version in its `origin`. The manifest has **`objectVersion`**, the Archival Group's current version. Where an asset's `contentVersion` equals `objectVersion`, its content is new or changed in this version, so IIIF Cloud Services should ingest it again; elsewhere it has not changed. A builder can tell what to re-ingest without remembering anything it submitted before.
+Each asset and adjunct has **`contentVersion`**: the version in which the file last got the content it has now. Usually that is the version in its `origin`, but not always: OCFL stores identical bytes once, so a file changed back to earlier content in v3 has a `v1/content/…` origin and a `contentVersion` of v3. The manifest has **`objectVersion`**, the Archival Group's current version. Where an asset's `contentVersion` equals `objectVersion`, its content is new or changed in this version, so IIIF Cloud Services should ingest it again; elsewhere it has not changed. A builder can tell what to re-ingest without remembering anything it submitted before.
 
 It also has **`formerAssets`**: every file below `objects/` that an earlier version of the Archival Group had and this one doesn't — removed, or renamed from that path — with the last version it was in and its last `origin`:
 
@@ -190,10 +192,13 @@ It also has **`formerAssets`**: every file below `objects/` that an earlier vers
 
 It lists them all, every time, so a builder doesn't need to know which versions it has processed: it can delete whichever of these it registered. One case is not listed: a file that is still there but has become the *target* of a link, so it is now an adjunct rather than an asset.
 
-Two parts of this rely on changes to IIIF Cloud Services that are not yet released:
+Three parts of this rely on changes to IIIF Cloud Services that are not yet released:
 
 * [dlcs/iiif-presentation#726](https://github.com/dlcs/iiif-presentation/issues/726): IIIF Cloud Services rewrites a matched canvas's `id` into its own form. Until it rewrites references to that canvas in `structures` too, the Ranges in a submitted manifest point at ids that no longer exist.
 * [dlcs/iiif-presentation#727](https://github.com/dlcs/iiif-presentation/issues/727): until a changed `origin` reaches the asset, re-submitting the manifest after a file has changed does not re-ingest it unless the builder adds `"reingest": true` to that painted resource: to each one whose `contentVersion` equals `objectVersion`.
+* [digirati-co-uk/iiif-net#111](https://github.com/digirati-co-uk/iiif-net/issues/111): IIIF Cloud Services can't read this manifest's `@context`; replace it before submitting (see [Access conditions](#access-conditions)).
+
+And one limit with no fix on our side yet: an adjunct's `origin` is its S3 key exactly as stored, which IIIF Cloud Services takes literally. For a linked file whose name has characters outside ASCII, that `origin` is not a well-formed URI, and IIIF Cloud Services refuses it as an adjunct's (it doesn't check an asset's). Escaping it would name a different key. Such a file can be registered as an asset of its own instead.
 
 ## A Deposit as a Manifest
 

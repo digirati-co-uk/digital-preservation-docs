@@ -136,6 +136,9 @@ manifest["paintedResources"] = published
 # formerAssets is for the builder, not for IIIF Cloud Services: take it out before sending.
 former = manifest.pop("formerAssets", [])
 manifest.pop("objectVersion", None)
+# IIIF Cloud Services can't read an @context with an object in it (digirati-co-uk/iiif-net#111), and
+# the object only declares the properties removed above.
+manifest["@context"] = "http://iiif.io/api/presentation/3/context.json"
 out = Path(tempfile.gettempdir()) / "w10-iiif-cs-manifest.json"
 out.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 print(f"\nWould PUT {len(manifest['items'])} canvases: {out}")
