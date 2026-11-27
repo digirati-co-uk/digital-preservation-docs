@@ -239,7 +239,7 @@ Three parts of this rely on changes to IIIF Cloud Services that are not yet rele
 
 - [digirati-co-uk/iiif-net#111](https://github.com/digirati-co-uk/iiif-net/issues/111): IIIF Cloud Services can't read an `@context` with an object in it, so the builder replaces the platform's (step 4).
 
-An adjunct whose file name has characters outside ASCII can't be registered: its `origin` has to be the S3 key exactly as stored, which isn't a well-formed URI, and IIIF Cloud Services requires one for an adjunct. Register such a file as an asset instead.
+An adjunct whose file name has a character outside Unicode's Basic Multilingual Plane, such as an emoji, can't be registered: its `origin` has to be the S3 key exactly as stored, which isn't a well-formed URI, and IIIF Cloud Services requires one for an adjunct. Register such a file as an asset instead ([dlcs/protagonist#1362](https://github.com/dlcs/protagonist/issues/1362)).
 
 And one in IIIF itself: `provides` (marking an annotation as a transcript, closed captions and so on) is part of IIIF Presentation 4. IIIF Cloud Services keeps it on the adjunct, but won't write it into the published Manifest until it supports Presentation 4.
 

@@ -198,7 +198,7 @@ Three parts of this rely on changes to IIIF Cloud Services that are not yet rele
 * [dlcs/iiif-presentation#727](https://github.com/dlcs/iiif-presentation/issues/727): until a changed `origin` reaches the asset, re-submitting the manifest after a file has changed does not re-ingest it unless the builder adds `"reingest": true` to that painted resource: to each one whose `contentVersion` equals `objectVersion`.
 * [digirati-co-uk/iiif-net#111](https://github.com/digirati-co-uk/iiif-net/issues/111): IIIF Cloud Services can't read this manifest's `@context`; replace it before submitting (see [Access conditions](#access-conditions)).
 
-And one limit with no fix on our side yet: an adjunct's `origin` is its S3 key exactly as stored, which IIIF Cloud Services takes literally. For a linked file whose name has characters outside ASCII, that `origin` is not a well-formed URI, and IIIF Cloud Services refuses it as an adjunct's (it doesn't check an asset's). Escaping it would name a different key. Such a file can be registered as an asset of its own instead.
+And one limit with no fix on our side yet: an adjunct's `origin` is its S3 key exactly as stored, which IIIF Cloud Services takes literally. For a linked file whose name has a character outside Unicode's Basic Multilingual Plane, such as an emoji, that `origin` is not a well-formed URI, and IIIF Cloud Services refuses it as an adjunct's (it doesn't check an asset's). Accented letters and CJK characters are fine. See [dlcs/protagonist#1362](https://github.com/dlcs/protagonist/issues/1362). Escaping it would name a different key. Such a file can be registered as an asset of its own instead.
 
 ## A Deposit as a Manifest
 
