@@ -47,7 +47,7 @@ The **vanilla** manifest is plain IIIF, which you can open in any viewer to see 
 
 The **IIIF Cloud Services** manifest is what a builder submits, once decorated, to IIIF Cloud Services. It is only for Archival Groups because it names where each file's content is in preservation storage, which a delivery platform with access to that storage ingests from. It is JSON for a program, not something to open in a viewer.
 
-Only the current version of an Archival Group is projected.
+Only the current version of an Archival Group is projected. Both are served as `application/ld+json; profile="http://iiif.io/api/presentation/3/context.json"`, the media type IIIF Presentation 3 asks for.
 
 ## What ends up in a manifest
 
@@ -86,6 +86,8 @@ A file that another file [links to](../deposit-files) — a transcript, closed c
 In the IIIF Cloud Services manifest it becomes an **adjunct** of the main file's asset, so IIIF Cloud Services ingests and serves it and makes the annotation itself (`iiifLink: "inlineAnnotation"`, `motivation: "supplementing"`, and `provides`).
 
 **OCR is different.** A page's ALTO is not a transcript to show beside it but text to index and search, so it becomes a `seeAlso` on the canvas, with `"profile": "http://www.loc.gov/standards/alto/"`, which is what text services look for. In the IIIF Cloud Services manifest it is an adjunct with `iiifLink: "seeAlso"` and that `profile`, which IIIF Cloud Services' text pipeline can index. A linked file is taken to be ALTO when the METS puts it in an `ALTO` fileGrp (as Goobi does), or when format identification says it is ALTO; its media type can't tell, as it is just XML.
+
+Only one level of linking is followed. A file linked from a file that is itself linked — a translation of a transcript, say — is neither a canvas, because it is a link's target, nor an annotation or adjunct, because the file it belongs to isn't a canvas. It doesn't appear in either manifest. Link it from the main file as well if it should.
 
 A linked file needs access control as much as the file it belongs to, so it carries its own effective `accessConditions`: on the annotation's body in the vanilla manifest, and on the adjunct in the IIIF Cloud Services manifest. They are usually the same as its file's, by inheritance, but not always.
 
@@ -220,6 +222,8 @@ Follow it, and you get the manifest:
 ```
 GET /deposits/e56fb7yg/iiif-token/9f3c1a4b7d2e8065c4a1b9f70d3e2a18
 ```
+
+A caller that can't stop its HTTP client following redirects, and only wants the address, can ask for `GET /deposits/e56fb7yg/iiif?redirect=false`. That answers `200` with `{ "id": "https://…/deposits/e56fb7yg/iiif-token/9f3c…" }` instead, without building the manifest. The Preservation UI's IIIF link does this.
 
 The tokenised URL needs no `Authorization` header, so you can hand it to a viewer running in a browser, which has no way to obtain your token. The manifest links to none of the deposit's files, so the token opens the manifest and nothing else. Canvas ids use the path of the Archival Group the deposit will become, when it names one, so they match what the preserved object's manifest will say.
 
