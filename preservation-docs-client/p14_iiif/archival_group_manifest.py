@@ -5,8 +5,9 @@ GET /iiif/{path}, where {path} is the Archival Group's path under /repository. A
 the rest of the API; there is no tokenised variant. The path must resolve to an Archival Group
 exactly, and that Archival Group must contain a METS file - anything else is a 404.
 
-The painting annotations point at the Binaries' /repository/... URIs, which return JSON rather
-than image bytes, so this manifest is useful for its structure but a viewer cannot display it.
+Every canvas is a placeholder, and its rendering link points at the Binary's /repository/... URI,
+which returns JSON rather than file bytes: this manifest is useful for its structure, not for a
+viewer.
 """
 from preservation import get
 
