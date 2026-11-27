@@ -88,6 +88,8 @@ An Archival Group is a Container with versions. It might be one file or thousand
       { "ocflVersion": "v1", "mementoDateTime": "2024-03-12T12:00:00", "mementoTimestamp": "20240312120000" },
       { "ocflVersion": "v2", "mementoDateTime": "2024-03-14T14:58:58", "mementoTimestamp": "20240314145858" }
     ],
+    "iiif": "https://preservation-api.example/repository/example-objects/ArchivalGroup1?view=iiif",
+    "iiifCs": "https://preservation-api.example/repository/example-objects/ArchivalGroup1?view=iiif-cs",
     "storageMap": { },  // see Versions and the Storage Map
     "containers": [],
     "binaries": []
@@ -95,6 +97,8 @@ An Archival Group is a Container with versions. It might be one file or thousand
 ```
 
 `version` is the version being shown (the latest, unless you asked otherwise), `versions` lists them all, and `storageMap` describes the underlying OCFL layout. See [Versions and the Storage Map](../versions-and-storage-map).
+
+`iiif` and `iiifCs` link to the Archival Group projected as a IIIF Manifest: plain IIIF, and the form for IIIF Cloud Services with `paintedResources`. See [IIIF](../iiif).
 
 ## Walking the tree
 
@@ -121,7 +125,7 @@ GET /repository/library/manuscripts/ms-342/objects/34r.tiff // a Binary inside t
 
 | Parameter | Values |
 |---|---|
-| `view` | `lightweight`: a Container or Archival Group *without* its children (`containers` and `binaries` are empty). `mets`: on an Archival Group only, returns the XML of its METS file. `parsed-mets`: on an Archival Group only, returns the platform's parsed JSON view of that METS. |
+| `view` | `lightweight`: a Container or Archival Group *without* its children (`containers` and `binaries` are empty). `mets`: on an Archival Group only, returns the XML of its METS file. `parsed-mets`: on an Archival Group only, returns the platform's parsed JSON view of that METS. `iiif` and `iiif-cs`: on an Archival Group only, the object as a IIIF Manifest; see [IIIF](../iiif). |
 | `version` | Only allowed together with `view=lightweight`; any other combination is a `400`. For an Archival Group, either an OCFL version label (`v1`, `v2` ...) or a Memento timestamp (`20250311111913`). For other resources, only the Memento form is currently supported. |
 
 ```

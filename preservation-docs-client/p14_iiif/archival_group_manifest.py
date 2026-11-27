@@ -1,9 +1,9 @@
 """
 An Archival Group as a IIIF Manifest.
 
-GET /iiif/{path}, where {path} is the Archival Group's path under /repository. Authenticated like
-the rest of the API; there is no tokenised variant. The path must resolve to an Archival Group
-exactly, and that Archival Group must contain a METS file - anything else is a 404.
+GET /repository/{path}?view=iiif. Authenticated like the rest of the API; there is no tokenised
+variant. The path must be an Archival Group with a METS file in it - anything else is a 404.
+?view=iiif-cs gives the manifest for IIIF Cloud Services instead, with paintedResources.
 
 Every canvas is a placeholder, and its rendering link points at the Binary's /repository/... URI,
 which returns JSON rather than file bytes: this manifest is useful for its structure, not for a
@@ -28,7 +28,7 @@ if summary is None:
     raise SystemExit
 
 path_under_root = summary["id"].split("/repository/", 1)[1]
-manifest = get(f"/iiif/{path_under_root}").json()
+manifest = get(f"/repository/{path_under_root}?view=iiif").json()
 
 label = next(iter(manifest["label"].values()))[0]
 print(f"{label}: {len(manifest.get('items', []))} canvases")

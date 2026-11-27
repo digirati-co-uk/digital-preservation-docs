@@ -1,0 +1,260 @@
+---
+title: IIIF from preserved objects
+sidebar:
+  label: IIIF from preserved objects
+  order: 11
+---
+
+import { Aside, LinkCard, Steps } from '@astrojs/starlight/components';
+
+Use case: every preserved object should be published as IIIF — images deep-zoomable, audio and video playable, transcripts alongside — with the right people able to see the right files. A small service, a *builder*, does it: it watches what the platform preserves, and for each new or changed object it makes a IIIF Manifest and has [IIIF Cloud Services](https://dlcs.github.io/public-docs/) publish it.
+
+With the platform and IIIF Cloud Services together, most of that work has already been done. The platform projects each preserved object as a Manifest that IIIF Cloud Services can ingest directly. The builder's job shrinks to adding what only the catalogue knows, and deciding what each access condition means on the web.
+
+## What the platform does, and what is left for the builder
+
+The platform already knows the object from its [METS](../../mets/overview), and puts it all into the Manifest:
+
+- **Which files are content**, in what order, and which are transcripts, captions or OCR belonging to another file.
+- **The structure**: chapters, sections and items from the logical structMaps, with time and region fragments, and the original folder arrangement where there is one.
+- **Each file's location in preservation storage.** IIIF Cloud Services ingests from there directly: nothing is downloaded and uploaded again.
+- **The access conditions of every file, already resolved.** Inheritance from folders and structure has been applied, and derived values (for Leeds, the Access Tier) computed. What an archivist saw for each file on the deposit is what the builder gets.
+- **Identifiers that stay put**: the same asset id for a file from one version to the next, and a list of files that have gone, so the builder can remove their assets.
+
+The builder adds:
+
+- **Descriptive metadata** from the catalogue: label, summary, metadata, homepage. The Manifest carries the object's record identifiers to look it up by.
+- **What access means**: which IIIF Cloud Services roles, if any, each file's conditions call for, and what the Manifest should say about rights.
+- **Where it goes in IIIF Cloud Services**: the space, the delivery channels, the Manifest's place in its collections.
+
+## Before you start
+
+- **A IIIF Cloud Services customer with access to preservation storage.** The asset `origin` values in the projection are `s3://` locations in the platform's OCFL store. IIIF Cloud Services must be configured to read from that bucket (an *origin strategy* for it). This is set up once, between the two platforms.
+- **Credentials for both APIs**: a token for the Preservation API (see [Authentication](../../preservation-api/authentication)), and IIIF Cloud Services API credentials for the customer.
+- **Roles in IIIF Cloud Services** for the kinds of access you need, and their [access control](https://dlcs.github.io/public-docs/api-doc/access-control/). These are configured in IIIF Cloud Services, not by the builder.
+
+## The steps
+
+<Steps>
+
+1. ### Find out what changed
+
+   Read the [Activity Stream](../reading-the-activity-stream). Each `Create` or `Update` names an Archival Group. Process them in order, oldest first, and remember how far you got.
+
+2. ### Fetch the projection
+
+   The Archival Group links to it as `iiifCs`:
+
+   ```
+   GET /repository/library/manuscripts/ms-342?view=lightweight      # "iiifCs" is on the group
+   GET /repository/library/manuscripts/ms-342?view=iiif-cs
+   ```
+
+   What comes back is a IIIF Presentation 3 Manifest with additions IIIF Cloud Services understands, or that are for you. Abridged: one canvas, a few `metadata` entries, no Ranges:
+
+   ```jsonc
+   {
+     "@context": [
+       { "accessConditions": { "@id": "…/ns/iiif#accessConditions", "@context": "…/ns/iiif/context.json" },
+         "formerAssets": { "@id": "…/ns/iiif#formerAssets", "@context": "…/ns/iiif/context.json" },
+         "objectVersion": { "@id": "…/ns/iiif#objectVersion" } },
+       "http://iiif.io/api/presentation/3/context.json"
+     ],
+     "id": "https://preservation-api.example/repository/library/manuscripts/ms-342?view=iiif-cs",
+     "type": "Manifest",
+     "label": { "none": [ "MS 342" ] },
+     "metadata": [
+       { "label": { "en": [ "Preservation: Record identifier (EMu)" ] }, "value": { "none": [ "MS 342" ] } }
+     ],
+     "accessConditions": [ { "type": "restriction on access", "value": "PA1" } ],
+     "items": [
+       {
+         "id": "library_x002F_manuscripts_x002F_ms-342_x002F_objects_x002F_001.tif",
+         "type": "Canvas",
+         "label": { "none": [ "001.tif" ] },
+         "metadata": [
+           { "label": { "en": [ "Preservation: Format" ] }, "value": { "none": [ "Tagged Image File Format" ] } },
+           { "label": { "en": [ "Preservation: SHA-256" ] }, "value": { "none": [ "9f86d081…" ] } }
+         ],
+         "rights": "http://rightsstatements.org/vocab/InC/1.0/",
+         "accessConditions": [
+           { "type": "restriction on access", "value": "PA3" },
+           { "type": "use and reproduction", "value": "http://rightsstatements.org/vocab/InC/1.0/" },
+           { "type": "copyright statement", "value": "inc-low-risk" },
+           { "type": "tier", "value": "3", "derived": true }
+         ]
+       }
+     ],
+     "structures": [ ],
+     "paintedResources": [
+       {
+         "canvasPainting": { "canvasId": "library_x002F_manuscripts_x002F_ms-342_x002F_objects_x002F_001.tif", "canvasOrder": 0 },
+         "asset": {
+           "id": "library_x002F_manuscripts_x002F_ms-342_x002F_objects_x002F_001.tif",
+           "mediaType": "image/tiff",
+           "origin": "s3://preservation-bucket/initial/1a2/b3c/4d5/1a2b3c4d5…/v1/content/objects/001.tif",
+           "contentVersion": "v1",
+           "accessConditions": [ "…the same as the canvas's…" ],
+           "roles": [ "urn:x-access-condition:tier:3" ]
+         }
+       }
+     ],
+     "objectVersion": "v1",
+     "formerAssets": [ ]
+   }
+   ```
+
+   - **`items`** has one canvas per file, with no painting: IIIF Cloud Services paints each from its asset. Every `metadata` label we add starts with `Preservation: `.
+   - **`paintedResources`** pairs each canvas with its asset: `id`, `mediaType` and `origin`. The asset `id` is the same as the canvas `id`, and stays the same for the file in later versions, unless a file whose id would differ from it only by case comes or goes (see [IIIF](../../preservation-api/iiif#canvases)).
+   - **`accessConditions`** on every canvas, Range and the Manifest are covered under [Access and rights](#access-and-rights) below.
+   - **`roles`** on each asset are placeholders made from that file's own access conditions, for the builder to replace with real roles. The asset has those `accessConditions` beside them too, the same as its canvas's.
+   - **A transcript or captions** belonging to a file is an `adjunct` of that file's asset, which IIIF Cloud Services ingests and turns into a supplementing annotation on the canvas. It has its own `accessConditions` and placeholder `roles`.
+   - **A page's OCR** (ALTO) is an adjunct too, but as a `seeAlso` with the ALTO `profile`, for IIIF Cloud Services' text pipeline to index rather than to show as a transcript.
+   - **`contentVersion`** on each asset and adjunct, and **`objectVersion`** on the Manifest, say which files changed in this version. See [Changed files](#changed-files).
+
+   [IIIF](../../preservation-api/iiif) describes every part of it.
+
+3. ### Decorate it
+
+   Look the object up in the catalogue by its record identifier, and add what a public Manifest needs: `label`, `summary`, `metadata`, `homepage`. The `rights` and `requiredStatement` are already there (see [Access and rights](#access-and-rights)). Remove the `Preservation: ` metadata, or keep what is useful to the public: the file format and size, say.
+
+4. ### Turn the placeholder roles into real ones
+
+   Replace each `urn:x-access-condition:…` token in an asset's `roles` with the IIIF Cloud Services role it means, remove the tokens that mean open access, and leave out the files that aren't to be published. Then remove the platform's own properties, which are for the builder, not for IIIF Cloud Services: `accessConditions` wherever it is (the Manifest, each canvas, Range, asset and adjunct); `contentVersion` and `accessDiffersFromAsset` from assets and adjuncts; an adjunct's `roles`, while IIIF Cloud Services has none for adjuncts; and `formerAssets` and `objectVersion` from the Manifest. Replace the Manifest's `@context` with `"http://iiif.io/api/presentation/3/context.json"`: IIIF Cloud Services can't yet read the platform's, which declares those properties ([digirati-co-uk/iiif-net#111](https://github.com/digirati-co-uk/iiif-net/issues/111)). See [Access and rights](#access-and-rights).
+
+5. ### Say where it goes
+
+   Add the IIIF Cloud Services properties the platform can't know: `slug` and `parent` for the Manifest, and if you need them, a `space` and `deliveryChannels` on each asset. Without `deliveryChannels`, IIIF Cloud Services uses the space's or customer's defaults for the file's media type. Add `"reingest": true` to each painted resource whose content changed in this version (see [Changed files](#changed-files)).
+
+6. ### Submit it
+
+   ```
+   PUT https://presentation-api.example/{customer}/manifests/{id}
+   X-IIIF-CS-Show-Extras: All
+   If-Match: <ETag>                        # updating an existing Manifest; leave it out to create one
+   ```
+
+   The body is the decorated JSON, not the Preservation API's address for it. IIIF Cloud Services answers `202` while it ingests new assets; poll the Manifest until `ingesting` has gone. See [IIIF Manifests](https://dlcs.github.io/public-docs/api-doc/iiif-manifests/) for the API in full.
+
+7. ### Remove what has gone
+
+   Delete the assets listed in `formerAssets` that you registered. See [Removed and renamed files](#removed-and-renamed-files).
+
+</Steps>
+
+## Access and rights
+
+Every canvas, every Range and the Manifest itself carry the access conditions that apply to them, after inheritance. Each entry is one `mods:accessCondition` from the METS: its type and its value. Those the installation computes from others are marked `derived`:
+
+```json
+"accessConditions": [
+  { "type": "restriction on access", "value": "PA3" },
+  { "type": "use and reproduction", "value": "http://rightsstatements.org/vocab/InC/1.0/" },
+  { "type": "copyright statement", "value": "inc-low-risk" },
+  { "type": "tier", "value": "3", "derived": true }
+]
+```
+
+The values are the installation's own codes. `GET /access-conditions` gives their labels and, for statements, what a public Manifest should say. See [Vocabularies](../../preservation-api/vocabularies).
+
+**Access control.** Every asset arrives with placeholder `roles` made from its own conditions, one token per condition: `urn:x-access-condition:{type}:{value}`, percent-encoded. Which condition types become tokens is the platform's configuration (`Iiif:RoleConditionTypes`). For Leeds it is the tier alone, since the Access Tier already combines the restriction and the copyright statement, so every Leeds asset has exactly one token, `urn:x-access-condition:tier:0` to `…:tier:5`.
+
+The builder's whole job here is a lookup table from token to role. What each means is the institution's decision; the platform has already resolved every file's conditions, so the builder never repeats the inheritance or cross-references canvases. For example (the roles are made up):
+
+| Token | The asset |
+|---|---|
+| `urn:x-access-condition:tier:0`, `…:tier:1` | Remove the token: no `roles`, open to everyone. |
+| `urn:x-access-condition:tier:2` | `https://api.example/customers/7/roles/clickthrough` |
+| `urn:x-access-condition:tier:3` | `https://api.example/customers/7/roles/staff` |
+| `urn:x-access-condition:tier:4`, `…:tier:5` | Not published: leave the canvas and its painted resource out of the Manifest, and take it out of any Range that refers to it (dropping a Range left empty). |
+
+```jsonc
+// as projected                                     // as submitted
+"roles": [ "urn:x-access-condition:tier:3" ]        "roles": [ "https://api.example/customers/7/roles/staff" ]
+```
+
+Two safeguards are built in. An asset with none of the configured conditions gets `urn:x-access-condition:none` rather than no roles. And an unmapped token is not a role anyone has. IIIF Cloud Services doesn't check roles when they are assigned, so the Manifest is accepted, but the file is refused to everyone when it is requested, instead of being published openly. Check that every token was mapped before submitting: the refusal comes later, and it is quiet.
+
+IIIF Cloud Services then adds the IIIF Auth services for those roles to the published Manifest itself.
+
+**Linked files.** A transcript or captions file is an adjunct of its file's asset, with its own `accessConditions` and placeholder `roles`. Usually they are the same as the asset's, by inheritance. IIIF Cloud Services gives an adjunct its asset's access today, so where an adjunct's conditions differ it is marked `"accessDiffersFromAsset": true`. How to handle that is the builder's choice: register the file as an asset in its own right, say, or leave it out. If IIIF Cloud Services comes to support roles on adjuncts, they are already there.
+
+**Rights statements.** Every canvas, Range and the Manifest carry their effective `use and reproduction` URI as `rights`. On an installation with copyright statements, the Manifest also carries the object's statement wording as `requiredStatement`, exactly as the access dialogue previews it, and a canvas or Range carries its own only where its wording differs — IIIF applies the Manifest's to everything else. A builder can publish them as they come, with nothing to look up. A rights statement from before the profile is still published as `rights`, but has no `requiredStatement`. What the profile holds for each statement is in [For a IIIF builder](../../mets/derived-access-conditions#for-a-iiif-builder).
+
+**Structure.** A Range's conditions are those of its logical division. A Range doesn't restrict access to the canvases in it; access is always per file, on the asset.
+
+## Removed and renamed files
+
+When an object changes, files can go: removed, or renamed, which gives them a new path and so a new asset id. The builder registered their assets earlier, and should remove them.
+
+`formerAssets` lists every file that an earlier version of the object had and the current one doesn't, every time:
+
+```json
+"formerAssets": [
+  {
+    "id": "library_x002F_manuscripts_x002F_ms-342_x002F_objects_x002F_099.tif",
+    "lastVersion": "v2",
+    "origin": "s3://…/v1/content/objects/099.tif"
+  }
+]
+```
+
+Because it is the whole history, not the changes since some point, the builder doesn't need to know which versions it has seen. A builder that missed v3 to v14 still deletes the right things at v15. For each entry, delete the asset in IIIF Cloud Services if you registered it:
+
+```
+DELETE https://api.example/customers/{customer}/spaces/{space}/images/{id}
+```
+
+A `404` just means it was never registered, or is already gone.
+
+<Aside type="caution">
+One case is not in `formerAssets`: a file that is still in the object but has become the *target* of a
+link — a transcript that now belongs to another file. It stops being an asset and becomes an adjunct,
+but its path hasn't gone. If your objects can change that way, compare the asset ids you registered
+with the `paintedResources` you are about to submit.
+</Aside>
+
+### Changed files
+
+A file whose content changes keeps its asset id, and usually gets a new `origin`: OCFL writes the new content into the new version's directory, and never changes old ones. So a changed `origin` always means changed content. The reverse isn't true: OCFL stores identical bytes once, so a file changed back to content it had before points at the old copy again. Its `origin` may even be the one you submitted two versions ago.
+
+`contentVersion` covers both cases, and the builder doesn't have to remember the `origin` it submitted. Each asset and adjunct has a `contentVersion`, the version in which the file last got its current content, and the Manifest has an `objectVersion`, the object's current one:
+
+```json
+"objectVersion": "v3",
+"paintedResources": [
+  { "asset": { "id": "…_x002F_001.tif", "contentVersion": "v1", "origin": "s3://…/v1/content/objects/001.tif" } },
+  { "asset": { "id": "…_x002F_002.tif", "contentVersion": "v3", "origin": "s3://…/v3/content/objects/002.tif" } }
+]
+```
+
+`002.tif` is new or changed in v3; `001.tif` hasn't changed since v1. Until [dlcs/iiif-presentation#727](https://github.com/dlcs/iiif-presentation/issues/727), add `"reingest": true` to the painted resources whose asset's `contentVersion`, or any of its adjuncts', equals `objectVersion`. This assumes the builder processes every version. One that skips versions — say it saw v3 and is now at v5 — would miss a file changed in v4, so it should compare `contentVersion` with the last version it processed (`contentVersion` later than v3), not with `objectVersion`.
+
+### A deleted Archival Group
+
+When an Archival Group is deleted, the [Activity Stream](../../preservation-api/activity-stream) says so, but there is no projection left to list its assets. The builder deletes the Manifest it made, and the assets it registered for it: keep the ids you submitted for each Manifest, or read them back from IIIF Cloud Services before deleting the Manifest.
+
+## Not finished yet
+
+Three parts of this rely on changes to IIIF Cloud Services that are not yet released:
+
+- [dlcs/iiif-presentation#726](https://github.com/dlcs/iiif-presentation/issues/726): IIIF Cloud Services rewrites each canvas's short `id` into its own full form. Until it rewrites the references to it in `structures` as well, the Ranges in a published Manifest point at ids that no longer exist.
+- [dlcs/iiif-presentation#727](https://github.com/dlcs/iiif-presentation/issues/727): until a changed `origin` is passed on to the asset, re-submitting a Manifest after a file has changed doesn't re-ingest that file. Meanwhile, add `"reingest": true` to the painted resource of each file that changed (see [Changed files](#changed-files)).
+
+- [digirati-co-uk/iiif-net#111](https://github.com/digirati-co-uk/iiif-net/issues/111): IIIF Cloud Services can't read an `@context` with an object in it, so the builder replaces the platform's (step 4).
+
+An adjunct whose file name has a character outside Unicode's Basic Multilingual Plane, such as an emoji, can't be registered: its `origin` has to be the S3 key exactly as stored, which isn't a well-formed URI, and IIIF Cloud Services requires one for an adjunct. Register such a file as an asset instead ([dlcs/protagonist#1362](https://github.com/dlcs/protagonist/issues/1362)).
+
+And one in IIIF itself: `provides` (marking an annotation as a transcript, closed captions and so on) is part of IIIF Presentation 4. IIIF Cloud Services keeps it on the adjunct, but won't write it into the published Manifest until it supports Presentation 4.
+
+<LinkCard
+  title="💻 Example: a builder's dry run"
+  href="https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/preservation-docs-client/workflows/w10_iiif_cloud_services.py"
+  description="Fetches an Archival Group's IIIF Cloud Services projection, applies an example access rule, and shows what it would submit and delete — without calling IIIF Cloud Services."
+/>
+
+<LinkCard
+  title="IIIF"
+  href="../../preservation-api/iiif"
+  description="Both projections in full: canvases, placeholders, ranges, linked files, access conditions and identifiers."
+/>

@@ -96,6 +96,8 @@ The label beside each row's checkbox is the important column. It says **where th
 | `Deposit` | In the workspace but not in the METS. | Usually a file you have just uploaded. [Add it to the METS](#adding-files-to-the-mets), or delete it if it should not be part of the object. |
 | `Mets` | In the METS but not in the workspace. | Normal on an update you did not export. The file is safely preserved; it is simply not here. |
 
+Beside `mets.xml`, a small IIIF logo opens the deposit [as a IIIF Manifest](../../preservation-api/iiif#a-deposit-as-a-manifest), where an instance has that switched on: a placeholder canvas per file, with the structure and access conditions the preserved object's manifest will have.
+
 The rest of the columns: the name (with the full path on hover), a links column, the first eight characters of the checksum, the size, the content type, the PRONOM identification, and a last column for the virus scan or a link to a tool report.
 
 Some rows behave specially:

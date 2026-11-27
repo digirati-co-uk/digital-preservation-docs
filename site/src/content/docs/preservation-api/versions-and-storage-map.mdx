@@ -140,9 +140,10 @@ The Storage Map reflects the underlying storage implementation, rather than the 
 | `storageType` | The implementation of the storage. Always `S3` today; `FileSystem` is defined but no deployment uses it. |
 | `root` | If the storage type is AWS S3, the value is a bucket name. If the storage type is a file system, this will be a file path under which this *and other* objects live. |
 | `objectPath` | The relative path within the `root` to this particular object. |
-| `files` | A dictionary where the keys are logical file paths — the relative paths of the Binaries — and the values are objects with a `hash` (SHA-256) and a `fullPath` property, where `fullPath` gives the relative path under the `objectPath` to a particular Binary. Thus `root` + `objectPath` + `fullPath` for a particular Binary is the same as the Binary's `origin` property. |
+| `files` | A dictionary where the keys are logical file paths — the relative paths of the Binaries — and the values are objects with a `hash` (SHA-256) and a `fullPath` property, where `fullPath` gives the relative path under the `objectPath` to a particular Binary. Thus `root` + `objectPath` + `fullPath` for a particular Binary is the same as the Binary's `origin` property. Each also has `contentVersion`: the version in which that path last got the content it has now (see below). The keys are spelt as Fedora writes them, so a space is `%20` and a `#` is `-_-percent-23-_-`. |
 | `hashes` | A map of SHA-256 hashes to content paths under `objectPath`; a way of navigating via *content addressing* from a unique hash to the path in storage of the file with that hash. It is the [manifest](https://ocfl.io/1.1/spec/#manifest) block of the OCFL Inventory, restricted to the files present at this version. |
 | `archivalGroup` | The source of the Archival Group in the underlying repository (Fedora) — you are unlikely to have access to this. |
+| `formerFiles` | Every file that some *earlier* version had and this version doesn't — removed, or renamed from that path — keyed by its logical path, with the `hash` and `fullPath` it had the last time it was there, and that version as `lastVersion`. Empty when nothing has gone. A consumer that registered files elsewhere uses it to find what to remove without knowing which versions it has already seen; the [IIIF Cloud Services](../../workflows/iiif-cloud-services#removed-and-renamed-files) workflow is the case it was made for. |
 
 <Aside type="note">
 `archivalGroup` is the one URI in a Preservation API response that is not a Preservation API URI. The Storage Map is passed through from the layer below without rewriting, precisely because it is meant to describe storage rather than the API's view of it.
@@ -163,6 +164,7 @@ The Storage Map is derived from the OCFL Inventory for a specific version, and r
 Two consequences are worth spelling out, because both are visible in the example above:
 
 * **A file's `fullPath` names the version in which its bytes were first written, not the version you asked for.** `objects/teto-and-jiji.png` is part of v2, but its content path is `v1/content/...` because it has not changed since v1. That is OCFL working as intended: unchanged files are not copied into each new version directory.
+* **So the version in `fullPath` doesn't tell you when a file last changed; `contentVersion` does.** If `objects/a.png` was changed in v2 and changed back to its v1 content in v3, its `fullPath` in v3 is `v1/content/…`, because OCFL stores those bytes once, but its `contentVersion` is `v3`.
 * **Two logical paths can share one content path.** If you add a second copy of a file under a different name, OCFL stores the bytes once. Both entries in `files` then carry the same `hash` and `fullPath`, and `hashes` has a single entry for them.
 
 For further details see the [OCFL Specification](https://ocfl.io/).

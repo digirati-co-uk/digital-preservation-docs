@@ -3,10 +3,10 @@ A Deposit as a IIIF Manifest.
 
 GET /deposits/{id}/iiif is authenticated and answers with a redirect to a tokenised URL. That
 tokenised URL needs no Authorization header, which is what lets you hand it to a viewer running
-in a browser. Treat the token as a secret: it opens the deposit's files.
+in a browser. Treat the token as a secret: the manifest describes every file in the deposit.
 
-Requires the instance to have EnableIiifMediaEndpoints switched on. With the flag off the
-redirect still happens but the tokenised URL answers 401.
+Requires the instance to have EnableIiifMediaEndpoints switched on. With the flag off,
+/deposits/{id}/iiif answers 404.
 """
 from p04_deposits.ensure_deposit import deposit_slug, ensure_deposit
 from preservation import get
@@ -28,13 +28,16 @@ for pair in manifest.get("metadata", []):
 
 print(f"\n{len(manifest.get('items', []))} canvases")
 for canvas in manifest.get("items", [])[:5]:
-    # Every canvas is a placeholder: a grey image is painted on it, and the file itself, whatever
-    # kind it is, is reached through the canvas's rendering link.
-    original = canvas["rendering"][0]
-    print(f"  {original.get('format', '-'):<28} {original['id']}")
+    # Every canvas is a placeholder showing the file's format; the manifest doesn't link to a
+    # deposit's files. What it says about each file is in the canvas's metadata.
+    label = next(iter(canvas["label"].values()))[0]
+    details = {next(iter(m["label"].values()))[0]: next(iter(m["value"].values()))[0]
+               for m in canvas.get("metadata", [])}
+    print(f"  {label:<40} {details.get('Preservation: Media type', '-')}")
+    for condition in canvas.get("accessConditions", []):
+        print(f"      {condition['type']}: {condition['value']}")
 
-# Ranges come from the METS logical structMaps. Type, Name and id in a Range's metadata are how
-# it is matched back to the structMap division it came from - keep them.
+# Ranges come from the METS logical structMaps, and from the folders below objects/ when there are any.
 for range_ in manifest.get("structures", []):
     label = next(iter(range_["label"].values()))[0]
     print(f"\nRange: {label} ({len(range_.get('items', []))} items)")
