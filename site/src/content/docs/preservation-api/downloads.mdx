@@ -1,0 +1,129 @@
+---
+title: Downloads
+sidebar:
+  label: Downloads
+  order: 12
+---
+
+import { Aside, LinkCard } from '@astrojs/starlight/components';
+
+To get one preserved file out of the repository, you request it. The platform makes a copy of the file in a separate downloads area and gives you a link to the copy. The copy is removed after a while; the record of the request is kept.
+
+This is for when you want a file or two. To work on a whole Archival Group, [export it](../exports) into a Deposit.
+
+<Aside type="note" title="Who may download">
+Downloading is switched on per installation, for the callers whose role allows it. A caller who may not gets `403 Forbidden` from every operation on this page.
+</Aside>
+
+## Requesting a file
+
+```
+POST /downloads
+```
+
+```json
+{
+  "path": "library/born-digital/hard-drive-14/objects/about.txt",
+  "reason": "For the exhibition"
+}
+```
+
+`path` is the file's path under `/repository`. `reason` is optional, and is kept with the request.
+
+The response is the request, with `status` of `copying`:
+
+```json
+{
+  "id": "yx3pvr68qzmb",
+  "path": "library/born-digital/hard-drive-14/objects/about.txt",
+  "name": "about.txt",
+  "digest": "cd2e87bd59bbd5398730e1c8f476fdefa00f37e9fcf81b12f2c201bb0df3ca2c",
+  "size": 94,
+  "contentType": "text/plain",
+  "requestedBy": "preservation-docs-samples",
+  "reason": "For the exhibition",
+  "created": "2026-11-20T15:59:16.6732747Z",
+  "expires": "2026-11-27T15:59:16.6732747Z",
+  "status": "copying",
+  "error": null,
+  "linksIssued": 0
+}
+```
+
+| Property | Description |
+|---|---|
+| `id` | The request's identifier, used in the operations below. |
+| `path` | The file's path under `/repository`. |
+| `name` | The file name the copy has, and that a download of it will be given. |
+| `digest` | The SHA-256 of the preserved file. Check what you download against it. |
+| `size`, `contentType` | As the repository records them. |
+| `requestedBy` | Who made the request. |
+| `reason` | What they said it was for. |
+| `created` | When the request was made. |
+| `expires` | When the copy will be removed, if nobody deletes it sooner. |
+| `status` | `copying`, `ready`, `failed`, `expired` or `deleted`. See below. |
+| `error` | What went wrong, when `status` is `failed`. |
+| `linksIssued` | How many links to the copy have been handed out. |
+
+A path that isn't a file is `404 Not Found`, and no request is recorded.
+
+Only files in the current version of an Archival Group can be requested.
+
+## Waiting for the copy
+
+```
+GET /downloads/yx3pvr68qzmb
+```
+
+Poll the request until its `status` is `ready`. For most files that takes a second or two.
+
+| `status` | Meaning |
+|---|---|
+| `copying` | The copy is being made. |
+| `ready` | The copy is there, and a link to it can be had. |
+| `failed` | The copy was not made. Request the file again. |
+| `expired` | The copy was removed when its time ran out. |
+| `deleted` | Someone removed the copy before its time ran out. |
+
+The copy is checked against the preserved file's digest when it is made, and a copy that doesn't match is removed. So a request that is `ready` has a good copy.
+
+## Getting a link
+
+```
+POST /downloads/yx3pvr68qzmb/link
+```
+
+```json
+{
+  "url": "https://…",
+  "expires": "2026-11-20T16:01:17.6492846Z"
+}
+```
+
+`url` fetches the file, with no credentials. It works for a couple of minutes, which is long enough to start a download; one that has started carries on after the link expires, and one that drops can be resumed.
+
+Anyone holding the link can use it until it expires, so ask for one when you are about to use it, and ask again each time you need another. Every link handed out is recorded against the request.
+
+A request that is not `ready` has no link: `409 Conflict`, with a `detail` that says why.
+
+## Removing the copy
+
+```
+DELETE /downloads/yx3pvr68qzmb
+```
+
+`204 No Content`. The copy is removed now, without waiting for it to expire. The request stays, with `status` of `deleted`.
+
+## Listing requests
+
+```
+GET /downloads
+```
+
+The most recent requests, newest first, as a JSON list. Every caller who may download sees all of them.
+
+<LinkCard
+  title="💻 Example: request, wait, link, fetch"
+  href="https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/preservation-docs-client/p16_downloads/request_download.py"
+  description="Requests a file, waits for its copy, fetches it through a link and checks its digest."
+/>

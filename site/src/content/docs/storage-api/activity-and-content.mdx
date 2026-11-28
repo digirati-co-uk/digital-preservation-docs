@@ -96,7 +96,7 @@ If you can call the Storage API you can retrieve the bytes of any Binary.
 GET /content/library/manuscripts/ms-342/objects/34r.tiff
 ```
 
-The path is the same as the repository path apart from the first segment. This URI is exposed as the `content` property of a Binary in both APIs; it is only honoured here.
+The path is the same as the repository path apart from the first segment. This URI is the `content` property of a Binary as the Storage API returns it. The Preservation API removes the property, because its callers can't reach this endpoint; they [request a download](../../preservation-api/downloads) instead.
 
 The response streams the file with the Binary's recorded `contentType`. Anything at the path that is not a Binary - a Container, an Archival Group, nothing at all - is an error: `404`, with a problem document (`application/problem+json`) as the body. If the path is a Binary but its bytes cannot be read from storage, the answer carries the problem's own status - `500` unless the storage layer reports something more specific.
 

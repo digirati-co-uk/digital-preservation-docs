@@ -50,7 +50,6 @@ Plus the [common properties](../overview#common-properties).
     "digest": "b6aa90e47d5853bc1b84915f2194ce9f56779bc96bcf48d122931f003d62a33c",
     "origin": "s3://fedora-bucket/initial/aed/7d3/4c4/aed7d34c.../v2/content/my-directory/My_File.pdf",
     "size": 15986,
-    "content": "https://preservation-api.example/content/example-objects/ArchivalGroup1/my-directory/My_File.pdf?version=v2",
     "partOf": "https://preservation-api.example/repository/example-objects/ArchivalGroup1"
 }
 ```
@@ -63,11 +62,10 @@ Plus the [common properties](../overview#common-properties).
 | `digest` | The SHA-256 checksum. Always present. |
 | `origin` | Where the bytes actually are: for a preserved Binary, its location in the underlying OCFL storage. |
 | `size` | Size in bytes. |
-| `content` | A URI from which the bytes can be fetched, subject to authorisation. |
 | `partOf` | The `id` of the Archival Group this Binary is in. |
 
 <Aside type="note">
-`origin` deliberately exposes the real storage location rather than hiding it. Few callers have access to that bucket, but those that do (for example, something serving the content at runtime) can go straight to the file. The `content` URI streams the same bytes over HTTP for callers that cannot.
+`origin` deliberately exposes the real storage location rather than hiding it. Few callers have access to that bucket, but those that do (for example, something serving the content at runtime) can go straight to the file. Callers that cannot should [request a download](../downloads).
 </Aside>
 
 ### 📦 ArchivalGroup
@@ -183,8 +181,13 @@ Without `purge`, the Container is deleted but leaves a tombstone: the path retur
 
 ## Fetching file content
 
-A Binary's `content` property is a URI on the `/content/...` path, mirroring its `/repository/...` path, with a `version` parameter naming the version whose bytes you want.
+The Preservation API does not serve the bytes of a preserved file, and a Binary it returns has no `content` property. There are two ways to get files out:
 
-<Aside type="caution">
-The Preservation API does not currently serve the `/content/...` path: that URI is only honoured by the [Storage API](../../storage-api/activity-and-content), which most clients cannot reach. API clients that need the files should [export](../exports) the Archival Group into a Deposit.
+* For a file or two, [request a download](../downloads). The platform copies the file to a separate downloads area and gives you a short-lived link to the copy.
+* To work on a whole Archival Group, [export](../exports) it into a Deposit.
+
+To read an Archival Group's METS file, use [`view=mets`](#the-view-and-version-parameters).
+
+<Aside type="note" title="The content path belongs to the Storage API">
+The [Storage API](../../storage-api/activity-and-content#fetching-file-content) serves a Binary's bytes on a `/content/...` path, and gives each Binary a `content` property that points there. Few callers can reach the Storage API, so the Preservation API leaves that property out. Earlier versions passed it through, where it was a link that didn't work.
 </Aside>
