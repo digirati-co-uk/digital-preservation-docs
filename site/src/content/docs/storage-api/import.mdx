@@ -79,17 +79,8 @@ The `id` you give the job is yours - any unique URI will do, and it comes back o
 | `binariesToPatch` | Binaries to replace. Exactly the same as adding, except that the resource must already exist. |
 | `binariesToDelete` | Binaries to remove. `id` is the only property that matters. |
 | `containersToDelete` | Containers to remove. They must already be empty, or contain only Binaries that this same job deletes. |
-| `containersToRename`, `binariesToRename` | Must be empty for now. A job that asks for a rename is refused; see the caution below. |
+| `containersToRename`, `binariesToRename` | Resources whose display name (`dc:title`) changes. `id` must be an existing resource, and `name` is its new name; the path never changes. The new name replaces the old one, and earlier names survive only in earlier OCFL versions. Renames run after additions and patches, in the same transaction. A rename to an empty `name` is refused with `400 Bad Request` before the job is queued. |
 | `deposit`, `source`, `suppressActivityStreamEvent` | Part of the shared Import Job model, and meaningful only to the Preservation API. The Storage API stores them with the job and ignores them; in particular, every finished job appears in the Storage API's own [activity stream](../activity-and-content) whether or not suppression was asked for. |
-
-<Aside type="caution" title="Renames are refused">
-`containersToRename` and `binariesToRename` are part of the Import Job model, and the Preservation
-API's diff will populate them when a display name has changed, but renaming - which changes the
-`dc:title`, never the path - is not implemented yet. Rather than run such a job and quietly change
-nothing, the API refuses it: a `POST /import` with anything in either list answers `400 Bad Request`
-before the job is queued, and the detail names the items. `containersRenamed` / `binariesRenamed` on
-a result are therefore always empty.
-</Aside>
 
 ### Digests
 
@@ -131,8 +122,7 @@ This is the URI in the `Location` header, and the `id` of the result you were gi
 | `sourceVersion` | The OCFL version the job was applied to. Null for a job that creates the group. |
 | `newVersion` | The OCFL version the job produced. Not known until it has finished. |
 | `errors` | [Error objects](../../preservation-api/overview#errors), not strings. |
-| `containersAdded`, `binariesAdded`, `binariesPatched`, `binariesDeleted`, `containersDeleted` | What was actually done, populated as the job runs. |
-| `containersRenamed`, `binariesRenamed` | Always empty; see above. |
+| `containersAdded`, `binariesAdded`, `binariesPatched`, `binariesDeleted`, `containersDeleted`, `containersRenamed`, `binariesRenamed` | What was actually done, populated as the job runs. |
 
 Plus the [common properties](../../preservation-api/overview#common-properties). A Storage API Import Job Result carries `lastModified` and `lastModifiedBy` as well as `created` and `createdBy`; both pairs name the same agent and the same moment when the job is queued.
 
