@@ -175,6 +175,8 @@ Those two are not the same thing, and the difference survives into the preserved
 
 **Record Identifiers** — pairs of a source and a value, identifying the catalogue record this item corresponds to. **Add another** adds a row; the sources offered are configured per instance (at Leeds, EMu and the Identity Service). If a file already carries an identifier from a source that is no longer in the list, that source is kept as an option so you do not lose it by saving.
 
+**Extent**, for audio, video and images only (including Ogg and MXF files): the file's duration, or its width and height. A value the pipeline measured is shown, not offered. Where nothing was measured — the pipeline wasn't run, or couldn't read the file — you can enter it, as `H:MM:SS`, `M:SS` or seconds, and it is recorded as entered by hand. If the pipeline measures the file later, its measurement is used instead, and what you entered stays in the METS as a record. A width or height must be a whole number of pixels; a value that isn't one, or a duration that can't be read, stops the save with a message, and nothing in the dialogue is saved. It matters most for audio and video with time-based parts in the logical structure, which mean nothing in a IIIF viewer without a duration.
+
 **File Links**, for files only, relate one file to another — a transcript to its recording, captions to a video. Choose a role and a target file and click **Add**. Linked files show arrows in the table's links column: → from the file that declares the link, ← on the file it points at, and hovering either highlights the other row.
 
 #### On an instance with a statement profile
@@ -231,7 +233,7 @@ Files can also be dragged: onto another file to place them precisely, or onto a 
 Edits here are held **in your browser** until you save. The tab shows a pulsing dot while there are unsaved changes, the **Save** button turns amber, and the browser warns you if you try to leave the page. **Delete** removes the whole structure, and does not touch the files or the physical structure. On an instance with a statement profile, a range's derived conditions (at Leeds, its tier) are computed when you save: after you change a range's access, its row and the rows below it show none until then, though the dialogue still previews them.
 
 <Aside type="tip">
-Time segments are entered as `HH:MM:SS` (or `MM:SS`), and image regions as four pixel coordinates. If a file pointer came from a third-party METS with area attributes the editor does not understand, it says so and leaves them alone — unless you set a time or region yourself, which replaces them.
+Time segments are entered as `HH:MM:SS` (or `MM:SS`), and image regions as four pixel coordinates. The editor shows how long the file is, and the structure shows a warning beside a part that ends after its file does, that ends before it begins, or that is timed on a file with no recorded duration — or whose measured durations disagree, so it can't be checked. These are warnings, not refusals: correct the part, or record the file's duration in its metadata dialogue. If a file pointer came from a third-party METS with area attributes the editor does not understand, it says so and leaves them alone — unless you set a time or region yourself, which replaces them.
 </Aside>
 
 ### Running the pipeline

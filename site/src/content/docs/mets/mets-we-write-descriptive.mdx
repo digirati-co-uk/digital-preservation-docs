@@ -142,6 +142,28 @@ This is how a deposit (or a logical range within it — an individual interview,
 records and to the Leeds Identity Service PID. Setting record info replaces the whole `recordInfo`;
 setting one with an empty identifier list clears it.
 
+### Extents entered by hand
+
+For a file the pipeline couldn't measure, a person can enter its duration, or an image's or video's
+width and height, in the Preservation UI. These go in the file's MODS, as extents marked
+`supplied="yes"`, MODS's way of saying the value was supplied rather than taken from the resource:
+
+```xml
+<mods:physicalDescription>
+  <mods:extent unit="seconds" supplied="yes">2708</mods:extent>
+  <mods:extent unit="pixels wide" supplied="yes">1920</mods:extent>
+  <mods:extent unit="pixels high" supplied="yes">1080</mods:extent>
+</mods:physicalDescription>
+```
+
+A measured value lives in the PREMIS technical metadata (`premis:significantProperties`), where
+ExifTool's results go. The two never mix: an entered value is never written to PREMIS, and a measured
+value always wins when the platform reads the METS. So if the pipeline later measures the file, its
+measurement is used, and what was entered is left as a record of what someone said. Setting the extent
+replaces only these three `supplied="yes"` extents, all three together, and writes them in a
+`physicalDescription` of their own; anything else in `physicalDescription` is left alone. A value of 0,
+measured or entered, is not taken as a duration or size.
+
 ### Lazy creation and pruning
 
 dmdSecs are created only when metadata is first set on a div — which is why the skeleton has dangling
