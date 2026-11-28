@@ -37,6 +37,13 @@ archival_group = f"{settings.PRESERVATION_API_HOST}/repository/{container}/{name
 
 def save():
     """A new thesis, preserved as v1."""
+    deposit = new_thesis_deposit(archival_group)
+    describe(deposit)
+    finish(deposit)
+
+
+def new_thesis_deposit(archival_group):
+    """A deposit for a thesis that is not in the repository yet, with its files uploaded."""
     # The container theses live in. It only needs making once.
     if head(f"/repository/{container}").status_code == 404:
         put(f"/repository/{container}", {"type": "Container", "name": "E-theses"})
@@ -57,8 +64,7 @@ def save():
         relative_path = "objects/" + local_path.relative_to(THESIS_FOLDER).as_posix()
         s3_helpers.upload_file(deposit["files"], str(local_path), relative_path)
     upload_sidecar(deposit, {"title": "On the preservation of theses", "author": "A. Student"})
-
-    describe_and_finish(deposit)
+    return deposit
 
 
 def update():
@@ -74,11 +80,12 @@ def update():
     # Replace the sidecar: here, to correct the author's name.
     upload_sidecar(deposit, {"title": "On the preservation of theses", "author": "A. N. Student"})
 
-    describe_and_finish(deposit)
+    describe(deposit)
+    finish(deposit)
 
 
-def describe_and_finish(deposit):
-    """Run the pipeline, make sure the METS describes every file, then preserve or hand over."""
+def describe(deposit):
+    """Run the pipeline, and make sure the METS describes every file."""
     slug = slug_of(deposit)
 
     # The pipeline identifies formats, scans for viruses, and writes what it finds to metadata/.
@@ -99,6 +106,10 @@ def describe_and_finish(deposit):
         pprint(r.json())
         raise SystemExit(f"Could not add to METS: {r.status_code}")
 
+
+def finish(deposit):
+    """Preserve the deposit, or with --review leave it for a person to preserve."""
+    slug = slug_of(deposit)
     if "--review" in sys.argv:
         print(f"\nDeposit {slug} is ready for a person to check and preserve in the UI.")
         return
@@ -121,7 +132,7 @@ def describe_and_finish(deposit):
     if final is None:
         pprint(get(f"/deposits/{slug}/importjobs/results/{result_id}").json())
         raise SystemExit("The Import Job has not completed.")
-    print(f"\n{container}/{name} preserved as {final['newVersion']}")
+    print(f"\n{deposit['archivalGroup']} preserved as {final['newVersion']}")
 
 
 def upload_sidecar(deposit, metadata):

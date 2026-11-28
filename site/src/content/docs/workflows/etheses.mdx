@@ -137,12 +137,58 @@ The diff for this update patches the sidecar, the METS, and several of the pipel
 A Deposit can be made against an existing object [without exporting it](../update-without-export), which copies only the METS. But the pipeline writes its results for whatever is in the workspace. Run over a workspace that held only the new sidecar, its output would no longer cover the rest of the thesis. Exporting the whole object keeps the pipeline's output complete. For most theses that costs little; for one with a lot of research data, the export and the pipeline both take longer.
 </Aside>
 
-## What the script can't do yet
+## Setting access conditions
 
-Access conditions and rights statements can be set on a file in the UI, but there is no API operation for them yet. Until there is, a thesis that needs them is finished by a person in the UI, before it is preserved.
+A thesis may be embargoed, or its research data may need to be more restricted than the thesis itself. Either the script says so, or a person does.
+
+### The script sets them
+
+After step 4 of saving, when the METS describes every file, and before preserving:
+
+```
+POST /deposits/e56fb7yg/mets/access
+If-Match: "bfc13a64729c4290ef5b2c2730249c88ca92d82d"
+```
+
+```json
+{
+  "path": "objects",
+  "accessRestrictions": ["Restricted"],
+  "rightsStatement": "http://rightsstatements.org/vocab/InC/1.0/"
+}
+```
+
+`204 No Content` on success. Each call sets one file or folder, and everything beneath a folder inherits from it. So the whole thesis is one call on `objects`, and a folder or file that differs is a second call:
+
+```json
+{
+  "path": "objects/data",
+  "accessRestrictions": ["Closed"]
+}
+```
+
+* A property you leave out is left as it is. Above, `objects/data` gets its own restriction and goes on inheriting the rights statement.
+* A property sent as `null` (or an empty `accessRestrictions`) is cleared, so that the file or folder inherits again.
+* The values come from the installation's own vocabulary: `GET /access-conditions` lists them. A value that isn't in it is refused with a `400` that names the choices.
+* The `If-Match` is the Deposit's `metsETag`. Every call changes it, so fetch the Deposit again before the next.
+* The same call can also record a file's `extent` — its `duration` in seconds, or `pixelWidth` and `pixelHeight` — for an audio, video or image file the pipeline couldn't measure. A thesis rarely needs it; see [extents entered by hand](../../mets/mets-we-write-descriptive#extents-entered-by-hand).
+
+<Aside type="note" title="Statements instead of rights statements">
+Some installations, Leeds among them, don't choose a rights statement directly. They choose one of their own statements, and the platform works out the rights statement from it. There, send `accessStatement` with one of the values `GET /access-conditions` lists under `statements`, and leave `rightsStatement` out.
+</Aside>
+
+### A person sets them
+
+The script doesn't have to. It can create the Deposit, upload the files and run the pipeline, and stop there, as in "A person preserves" above. A member of staff then opens the Deposit in the UI, sets the access conditions on the files and folders that need them, and preserves it.
 
 <LinkCard
   title="💻 End-to-end example: save and update an e-thesis"
   href="https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/preservation-docs-client/workflows/w09_etheses.py"
   description="save, update, and --review to leave the deposit for a person to preserve."
+/>
+
+<LinkCard
+  title="💻 The same, with access conditions"
+  href="https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/preservation-docs-client/workflows/w11_etheses_with_access_conditions.py"
+  description="Sets a restriction and rights on the whole thesis, and a stricter restriction on its research data."
 />
