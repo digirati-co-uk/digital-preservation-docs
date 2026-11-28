@@ -171,6 +171,7 @@ If-Match: "bfc13a64729c4290ef5b2c2730249c88ca92d82d"
 * A property sent as `null` (or an empty `accessRestrictions`) is cleared, so that the file or folder inherits again.
 * The values come from the installation's own vocabulary: `GET /access-conditions` lists them. A value that isn't in it is refused with a `400` that names the choices.
 * The `If-Match` is the Deposit's `metsETag`. Every call changes it, so fetch the Deposit again before the next.
+* The same call can also record a file's `extent` — its `duration` in seconds, or `pixelWidth` and `pixelHeight` — for an audio, video or image file the pipeline couldn't measure. A thesis rarely needs it; see [extents entered by hand](../../mets/mets-we-write-descriptive#extents-entered-by-hand).
 
 <Aside type="note" title="Statements instead of rights statements">
 Some installations, Leeds among them, don't choose a rights statement directly. They choose one of their own statements, and the platform works out the rights statement from it. There, send `accessStatement` with one of the values `GET /access-conditions` lists under `statements`, and leave `rightsStatement` out.
@@ -188,6 +189,6 @@ The script doesn't have to. It can create the Deposit, upload the files and run 
 
 <LinkCard
   title="💻 The same, with access conditions"
-  href="https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/preservation-docs-client/workflows/w10_etheses_with_access_conditions.py"
+  href="https://github.com/digirati-co-uk/digital-preservation-docs/blob/main/preservation-docs-client/workflows/w11_etheses_with_access_conditions.py"
   description="Sets a restriction and rights on the whole thesis, and a stricter restriction on its research data."
 />

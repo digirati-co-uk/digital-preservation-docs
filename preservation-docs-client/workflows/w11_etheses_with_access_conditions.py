@@ -5,7 +5,7 @@ The same deposit as w09_etheses.py, with one more step before it is preserved: t
 who may see the thesis, and on what terms. Here the whole thesis is given one access restriction
 and a statement of rights, and its research data folder a stricter restriction of its own.
 
-  python -m workflows.w10_etheses_with_access_conditions
+  python -m workflows.w11_etheses_with_access_conditions
 
 Add --review to leave a person to preserve the deposit in the UI.
 
